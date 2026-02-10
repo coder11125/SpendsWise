@@ -1,4 +1,4 @@
-SpendWise: Intelligent Financial Advisor
+**SpendWise: Intelligent Financial Advisor**
 
 SpendWise is a modern, single-page financial management application that combines expense tracking with an integrated AI Advisor powered by Google's Gemini. It helps users visualize their spending habits through dynamic charts and provides real-time financial coaching through a chat interface.
 
@@ -33,24 +33,9 @@ Google Gemini API: Powers the intelligent financial advisor.
 📦 Installation & Setup
 
 Since SpendWise is built as a portable single-file application, setup is minimal:
-
-Clone the repository:
-
-git clone [https://github.com/yourusername/spendwise.git](https://github.com/yourusername/spendwise.git)
-
-
-Open the file:
-Simply open spendwise.html in any modern web browser.
-
-API Configuration:
-To enable the AI features, you will need to add your Google Gemini API key:
-
-Open spendwise.html in a text editor.
-
-Locate const apiKey = ""; inside the <script> tag.
-
-Insert your API key between the quotes.
-
+-Please go the the site https://coder11125.github.io/SpendsWise/
+-If on Chrome, go to 'Customize and Control Chrome' (the three dots button); hover the mouse pointer over 'Cast, Save, and Share'; click on install page as an app; enter the details and you have the app
+-If on Safari, go to 'File' in menu bar and click on 'Add 
 📖 Usage
 
 Add Entries: Use the "New Entry" form on the right to input your transactions.
