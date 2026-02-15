@@ -29,6 +29,7 @@ Since SpendWise is built as a portable single-file application, setup is minimal
 •If on Chrome, go to 'Customize and Control Chrome' (the three dots button); hover the mouse pointer over 'Cast, Save, and Share'; click on install page as an app; enter the details and you have the app
 •If on Safari, go to 'File' in menu bar and click on 'Add to Dock'. If on iOS go to 'Share' and select 'Add to home screen'
 
+
 **📖 Usage**
 
 Add Entries: Use the "New Entry" form on the right to input your transactions.
