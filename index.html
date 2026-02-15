@@ -2,517 +2,373 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SpendWise - Intelligent Finance</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- iOS Integration Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SpendsWise">
+    
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10438/10438641.png">
+    
+    <title>SpendsWise - Liquid Glass Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+            background-color: #0f172a; 
         }
 
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #e2e8f0;
-            border-radius: 10px;
+        /* Animated Mesh Background */
+        .liquid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            background: radial-gradient(circle at 0% 0%, #4338ca 0%, transparent 50%),
+                        radial-gradient(circle at 100% 0%, #a855f7 0%, transparent 50%),
+                        radial-gradient(circle at 100% 100%, #ec4899 0%, transparent 50%),
+                        radial-gradient(circle at 0% 100%, #3b82f6 0%, transparent 50%);
+            filter: blur(80px);
+            opacity: 0.6;
         }
 
-        .chat-bubble-ai {
-            border-bottom-left-radius: 2px;
-        }
-        .chat-bubble-user {
-            border-bottom-right-radius: 2px;
+        /* Liquid Glass Card Effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
 
-        @keyframes bounce-subtle {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-3px); }
+        /* Inner Gloss Shine */
+        .glass::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(rgba(255,255,255,0.05), transparent);
+            pointer-events: none;
+            border-radius: inherit;
         }
-        .animate-subtle {
-            animation: bounce-subtle 2s infinite ease-in-out;
+
+        /* Prevent zooming on input focus in iOS */
+        input, select, textarea {
+            font-size: 16px !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+            -webkit-appearance: none;
+        }
+        
+        input::placeholder { color: rgba(255,255,255,0.4); }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        
+        .overflow-y-auto { -webkit-overflow-scrolling: touch; }
+
+        #dashboard {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        [v-cloak] { display: none; }
+
+        /* Smooth transition for auth state */
+        .auth-container {
+            transition: opacity 0.3s ease;
         }
     </style>
 </head>
-<body class="text-slate-900">
-    <div class="min-h-screen p-4 md:p-8">
-        <div class="max-w-6xl mx-auto">
-            <!-- Header -->
-            <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                <div class="flex items-center gap-3">
-                    <div class="bg-indigo-600 p-2.5 rounded-xl shadow-lg shadow-indigo-100">
-                        <i class="fas fa-wallet text-white text-xl"></i>
+<body class="min-h-screen text-white">
+    <!-- Animated background layers -->
+    <div class="liquid-bg"></div>
+
+    <div id="app" class="p-4 md:p-8 relative z-10">
+        <!-- Loading Overlay -->
+        <div id="loading-screen" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center">
+            <div class="relative">
+                <i data-lucide="loader-2" class="w-10 h-10 text-indigo-400 animate-spin"></i>
+            </div>
+            <p class="mt-4 text-indigo-300 font-bold text-[10px] tracking-widest uppercase">Initializing Vault</p>
+        </div>
+
+        <!-- Auth Screen -->
+        <div id="auth-screen" class="hidden min-h-[80vh] flex items-center justify-center p-4 auth-container">
+            <div class="max-w-md w-full">
+                <div class="text-center mb-8">
+                    <div class="inline-flex p-4 glass rounded-3xl shadow-2xl mb-6">
+                        <i data-lucide="lock" class="w-8 h-8 text-indigo-300"></i>
                     </div>
-                    <div>
-                        <h1 class="text-2xl font-bold tracking-tight text-slate-900">SpendWise</h1>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-widest">Intelligent Finance</p>
+                    <h1 class="text-3xl font-black text-white tracking-tight">SpendsWise Vault</h1>
+                </div>
+
+                <div class="glass p-8 rounded-[2.5rem] relative overflow-hidden">
+                    <div class="flex p-1 bg-white/5 rounded-[2rem] mb-6 border border-white/10">
+                        <button id="tab-login" class="flex-1 py-2 text-xs font-bold uppercase rounded-[1.8rem] transition-all bg-white/10 shadow-sm text-white">Log In</button>
+                        <button id="tab-signup" class="flex-1 py-2 text-xs font-bold uppercase rounded-[1.8rem] transition-all text-white/40">Sign Up</button>
+                    </div>
+
+                    <form id="auth-form" class="space-y-4">
+                        <div class="relative">
+                            <i data-lucide="mail" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40"></i>
+                            <input type="email" id="auth-email" required placeholder="Email Address" class="w-full pl-11 pr-4 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                        </div>
+                        <div class="relative">
+                            <i data-lucide="key" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40"></i>
+                            <input type="password" id="auth-password" required placeholder="Password" class="w-full pl-11 pr-4 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                        </div>
+                        <button type="submit" id="auth-submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xl">
+                            <span id="auth-btn-text">Access Vault</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </form>
+
+                    <div id="auth-error" class="hidden mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] text-center">
+                        <p id="auth-error-msg"></p>
                     </div>
                 </div>
-                <button onclick="copyCsvToClipboard()" class="flex items-center gap-2 bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-                    <i class="fas fa-copy text-indigo-600"></i>
-                    Export CSV
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div id="dashboard" class="hidden max-w-4xl mx-auto space-y-6 pb-20 md:pb-8">
+            <header class="glass rounded-3xl p-6 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="p-3 bg-indigo-600/80 rounded-2xl shadow-lg border border-white/20">
+                        <i data-lucide="wallet" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-black text-white leading-none">SpendsWise</h1>
+                        <p class="text-[10px] text-indigo-200/50 font-bold uppercase tracking-widest mt-1">Logged in: <span id="user-display">---</span></p>
+                    </div>
+                </div>
+                <button id="logout-btn" class="p-3 bg-white/5 hover:bg-rose-500/20 text-white/60 hover:text-rose-300 transition-all rounded-2xl border border-white/10 flex items-center gap-2 px-4">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                    <span class="text-xs font-bold uppercase hidden sm:inline">Logout</span>
                 </button>
             </header>
 
-            <!-- Success Toast -->
-            <div id="toast" class="hidden fixed top-6 right-6 bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 z-50 animate-bounce">
-                <i class="fas fa-check-circle text-emerald-400"></i>
-                <span class="font-medium text-sm">Data copied to clipboard!</span>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Balance Card -->
+                <div class="glass rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
+                    <div class="relative z-10">
+                        <p class="text-indigo-200 text-sm font-medium mb-1 opacity-70">Total Balance</p>
+                        <h2 id="balance-total" class="text-4xl font-bold tracking-tight text-white">$0.00</h2>
+                    </div>
+                    <div class="absolute -right-4 -bottom-4 w-32 h-32 bg-indigo-500/20 blur-3xl rounded-full"></div>
+                </div>
+                <!-- Income Card -->
+                <div class="glass rounded-3xl p-6">
+                    <div class="flex items-center justify-between text-indigo-200/40 text-[10px] font-bold uppercase tracking-wider">
+                        <span>Income</span>
+                        <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+                    </div>
+                    <h3 id="balance-income" class="text-2xl font-bold text-emerald-400 mt-2">$0.00</h3>
+                </div>
+                <!-- Expenses Card -->
+                <div class="glass rounded-3xl p-6">
+                    <div class="flex items-center justify-between text-indigo-200/40 text-[10px] font-bold uppercase tracking-wider">
+                        <span>Expenses</span>
+                        <i data-lucide="trending-down" class="w-4 h-4 text-rose-400"></i>
+                    </div>
+                    <h3 id="balance-expenses" class="text-2xl font-bold text-rose-400 mt-2">$0.00</h3>
+                </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <!-- Main Dashboard Column -->
-                <div class="lg:col-span-8 space-y-6">
-                    
-                    <!-- Stats Overview -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
-                            <i class="fas fa-chart-line absolute top-4 right-4 text-4xl opacity-5"></i>
-                            <p class="text-slate-500 text-sm font-semibold mb-1">Total Balance</p>
-                            <h2 id="total-balance" class="text-3xl font-black text-slate-900">$0.00</h2>
-                        </div>
-                        <div class="bg-emerald-50 p-6 rounded-3xl border border-emerald-100">
-                            <div class="flex items-center gap-2 text-emerald-700 mb-1">
-                                <i class="fas fa-arrow-up text-xs"></i>
-                                <p class="text-[10px] font-bold uppercase tracking-wider">Total Income</p>
-                            </div>
-                            <h2 id="total-income" class="text-2xl font-bold text-emerald-900">$0.00</h2>
-                        </div>
-                        <div class="bg-rose-50 p-6 rounded-3xl border border-rose-100">
-                            <div class="flex items-center gap-2 text-rose-700 mb-1">
-                                <i class="fas fa-arrow-down text-xs"></i>
-                                <p class="text-[10px] font-bold uppercase tracking-wider">Total Expenses</p>
-                            </div>
-                            <h2 id="total-expense" class="text-2xl font-bold text-rose-900">$0.00</h2>
-                        </div>
-                    </div>
-
-                    <!-- AI Advisor Card -->
-                    <div class="bg-indigo-950 text-white rounded-3xl shadow-xl shadow-indigo-100 overflow-hidden">
-                        <div class="p-6 bg-indigo-900/50 flex justify-between items-center border-b border-white/5">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-indigo-500 p-2 rounded-xl">
-                                    <i class="fas fa-brain text-white"></i>
-                                </div>
-                                <div>
-                                    <h3 class="font-bold text-sm">AI Financial Advisor</h3>
-                                    <p class="text-[10px] text-indigo-300 font-medium uppercase tracking-widest">Active Insight</p>
-                                </div>
-                            </div>
-                            <div class="flex gap-2">
-                                <button onclick="refreshAnalysis()" id="analyze-btn" class="text-[10px] bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 font-bold uppercase tracking-tighter">
-                                    <i class="fas fa-wand-magic-sparkles text-xs"></i>
-                                    Analyze
-                                </button>
-                                <button onclick="toggleChat()" id="chat-toggle" class="text-[10px] bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 font-bold uppercase tracking-tighter">
-                                    <i class="fas fa-comment text-xs"></i>
-                                    Chat
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="p-6">
-                            <!-- View 1: Static Advice -->
-                            <div id="advice-view" class="min-h-[100px] flex items-center justify-center text-center">
-                                <p id="static-advice-text" class="text-indigo-300/60 text-sm italic">Tap "Analyze" to see what your spending says about you.</p>
-                            </div>
-
-                            <!-- View 2: Chat Interface -->
-                            <div id="chat-view" class="hidden flex flex-col h-[300px]">
-                                <div id="chat-history" class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-                                    <!-- Messages loaded here -->
-                                </div>
-                                <form onsubmit="handleChat(event)" class="mt-4 relative">
-                                    <input id="chat-input" type="text" placeholder="Should I buy that new laptop?" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400 focus:bg-white/10 transition-all pr-12">
-                                    <button type="submit" class="absolute right-2 top-2 p-1.5 text-indigo-400 hover:text-indigo-300">
-                                        <i class="fas fa-paper-plane"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Chart Section -->
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <i class="fas fa-pie-chart text-indigo-500"></i>
-                            Spending Breakdown
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <!-- Add Form -->
+                <div class="lg:col-span-2">
+                    <div class="glass rounded-3xl p-6 h-full">
+                        <h3 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
+                            Transaction
                         </h3>
-                        <div id="chart-container" class="flex flex-col items-center">
-                            <!-- SVG Chart injected here -->
-                            <div class="text-slate-300 text-sm py-8">Add expenses to see breakdown</div>
-                        </div>
-                    </div>
-
-                    <!-- History -->
-                    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                        <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                            <h3 class="font-bold flex items-center gap-2 text-sm uppercase tracking-wider">
-                                <i class="fas fa-history text-indigo-600"></i>
-                                History
-                            </h3>
-                            <span id="transaction-count" class="text-[10px] font-black uppercase bg-white px-2 py-1 rounded-md border border-slate-200 text-slate-400">0 total</span>
-                        </div>
-                        <div id="transaction-list" class="divide-y divide-slate-50 max-h-[400px] overflow-y-auto">
-                            <!-- Items injected here -->
-                            <div class="p-16 text-center text-slate-300">
-                                <i class="fas fa-circle-notch fa-spin mb-4 opacity-10 text-4xl"></i>
-                                <p class="text-sm">Empty wallet. Add some transactions.</p>
-                            </div>
-                        </div>
+                        <form id="transaction-form" class="space-y-4">
+                            <input type="text" id="tx-desc" required placeholder="What was this for?" class="w-full px-4 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm">
+                            <input type="number" id="tx-amount" step="0.01" inputmode="decimal" required placeholder="Amount (e.g. -20)" class="w-full px-4 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono">
+                            <button type="submit" class="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-2xl transition-all border border-white/20 flex items-center justify-center gap-2">
+                                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                                Log Asset
+                            </button>
+                        </form>
                     </div>
                 </div>
 
-                <!-- Sidebar Form -->
-                <div class="lg:col-span-4">
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 sticky top-8">
-                        <h3 class="text-xl font-black mb-6 text-slate-800">New Entry</h3>
-                        <form onsubmit="handleAddTransaction(event)" class="space-y-5">
-                            <div>
-                                <div class="flex p-1.5 bg-slate-100 rounded-2xl gap-1">
-                                    <button type="button" onclick="setType('expense')" id="type-expense" class="flex-1 py-2.5 text-[10px] font-bold rounded-xl transition-all uppercase tracking-widest bg-white shadow-md text-slate-900">
-                                        Expense
-                                    </button>
-                                    <button type="button" onclick="setType('income')" id="type-income" class="flex-1 py-2.5 text-[10px] font-bold rounded-xl transition-all uppercase tracking-widest text-slate-400">
-                                        Income
-                                    </button>
-                                </div>
+                <!-- History -->
+                <div class="lg:col-span-3">
+                    <div class="glass rounded-3xl p-6 h-full max-h-[500px] flex flex-col">
+                        <h3 class="text-lg font-bold text-white mb-6 flex justify-between items-center">
+                            <span>History</span>
+                            <span class="text-[10px] text-indigo-200/30 flex items-center gap-1 uppercase tracking-widest font-bold">
+                                <i data-lucide="refresh-cw" class="w-3 h-3"></i> Syncing
+                            </span>
+                        </h3>
+                        <div id="tx-list" class="space-y-3 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                            <div class="h-40 flex items-center justify-center text-white/20 italic text-sm">
+                                Empty Vault...
                             </div>
-
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-1.5 px-1">Description</label>
-                                    <input id="desc-input" type="text" required placeholder="Groceries, Rent, etc." class="w-full px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-sm font-medium">
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-[10px] font-black text-slate-400 uppercase mb-1.5 px-1">Amount</label>
-                                        <input id="amount-input" type="number" required step="0.01" placeholder="0.00" class="w-full px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-sm font-bold">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-black text-slate-400 uppercase mb-1.5 px-1">Category</label>
-                                        <select id="category-input" class="w-full px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all text-sm font-bold appearance-none cursor-pointer">
-                                            <!-- Options generated via JS -->
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button type="submit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-indigo-100 active:scale-[0.98]">
-                                Record Entry
-                            </button>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        // --- State Management ---
-        let transactions = [];
-        let currentType = 'expense';
-        let isChatOpen = false;
-        let isAnalyzing = false;
-        const apiKey = ""; // Provided by environment
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const categories = {
-            expense: ['Food', 'Transport', 'Rent', 'Entertainment', 'Shopping', 'Health', 'General'],
-            income: ['Salary', 'Freelance', 'Investment', 'Gift', 'Other']
+        const firebaseConfig = {
+            apiKey: "AIzaSyBIZgF60pM0VNMjAkvII9Pwzf3_2dDqqJA",
+            authDomain: "nexus-chat-267f0.firebaseapp.com",
+            projectId: "nexus-chat-267f0",
+            storageBucket: "nexus-chat-267f0.firebasestorage.app",
+            messagingSenderId: "918607846516",
+            appId: "1:918607846516:web:10e518a45949916795c521",
+            measurementId: "G-P284P9Y9NG"
         };
 
-        const categoryColors = {
-            'Food': '#6366f1', 'Transport': '#f59e0b', 'Rent': '#ec4899', 
-            'Entertainment': '#8b5cf6', 'Shopping': '#06b6d4', 'Health': '#ef4444', 
-            'General': '#94a3b8', 'Salary': '#10b981', 'Freelance': '#34d399',
-            'Investment': '#059669', 'Gift': '#6ee7b7', 'Other': '#10b981'
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'spendswise-glass-v1';
+
+        let currentAuthMode = 'login';
+        let unsubscribeTransactions = null;
+
+        const els = {
+            loading: document.getElementById('loading-screen'),
+            auth: document.getElementById('auth-screen'),
+            dash: document.getElementById('dashboard'),
+            authForm: document.getElementById('auth-form'),
+            txForm: document.getElementById('transaction-form'),
+            txList: document.getElementById('tx-list'),
+            authError: document.getElementById('auth-error'),
+            authErrorMsg: document.getElementById('auth-error-msg'),
+            userDisplay: document.getElementById('user-display'),
+            balanceTotal: document.getElementById('balance-total'),
+            balanceIncome: document.getElementById('balance-income'),
+            balanceExpenses: document.getElementById('balance-expenses'),
+            tabLogin: document.getElementById('tab-login'),
+            tabSignup: document.getElementById('tab-signup'),
+            authBtnText: document.getElementById('auth-btn-text'),
+            logoutBtn: document.getElementById('logout-btn')
         };
 
-        // --- Initialization ---
-        window.onload = () => {
-            updateCategoryOptions();
-            render();
-        };
+        const fmt = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
 
-        // --- Core Logic ---
-        function setType(type) {
-            currentType = type;
-            const expBtn = document.getElementById('type-expense');
-            const incBtn = document.getElementById('type-income');
-            
-            if (type === 'expense') {
-                expBtn.className = "flex-1 py-2.5 text-[10px] font-bold rounded-xl transition-all uppercase tracking-widest bg-white shadow-md text-slate-900";
-                incBtn.className = "flex-1 py-2.5 text-[10px] font-bold rounded-xl transition-all uppercase tracking-widest text-slate-400";
+        onAuthStateChanged(auth, (user) => {
+            els.loading.classList.add('hidden');
+            if (user) {
+                els.auth.classList.add('hidden');
+                els.dash.classList.remove('hidden');
+                els.userDisplay.textContent = user.email;
+                setupRealtimeSync(user.uid);
             } else {
-                incBtn.className = "flex-1 py-2.5 text-[10px] font-bold rounded-xl transition-all uppercase tracking-widest bg-emerald-600 shadow-md text-white";
-                expBtn.className = "flex-1 py-2.5 text-[10px] font-bold rounded-xl transition-all uppercase tracking-widest text-slate-400";
+                els.dash.classList.add('hidden');
+                els.auth.classList.remove('hidden');
+                if (unsubscribeTransactions) unsubscribeTransactions();
             }
-            updateCategoryOptions();
-        }
+            lucide.createIcons();
+        });
 
-        function updateCategoryOptions() {
-            const select = document.getElementById('category-input');
-            select.innerHTML = categories[currentType].map(cat => `<option value="${cat}">${cat}</option>`).join('');
-        }
+        els.tabLogin.onclick = () => {
+            currentAuthMode = 'login';
+            els.tabLogin.className = "flex-1 py-2 text-xs font-bold uppercase rounded-[1.8rem] transition-all bg-white/10 shadow-sm text-white";
+            els.tabSignup.className = "flex-1 py-2 text-xs font-bold uppercase rounded-[1.8rem] transition-all text-white/40";
+            els.authBtnText.textContent = "Access Vault";
+            els.authError.classList.add('hidden');
+        };
 
-        function handleAddTransaction(e) {
+        els.tabSignup.onclick = () => {
+            currentAuthMode = 'signup';
+            els.tabSignup.className = "flex-1 py-2 text-xs font-bold uppercase rounded-[1.8rem] transition-all bg-white/10 shadow-sm text-white";
+            els.tabLogin.className = "flex-1 py-2 text-xs font-bold uppercase rounded-[1.8rem] transition-all text-white/40";
+            els.authBtnText.textContent = "Create Vault";
+            els.authError.classList.add('hidden');
+        };
+
+        els.authForm.onsubmit = async (e) => {
             e.preventDefault();
-            const desc = document.getElementById('desc-input').value;
-            const amt = parseFloat(document.getElementById('amount-input').value);
-            const cat = document.getElementById('category-input').value;
-
-            if (!desc || isNaN(amt)) return;
-
-            const tx = {
-                id: Date.now(),
-                description: desc,
-                amount: amt,
-                type: currentType,
-                category: cat,
-                date: new Date().toLocaleDateString()
-            };
-
-            transactions.unshift(tx);
-            document.getElementById('desc-input').value = '';
-            document.getElementById('amount-input').value = '';
-            render();
-        }
-
-        function deleteTransaction(id) {
-            transactions = transactions.filter(t => t.id !== id);
-            render();
-        }
-
-        function render() {
-            renderStats();
-            renderList();
-            renderChart();
-        }
-
-        function renderStats() {
-            const totals = transactions.reduce((acc, curr) => {
-                if (curr.type === 'income') acc.income += curr.amount;
-                else acc.expense += curr.amount;
-                acc.balance = acc.income - acc.expense;
-                return acc;
-            }, { income: 0, expense: 0, balance: 0 });
-
-            document.getElementById('total-balance').innerText = `$${totals.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            document.getElementById('total-balance').className = `text-3xl font-black ${totals.balance >= 0 ? 'text-slate-900' : 'text-rose-600'}`;
-            document.getElementById('total-income').innerText = `$${totals.income.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            document.getElementById('total-expense').innerText = `$${totals.expense.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            document.getElementById('transaction-count').innerText = `${transactions.length} total`;
-        }
-
-        function renderList() {
-            const list = document.getElementById('transaction-list');
-            if (transactions.length === 0) {
-                list.innerHTML = `
-                    <div class="p-16 text-center text-slate-300">
-                        <i class="fas fa-wallet mb-4 opacity-10 text-4xl"></i>
-                        <p class="text-sm font-medium">Your financial journey starts here.</p>
-                    </div>`;
-                return;
+            const email = document.getElementById('auth-email').value;
+            const pass = document.getElementById('auth-password').value;
+            els.authError.classList.add('hidden');
+            try {
+                if (currentAuthMode === 'login') await signInWithEmailAndPassword(auth, email, pass);
+                else await createUserWithEmailAndPassword(auth, email, pass);
+            } catch (err) {
+                els.authError.classList.remove('hidden');
+                els.authErrorMsg.textContent = err.message.replace('Firebase:', '').trim();
             }
+        };
 
-            list.innerHTML = transactions.map(t => `
-                <div class="p-4 hover:bg-slate-50/50 transition-colors flex items-center justify-between group">
-                    <div class="flex items-center gap-4">
-                        <div class="p-3 rounded-2xl ${t.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}">
-                            <i class="fas ${t.type === 'income' ? 'fa-arrow-up' : 'fa-arrow-down'} text-sm"></i>
+        els.logoutBtn.onclick = () => signOut(auth);
+
+        const setupRealtimeSync = (uid) => {
+            const ref = collection(db, 'artifacts', appId, 'users', uid, 'transactions');
+            unsubscribeTransactions = onSnapshot(ref, (snap) => {
+                const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                data.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+                renderDashboard(data);
+            }, (err) => console.error("Sync error", err));
+        };
+
+        const renderDashboard = (items) => {
+            let inc = 0, exp = 0;
+            els.txList.innerHTML = items.length ? '' : '<div class="h-40 flex items-center justify-center text-white/20 italic text-sm">Empty Vault...</div>';
+            items.forEach(item => {
+                if (item.amount > 0) inc += item.amount;
+                else exp += item.amount;
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all relative overflow-hidden";
+                div.innerHTML = `
+                    <div class="flex items-center gap-3 relative z-10">
+                        <div class="p-2 rounded-xl ${item.amount >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
+                            <i data-lucide="${item.amount >= 0 ? 'trending-up' : 'trending-down'}" class="w-4 h-4"></i>
                         </div>
                         <div>
-                            <p class="font-bold text-slate-800 leading-tight">${t.description}</p>
-                            <div class="flex items-center gap-2 mt-1">
-                                <span class="text-[10px] font-bold text-slate-400">${t.date}</span>
-                                <span class="text-[10px] font-black uppercase text-slate-400 tracking-tighter bg-slate-100 px-1.5 rounded">
-                                    ${t.category}
-                                </span>
-                            </div>
+                            <p class="font-bold text-white/90 text-sm leading-none">${item.description}</p>
+                            <p class="text-[10px] text-white/30 mt-1 uppercase tracking-wider">${item.timestamp ? new Date(item.timestamp.toMillis()).toLocaleDateString() : 'Syncing...'}</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-4">
-                        <span class="font-black text-lg ${t.type === 'income' ? 'text-emerald-600' : 'text-slate-900'}">
-                            ${t.type === 'income' ? '+' : '-'}$${t.amount.toFixed(2)}
-                        </span>
-                        <button onclick="deleteTransaction(${t.id})" class="p-2 text-slate-200 hover:text-rose-500 transition-colors">
-                            <i class="fas fa-trash-alt text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function renderChart() {
-            const container = document.getElementById('chart-container');
-            const expenses = transactions.filter(t => t.type === 'expense');
-            
-            if (expenses.length === 0) {
-                container.innerHTML = `<div class="text-slate-300 text-sm py-8 italic font-medium">Add expenses to see breakdown</div>`;
-                return;
-            }
-
-            const map = {};
-            expenses.forEach(t => {
-                map[t.category] = (map[t.category] || 0) + t.amount;
+                    <span class="font-bold font-mono relative z-10 ${item.amount >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                        ${item.amount >= 0 ? '+' : ''}${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                `;
+                els.txList.appendChild(div);
             });
+            els.balanceTotal.textContent = fmt(inc + exp);
+            els.balanceIncome.textContent = fmt(inc);
+            els.balanceExpenses.textContent = fmt(Math.abs(exp));
+            lucide.createIcons();
+        };
 
-            const data = Object.keys(map).map(cat => ({
-                name: cat,
-                value: map[cat],
-                color: categoryColors[cat] || '#cbd5e1'
-            }));
-
-            const total = data.reduce((sum, item) => sum + item.value, 0);
-            let cumulativePercent = 0;
-
-            const getCoords = (p) => [Math.cos(2 * Math.PI * p), Math.sin(2 * Math.PI * p)];
-
-            let svgContent = `<svg viewBox="-1 -1 2 2" class="w-48 h-48 -rotate-90">`;
-            data.forEach(item => {
-                const [startX, startY] = getCoords(cumulativePercent);
-                cumulativePercent += item.value / total;
-                const [endX, endY] = getCoords(cumulativePercent);
-                const largeArc = item.value / total > 0.5 ? 1 : 0;
-                svgContent += `<path d="M ${startX} ${startY} A 1 1 0 ${largeArc} 1 ${endX} ${endY} L 0 0" fill="${item.color}" />`;
-            });
-            svgContent += `</svg>`;
-
-            const legendContent = `<div class="grid grid-cols-2 gap-x-4 gap-y-1 mt-4 w-full text-xs">` + 
-                data.map(item => `
-                    <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 rounded-full" style="background-color: ${item.color}"></div>
-                        <span class="text-slate-600 truncate">${item.name} ($${item.value.toFixed(0)})</span>
-                    </div>
-                `).join('') + `</div>`;
-
-            container.innerHTML = svgContent + legendContent;
-        }
-
-        // --- AI Advisor Features ---
-        function toggleChat() {
-            isChatOpen = !isChatOpen;
-            document.getElementById('advice-view').classList.toggle('hidden', isChatOpen);
-            document.getElementById('chat-view').classList.toggle('hidden', !isChatOpen);
-            document.getElementById('chat-toggle').classList.toggle('bg-indigo-500', isChatOpen);
-            document.getElementById('chat-toggle').classList.toggle('text-white', isChatOpen);
-        }
-
-        async function callGemini(prompt) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            const body = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "You are SpendWise AI, a witty financial coach. Use emojis and keep it snappy." }] }
-            };
-
-            let delay = 1000;
-            for (let i = 0; i < 5; i++) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(body)
-                    });
-                    const data = await response.json();
-                    return data.candidates?.[0]?.content?.parts?.[0]?.text;
-                } catch (e) {
-                    await new Promise(r => setTimeout(r, delay));
-                    delay *= 2;
-                }
-            }
-            throw new Error("API Failed");
-        }
-
-        async function refreshAnalysis() {
-            if (transactions.length === 0 || isAnalyzing) return;
-            isAnalyzing = true;
-            setLoadingState(true);
-
-            const context = transactions.map(t => `${t.type} $${t.amount} on ${t.description}`).join(', ');
-            const prompt = `Analyze my spending: ${context}. Give a 2-sentence summary and 1 tip.`;
-
-            try {
-                const result = await callGemini(prompt);
-                addMessage('ai', result);
-                document.getElementById('static-advice-text').innerText = `"${result}"`;
-                document.getElementById('static-advice-text').className = "text-indigo-50 text-sm italic leading-relaxed";
-            } catch (e) {
-                addMessage('ai', "I'm experiencing some technical difficulties! Please check your connection.");
-            } finally {
-                isAnalyzing = false;
-                setLoadingState(false);
-            }
-        }
-
-        async function handleChat(e) {
+        els.txForm.onsubmit = async (e) => {
             e.preventDefault();
-            const input = document.getElementById('chat-input');
-            const msg = input.value.trim();
-            if (!msg || isAnalyzing) return;
-
-            input.value = '';
-            addMessage('user', msg);
-            isAnalyzing = true;
-            setLoadingState(true);
-
-            const context = transactions.map(t => `${t.type} $${t.amount}`).join(', ');
-            const prompt = `User asks: "${msg}". Context: Balance $${document.getElementById('total-balance').innerText}. Recent activity: ${context}.`;
-
+            const desc = document.getElementById('tx-desc').value;
+            const amt = parseFloat(document.getElementById('tx-amount').value);
+            if (!auth.currentUser) return;
             try {
-                const result = await callGemini(prompt);
-                addMessage('ai', result);
-            } catch (e) {
-                addMessage('ai', "My digital brain is fuzzy right now. Try again?");
-            } finally {
-                isAnalyzing = false;
-                setLoadingState(false);
-            }
-        }
-
-        function addMessage(role, text) {
-            const chat = document.getElementById('chat-history');
-            const div = document.createElement('div');
-            div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
-            div.innerHTML = `
-                <div class="max-w-[85%] px-4 py-2.5 rounded-2xl text-sm ${role === 'user' ? 'bg-indigo-500 text-white chat-bubble-user' : 'bg-white/10 text-indigo-50 chat-bubble-ai'}">
-                    ${text}
-                </div>
-            `;
-            chat.appendChild(div);
-            chat.scrollTop = chat.scrollHeight;
-        }
-
-        function setLoadingState(loading) {
-            const btn = document.getElementById('analyze-btn');
-            btn.innerHTML = loading ? `<i class="fas fa-circle-notch fa-spin"></i> Analyzing...` : `<i class="fas fa-wand-magic-sparkles"></i> Analyze`;
-            btn.disabled = loading;
-        }
-
-        function copyCsvToClipboard() {
-            if (transactions.length === 0) return;
-            const headers = ['Date', 'Description', 'Type', 'Category', 'Amount'];
-            const rows = transactions.map(t => [t.date, `"${t.description.replace(/"/g, '""')}"`, t.type, t.category, t.amount]);
-            const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-            
-            const area = document.createElement('textarea');
-            area.value = csv;
-            document.body.appendChild(area);
-            area.select();
-            document.execCommand('copy');
-            document.body.removeChild(area);
-
-            const toast = document.getElementById('toast');
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
-        }
+                const ref = collection(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'transactions');
+                await addDoc(ref, { description: desc, amount: amt, timestamp: serverTimestamp(), uid: auth.currentUser.uid });
+                els.txForm.reset();
+            } catch (err) { console.error("Save failed", err); }
+        };
     </script>
 </body>
 </html>
