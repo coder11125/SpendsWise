@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>SpendsWise — Expense Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── HEADER ── -->
+  <header>
+    <div class="logo">Spends<span>Wise</span></div>
+    <div class="header-right">
+      <button class="currency-btn" id="currencyBtn" onclick="openModal('currencyModal')">
+        <span class="cur-flag" id="curBtnFlag">🇺🇸</span>
+        <span class="cur-code" id="curBtnCode">USD</span>
+        <span class="cur-chevron">▾</span>
+      </button>
+      <div class="header-date" id="headerDate"></div>
+    </div>
+  </header>
+
+  <!-- ── BALANCE CARD ── -->
+  <div class="balance-card">
+    <div class="balance-label">Net Balance</div>
+    <div class="balance-amount" id="balanceAmount">
+      <span class="currency">$</span><span id="balanceValue">0.00</span>
+    </div>
+    <div class="balance-stats">
+      <div class="stat">
+        <div class="stat-label">Income</div>
+        <div class="stat-value income" id="totalIncome">$0.00</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Expenses</div>
+        <div class="stat-value expense" id="totalExpense">$0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHART + FILTERS (responsive wide-grid) ── -->
+  <div class="wide-grid" id="wideGrid">
+
+    <div class="chart-section">
+      <div class="section-title">7-Day Spending</div>
+      <div class="chart-bars" id="chartBars"></div>
+    </div>
+
+    <div>
+      <div class="section-title" style="margin-bottom:12px">Filter</div>
+      <div class="filter-scroll" id="filterScroll"></div>
+    </div>
+
+  </div>
+
+  <!-- ── TRANSACTIONS ── -->
+  <div class="transactions-header">
+    <div class="section-title" style="margin-bottom:0">Transactions</div>
+    <div class="txn-count" id="txnCount"></div>
+  </div>
+  <div class="txn-list" id="txnList"></div>
+
+</div><!-- /.app -->
+
+<!-- ── FAB ── -->
+<button class="fab" id="fabBtn">
+  <span class="fab-icon">＋</span> Add Transaction
+</button>
+
+<!-- ── ADD TRANSACTION MODAL ── -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">New Transaction</div>
+
+    <div class="type-toggle">
+      <button class="type-btn active-expense" id="typeExpense" onclick="setType('expense')">↓ Expense</button>
+      <button class="type-btn" id="typeIncome" onclick="setType('income')">↑ Income</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Amount</label>
+      <div class="amount-input-wrap">
+        <span class="amount-prefix" id="amount-prefix-sym">$</span>
+        <input class="form-input" type="number" id="inputAmount"
+               inputmode="decimal" placeholder="0.00" step="0.01" min="0">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <input class="form-input" type="text" id="inputName"
+             placeholder="What was this for?" autocomplete="off">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <div class="cat-grid" id="catGrid"></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input class="form-input" type="date" id="inputDate">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Note (optional)</label>
+      <input class="form-input" type="text" id="inputNote" placeholder="Add a note...">
+    </div>
+
+    <button class="submit-btn" onclick="saveTransaction()">Save Transaction</button>
+  </div>
+</div>
+
+<!-- ── TRANSACTION DETAIL MODAL ── -->
+<div class="modal-overlay detail-modal" id="detailModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="detailContent"></div>
+    <button class="delete-btn" id="detailDeleteBtn">Delete Transaction</button>
+  </div>
+</div>
+
+<!-- ── CURRENCY MODAL ── -->
+<div class="modal-overlay" id="currencyModal">
+  <div class="modal" style="padding-bottom: calc(20px + var(--safe-bottom))">
+    <div class="modal-handle"></div>
+    <div class="modal-title" style="margin-bottom:16px">Currency</div>
+    <div class="cur-search-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input class="cur-search" id="curSearch" type="text"
+             placeholder="Search currency or country…"
+             autocomplete="off" autocorrect="off">
+    </div>
+    <div class="cur-list" id="curList"></div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
