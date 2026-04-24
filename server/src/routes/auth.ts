@@ -4,6 +4,7 @@ import jwt, { SignOptions } from "jsonwebtoken";
 import { UserModel } from "../models/User";
 import { config } from "../config";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { authRequired } from "../middleware/auth";
 
 const router = Router();
 
@@ -46,6 +47,37 @@ router.post(
 
     const token = signToken(user._id.toString());
     return res.json({ token, user: { id: user._id, email: user.email } });
+  })
+);
+
+router.get(
+  "/me",
+  authRequired,
+  asyncHandler(async (req, res) => {
+    const user = await UserModel.findById(req.userId).select("-passwordHash");
+    if (!user) return res.status(404).json({ error: "User not found" });
+    return res.json({ id: user._id, email: user.email, createdAt: user.createdAt });
+  })
+);
+
+router.put(
+  "/password",
+  authRequired,
+  asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body ?? {};
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string" || newPassword.length < 6) {
+      return res.status(400).json({ error: "currentPassword and newPassword (min 6 chars) are required" });
+    }
+
+    const user = await UserModel.findById(req.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) return res.status(401).json({ error: "Current password is incorrect" });
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    return res.json({ message: "Password updated successfully" });
   })
 );
 

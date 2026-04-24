@@ -143,6 +143,16 @@ const historyTransactionCount = document.getElementById('historyTransactionCount
 const historyEmptyState = document.getElementById('historyEmptyState');
 const historyTransactionList = document.getElementById('historyTransactionList');
 
+// Account View Elements
+const accountView = document.getElementById('accountView');
+const accountAvatar = document.getElementById('accountAvatar');
+const accountEmail = document.getElementById('accountEmail');
+const accountMemberSince = document.getElementById('accountMemberSince');
+const accountTotalTx = document.getElementById('accountTotalTx');
+const accountTotalIncome = document.getElementById('accountTotalIncome');
+const accountTotalExpense = document.getElementById('accountTotalExpense');
+const accountNetBalance = document.getElementById('accountNetBalance');
+
 // Currency Modal Elements
 const currencyModal = document.getElementById('currencyModal');
 const closeCurrencyModalBtn = document.getElementById('closeCurrencyModalBtn');
@@ -1015,6 +1025,10 @@ function switchView(filter) {
             historyView.classList.remove('hidden');
             renderHistoryView();
             break;
+        case 'account':
+            accountView.classList.remove('hidden');
+            renderAccountView();
+            break;
         default:
             dashboardView.classList.remove('hidden');
             break;
@@ -1025,6 +1039,122 @@ function switchView(filter) {
 function formatDate(dateString) {
     const options = { month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
+}
+
+// --- ACCOUNT VIEW ---
+async function renderAccountView() {
+    // Update stats from in-memory transactions
+    const symbol = getCurrencySymbol(currentCurrency);
+    const { income, expenses, balance } = calculateSummary();
+    accountTotalTx.textContent = transactions.length;
+    accountTotalIncome.textContent = `${symbol}${income.toFixed(2)}`;
+    accountTotalExpense.textContent = `${symbol}${expenses.toFixed(2)}`;
+    accountNetBalance.textContent = `${symbol}${balance.toFixed(2)}`;
+    accountNetBalance.className = `font-bold ${balance >= 0 ? 'text-blue-600' : 'text-rose-600'}`;
+
+    // Fetch profile from server
+    try {
+        const res = await apiFetch('/auth/me');
+        if (!res.ok) return;
+        const { email, createdAt } = await res.json();
+
+        const initials = email ? email[0].toUpperCase() : '?';
+        accountAvatar.textContent = initials;
+        accountEmail.textContent = email;
+        accountMemberSince.textContent = `Member since ${new Date(createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`;
+
+        // Keep localStorage email in sync
+        localStorage.setItem('sw_email', email);
+        document.getElementById('authUserEmail').textContent = email;
+    } catch (err) {
+        console.error('Failed to load profile:', err);
+    }
+}
+
+async function changePassword(e) {
+    e.preventDefault();
+    const successEl = document.getElementById('passwordSuccessMsg');
+    const errorEl = document.getElementById('passwordErrorMsg');
+    const btn = document.getElementById('changePasswordBtn');
+    const current = document.getElementById('currentPassword').value;
+    const next = document.getElementById('newPassword').value;
+    const confirm = document.getElementById('confirmPassword').value;
+
+    successEl.classList.add('hidden');
+    errorEl.classList.add('hidden');
+
+    if (next !== confirm) {
+        errorEl.textContent = 'New passwords do not match.';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Updating…';
+
+    try {
+        const res = await apiFetch('/auth/password', {
+            method: 'PUT',
+            body: JSON.stringify({ currentPassword: current, newPassword: next }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            errorEl.textContent = data.error ?? 'Failed to update password.';
+            errorEl.classList.remove('hidden');
+        } else {
+            successEl.classList.remove('hidden');
+            document.getElementById('changePasswordForm').reset();
+        }
+    } catch {
+        errorEl.textContent = 'Network error — please try again.';
+        errorEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ph ph-floppy-disk"></i> Update Password';
+    }
+}
+
+function exportTransactionsCSV() {
+    if (transactions.length === 0) {
+        alert('No transactions to export.');
+        return;
+    }
+    const header = ['Date', 'Type', 'Category', 'Amount', 'Currency', 'Family Member', 'Note'];
+    const rows = transactions.map(t => [
+        t.date,
+        t.type,
+        t.category,
+        t.amount.toFixed(2),
+        t.currency,
+        t.familyMember ?? '',
+        (t.note ?? '').replace(/,/g, ';'),
+    ]);
+    const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `spendswise-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function confirmClearAllData() {
+    if (!confirm('Are you sure? This will permanently delete ALL your transactions from the server. This cannot be undone.')) return;
+    try {
+        // Delete each transaction individually via existing DELETE endpoint
+        const ids = transactions.map(t => t.id);
+        await Promise.all(ids.map(id => apiFetch(`/expenses/${id}`, { method: 'DELETE' })));
+        transactions = [];
+        updateSummary();
+        renderTransactions();
+        updateExpenseChart();
+        renderAccountView();
+        alert('All transactions deleted.');
+    } catch (err) {
+        console.error('Failed to delete all transactions:', err);
+        alert('Something went wrong. Please try again.');
+    }
 }
 
 // --- START THE APP ---
