@@ -1,3 +1,53 @@
+// --- API SYNC ---
+const API_BASE = '/api';
+
+function getAuthToken() {
+    return localStorage.getItem('sw_token');
+}
+
+async function apiFetch(path, options = {}) {
+    const token = getAuthToken();
+    return fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            ...(options.headers ?? {}),
+        },
+    });
+}
+
+function mapServerExpense(exp) {
+    return {
+        id: exp._id,
+        type: exp.type,
+        amount: exp.amount,
+        category: exp.category,
+        date: (exp.date ?? '').substring(0, 10),
+        familyMember: exp.familyMember ?? '',
+        note: exp.note ?? '',
+        currency: exp.currency ?? 'USD',
+    };
+}
+
+async function loadTransactions() {
+    if (!getAuthToken()) return;
+    try {
+        const res = await apiFetch('/expenses');
+        if (!res.ok) return;
+        const data = await res.json();
+        transactions = data.map(mapServerExpense);
+        updateSummary();
+        renderTransactions();
+        updateExpenseChart();
+        if (currentFilter === 'income') renderIncomeView();
+        else if (currentFilter === 'expense') renderExpenseView();
+        else if (currentFilter === 'history') renderHistoryView();
+    } catch (err) {
+        console.error('Failed to load transactions:', err);
+    }
+}
+
 // --- DATA & STATE ---
 // In-memory state (Single session as per guidelines)
 let transactions = [];
@@ -230,6 +280,9 @@ function init() {
     // Initialize views
     updateSummary();
     renderTransactions();
+
+    // Load persisted transactions from server if logged in
+    loadTransactions();
 }
 
 // --- CURRENCY HANDLING ---
@@ -355,60 +408,71 @@ function updateFamilyMemberSelect() {
 }
 
 // --- TRANSACTION HANDLING ---
-function addTransaction(e) {
+async function addTransaction(e) {
     e.preventDefault();
-    
+
     const type = form.type.value;
     const amount = parseFloat(form.amount.value);
     const category = form.category.value;
     const date = form.date.value;
     const familyMember = form.familyMember.value || '';
     const note = form.note.value || '';
-    
-    if (type && amount && category && date) {
-        const transaction = {
-            id: Date.now(),
-            type,
-            amount,
-            category,
-            date,
-            familyMember,
-            note,
-            currency: currentCurrency
-        };
-        
-        transactions.unshift(transaction);
-        
-        // Reset form
-        if (type === 'expense') {
-            typeRadios[1].checked = true;
-            updateCategoryOptions('income');
-        } else {
-            typeRadios[0].checked = true;
-            updateCategoryOptions('expense');
+
+    if (!(type && amount && category && date)) return;
+
+    let transaction;
+
+    if (getAuthToken()) {
+        try {
+            const res = await apiFetch('/expenses', {
+                method: 'POST',
+                body: JSON.stringify({ type, amount, category, date, familyMember, note, currency: currentCurrency }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                console.error('Failed to save transaction:', err.error ?? res.status);
+                return;
+            }
+            transaction = mapServerExpense(await res.json());
+        } catch (err) {
+            console.error('Network error saving transaction:', err);
+            return;
         }
-        
-        form.amount.value = '';
-        form.category.value = '';
-        form.note.value = '';
-        form.familyMember.value = '';
-        
-        // Reset date picker to today
-        flatpickr("#date").setDate("today");
-        
-        // Update UI
-        updateSummary();
-        renderTransactions();
-        updateExpenseChart();
-        
-        // Update current view if needed
-        if (currentFilter === 'income') {
-            renderIncomeView();
-        } else if (currentFilter === 'expense') {
-            renderExpenseView();
-        } else if (currentFilter === 'history') {
-            renderHistoryView();
-        }
+    } else {
+        transaction = { id: String(Date.now()), type, amount, category, date, familyMember, note, currency: currentCurrency };
+    }
+
+    transactions.unshift(transaction);
+
+    // Reset form
+    if (type === 'expense') {
+        typeRadios[1].checked = true;
+        updateCategoryOptions('income');
+    } else {
+        typeRadios[0].checked = true;
+        updateCategoryOptions('expense');
+    }
+
+    form.amount.value = '';
+    form.category.value = '';
+    form.note.value = '';
+    form.familyMember.value = '';
+
+    // Reset date picker to today
+    flatpickr("#date").setDate("today");
+
+    // Update UI
+    updateSummary();
+    renderTransactions();
+    updateExpenseChart();
+
+    // Update current view if needed
+    if (currentFilter === 'income') {
+        renderIncomeView();
+    } else if (currentFilter === 'expense') {
+        renderExpenseView();
+    } else if (currentFilter === 'history') {
+        renderHistoryView();
     }
 }
 
@@ -423,12 +487,25 @@ function updateCategoryOptions(type) {
     }
 }
 
-function deleteTransaction(id) {
+async function deleteTransaction(id) {
+    if (getAuthToken()) {
+        try {
+            const res = await apiFetch(`/expenses/${id}`, { method: 'DELETE' });
+            if (!res.ok && res.status !== 404) {
+                console.error('Failed to delete transaction, status:', res.status);
+                return;
+            }
+        } catch (err) {
+            console.error('Network error deleting transaction:', err);
+            return;
+        }
+    }
+
     transactions = transactions.filter(transaction => transaction.id !== id);
     updateSummary();
     renderTransactions();
     updateExpenseChart();
-    
+
     // Update current view if needed
     if (currentFilter === 'income') {
         renderIncomeView();
@@ -558,12 +635,12 @@ function renderTransactions() {
                     <p class="${typeColor} font-semibold">${transaction.type === 'income' ? '+' : '-'}${getCurrencySymbol(transaction.currency)}${transaction.amount.toFixed(2)}</p>
                     <p class="text-xs text-slate-400">${transaction.currency}</p>
                 </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction(${transaction.id})">
+                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction('${transaction.id}')">
                     <i class="ph ph-trash text-sm"></i>
                 </button>
             </div>
         `;
-        
+
         transactionList.appendChild(li);
     });
     
@@ -615,12 +692,12 @@ function renderIncomeView() {
                     <p class="text-emerald-600 font-semibold">+${getCurrencySymbol(transaction.currency)}${transaction.amount.toFixed(2)}</p>
                     <p class="text-xs text-slate-400">${transaction.currency}</p>
                 </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction(${transaction.id})">
+                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction('${transaction.id}')">
                     <i class="ph ph-trash text-sm"></i>
                 </button>
             </div>
         `;
-        
+
         incomeTransactionList.appendChild(li);
     });
     
@@ -674,12 +751,12 @@ function renderExpenseView() {
                     <p class="text-rose-600 font-semibold">-${getCurrencySymbol(transaction.currency)}${transaction.amount.toFixed(2)}</p>
                     <p class="text-xs text-slate-400">${transaction.currency}</p>
                 </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction(${transaction.id})">
+                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction('${transaction.id}')">
                     <i class="ph ph-trash text-sm"></i>
                 </button>
             </div>
         `;
-        
+
         expenseTransactionList.appendChild(li);
     });
     
@@ -726,6 +803,11 @@ function renderTopExpenseCategories(categoryData, total) {
         
         topExpenseCategories.appendChild(div);
     });
+}
+
+function updateExpenseChart() {
+    const { data, total } = calculateExpenseByCategory();
+    renderExpenseChart(data, total);
 }
 
 function renderExpenseChart(categoryData, total) {
@@ -831,12 +913,12 @@ function renderHistoryView(filteredTransactions = null) {
                     <p class="${typeColor} font-semibold">${transaction.type === 'income' ? '+' : '-'}${getCurrencySymbol(transaction.currency)}${transaction.amount.toFixed(2)}</p>
                     <p class="text-xs text-slate-400">${transaction.currency}</p>
                 </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction(${transaction.id})">
+                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction('${transaction.id}')">
                     <i class="ph ph-trash text-sm"></i>
                 </button>
             </div>
         `;
-        
+
         historyTransactionList.appendChild(li);
     });
     

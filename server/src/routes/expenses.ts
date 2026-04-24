@@ -23,14 +23,20 @@ router.get(
 router.post(
   "/",
   asyncHandler(async (req, res) => {
-    const { amount, category, note, date } = req.body ?? {};
+    const { amount, category, note, date, type, currency, familyMember } = req.body ?? {};
     if (typeof amount !== "number" || amount < 0 || typeof category !== "string" || !category.trim()) {
       return res.status(400).json({ error: "amount (>=0) and category are required" });
     }
+    if (type !== "income" && type !== "expense") {
+      return res.status(400).json({ error: "type must be 'income' or 'expense'" });
+    }
     const expense = await ExpenseModel.create({
       userId: req.userId,
+      type,
       amount,
       category,
+      currency: typeof currency === "string" && currency.trim() ? currency.trim() : "USD",
+      familyMember: typeof familyMember === "string" ? familyMember.trim() : "",
       note: typeof note === "string" ? note : "",
       date: date ? new Date(date) : new Date(),
     });
@@ -44,7 +50,7 @@ router.put(
     const { id } = req.params;
     if (!isValidId(id)) return res.status(400).json({ error: "Invalid id" });
 
-    const { amount, category, note, date } = req.body ?? {};
+    const { amount, category, note, date, type, currency, familyMember } = req.body ?? {};
     const update: Record<string, unknown> = {};
     if (amount !== undefined) {
       if (typeof amount !== "number" || amount < 0) return res.status(400).json({ error: "Invalid amount" });
@@ -59,6 +65,18 @@ router.put(
       update.note = note;
     }
     if (date !== undefined) update.date = new Date(date);
+    if (type !== undefined) {
+      if (type !== "income" && type !== "expense") return res.status(400).json({ error: "Invalid type" });
+      update.type = type;
+    }
+    if (currency !== undefined) {
+      if (typeof currency !== "string" || !currency.trim()) return res.status(400).json({ error: "Invalid currency" });
+      update.currency = currency.trim();
+    }
+    if (familyMember !== undefined) {
+      if (typeof familyMember !== "string") return res.status(400).json({ error: "Invalid familyMember" });
+      update.familyMember = familyMember.trim();
+    }
 
     const expense = await ExpenseModel.findOneAndUpdate(
       { _id: id, userId: req.userId },

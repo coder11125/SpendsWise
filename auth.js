@@ -58,11 +58,19 @@ async function handleAuth(e) {
 function showApp(email) {
     document.getElementById('authModal').classList.add('hidden');
     document.getElementById('authUserEmail').textContent = email;
+    if (typeof loadTransactions === 'function') loadTransactions();
 }
 
 function logout() {
     localStorage.removeItem('sw_token');
     localStorage.removeItem('sw_email');
+    // Clear in-memory transactions so the next user sees a clean slate
+    if (typeof transactions !== 'undefined') {
+        transactions = [];
+        if (typeof updateSummary === 'function') updateSummary();
+        if (typeof renderTransactions === 'function') renderTransactions();
+        if (typeof updateExpenseChart === 'function') updateExpenseChart();
+    }
     document.getElementById('authModal').classList.remove('hidden');
     document.getElementById('authEmail').value = '';
     document.getElementById('authPassword').value = '';
