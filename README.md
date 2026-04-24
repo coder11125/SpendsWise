@@ -18,7 +18,6 @@ SpendsWise/
     │   ├── middleware/         # auth, asyncHandler
     │   ├── routes/             # auth, expenses
     │   └── types/express.d.ts  # Request.userId augmentation
-    ├── .env.example
     ├── package.json
     └── tsconfig.json
 ```
