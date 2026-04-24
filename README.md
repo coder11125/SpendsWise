@@ -9,6 +9,7 @@ SpendsWise/
 ├── index.html          # frontend entry
 ├── script.js           # frontend logic
 ├── styles.css          # frontend styles
+├── .gitattributes      # GitHub Linguist detectability config
 └── server/             # Node.js + TypeScript API
     ├── src/
     │   ├── index.ts            # app entry
