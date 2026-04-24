@@ -10,7 +10,7 @@ function required(name: string): string {
 
 export const config = {
   port: Number(process.env.PORT ?? 4000),
-  mongoUri: required("MONGO_URI"),
+  mongoUri: required("MONGODB_URI"),
   jwtSecret: required("JWT_SECRET"),
   jwtExpiresIn: "7d" as const,
 };
