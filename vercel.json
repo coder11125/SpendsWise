@@ -1,11 +1,12 @@
 {
   "version": 2,
+  "buildCommand": "npm install && npm run build:css",
   "builds": [
     { "src": "server/src/app.ts", "use": "@vercel/node" },
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "auth.js", "use": "@vercel/static" },
     { "src": "script.js", "use": "@vercel/static" },
-    { "src": "styles.css", "use": "@vercel/static" }
+    { "src": "dist/output.css", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/server/src/app.ts" },
