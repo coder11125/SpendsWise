@@ -1,4 +1,4 @@
-# SpendsWise
+# SpendsWise - Global Budget Tracker
 
 A budget tracker with a static frontend and a TypeScript + Express + MongoDB backend, deployed on Vercel.
 
