@@ -34,7 +34,7 @@ async function loadTransactions() {
         const res = await apiFetch('/expenses');
         if (!res.ok) return;
         const data = await res.json();
-        transactions = data.map(mapServerExpense);
+        expense = data.map(mapServerExpense);
         updateSummary();
         renderTransactions();
         updateExpenseChart();
@@ -42,13 +42,13 @@ async function loadTransactions() {
         else if (currentFilter === 'expense') renderExpenseView();
         else if (currentFilter === 'history') renderHistoryView();
     } catch (err) {
-        console.error('Failed to load transactions:', err);
+        console.error('Failed to load expense:', err);
     }
 }
 
 // --- DATA & STATE ---
 // In-memory state (Single session as per guidelines)
-let transactions = [];
+let expense = [];
 let currentCurrency = 'USD';
 let familyMembers = []; // State for explicitly added family members
 let currentFilter = 'all'; // Current sidebar filter view
@@ -289,7 +289,7 @@ function init() {
     updateSummary();
     renderTransactions();
 
-    // Load persisted transactions from server if logged in
+    // Load persisted expense from server if logged in
     loadTransactions();
 }
 
@@ -450,7 +450,7 @@ async function addTransaction(e) {
         transaction = { id: String(Date.now()), type, amount, category, date, familyMember, note, currency: currentCurrency };
     }
 
-    transactions.unshift(transaction);
+    expense.unshift(transaction);
 
     // Reset form
     if (type === 'expense') {
@@ -509,7 +509,7 @@ async function deleteTransaction(id) {
         }
     }
 
-    transactions = transactions.filter(transaction => transaction.id !== id);
+    expense = expense.filter(transaction => transaction.id !== id);
     updateSummary();
     renderTransactions();
     updateExpenseChart();
@@ -529,7 +529,7 @@ function calculateSummary() {
     let income = 0;
     let expenses = 0;
     
-    transactions.forEach(transaction => {
+    expense.forEach(transaction => {
         if (transaction.type === 'income') {
             income += transaction.amount;
         } else {
@@ -545,7 +545,7 @@ function calculateSummary() {
 }
 
 function calculateIncomeSummary() {
-    const incomeTransactions = transactions.filter(t => t.type === 'income');
+    const incomeTransactions = expense.filter(t => t.type === 'income');
     
     const total = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
     const count = incomeTransactions.length;
@@ -555,7 +555,7 @@ function calculateIncomeSummary() {
 }
 
 function calculateExpenseSummary() {
-    const expenseTransactions = transactions.filter(t => t.type === 'expense');
+    const expenseTransactions = expense.filter(t => t.type === 'expense');
     
     const total = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
     const count = expenseTransactions.length;
@@ -565,7 +565,7 @@ function calculateExpenseSummary() {
 }
 
 function calculateExpenseByCategory() {
-    const expenseTransactions = transactions.filter(t => t.type === 'expense');
+    const expenseTransactions = expense.filter(t => t.type === 'expense');
     const categoryTotals = {};
     
     expenseTransactions.forEach(transaction => {
@@ -601,7 +601,7 @@ function updateSummary() {
 }
 
 function renderTransactions() {
-    if (transactions.length === 0) {
+    if (expense.length === 0) {
         emptyState.style.display = 'flex';
         transactionList.innerHTML = '';
         transactionCount.textContent = '0 items';
@@ -611,8 +611,8 @@ function renderTransactions() {
     emptyState.style.display = 'none';
     transactionList.innerHTML = '';
     
-    // Show only the most recent 10 transactions on dashboard
-    const recentTransactions = transactions.slice(0, 10);
+    // Show only the most recent 10 expense on dashboard
+    const recentTransactions = expense.slice(0, 10);
     
     recentTransactions.forEach(transaction => {
         const li = document.createElement('li');
@@ -652,7 +652,7 @@ function renderTransactions() {
         transactionList.appendChild(li);
     });
     
-    transactionCount.textContent = `${transactions.length} item${transactions.length !== 1 ? 's' : ''}`;
+    transactionCount.textContent = `${expense.length} item${expense.length !== 1 ? 's' : ''}`;
 }
 
 function renderIncomeView() {
@@ -663,7 +663,7 @@ function renderIncomeView() {
     incomeViewCount.textContent = count;
     incomeViewAverage.textContent = `${symbol}${average.toFixed(2)}`;
     
-    const incomeTransactions = transactions.filter(t => t.type === 'income');
+    const incomeTransactions = expense.filter(t => t.type === 'income');
     
     if (incomeTransactions.length === 0) {
         incomeEmptyState.style.display = 'flex';
@@ -720,7 +720,7 @@ function renderExpenseView() {
     expenseViewCount.textContent = count;
     expenseViewAverage.textContent = `${symbol}${average.toFixed(2)}`;
     
-    const expenseTransactions = transactions.filter(t => t.type === 'expense');
+    const expenseTransactions = expense.filter(t => t.type === 'expense');
     
     if (expenseTransactions.length === 0) {
         expenseEmptyState.style.display = 'flex';
@@ -876,12 +876,12 @@ function renderExpenseChart(categoryData, total) {
 }
 
 function renderHistoryView(filteredTransactions = null) {
-    const transactionsToRender = filteredTransactions || transactions;
+    const expenseToRender = filteredTransactions || expense;
     
     // Update category filter options
     updateHistoryCategoryFilter();
     
-    if (transactionsToRender.length === 0) {
+    if (expenseToRender.length === 0) {
         historyEmptyState.style.display = 'flex';
         historyTransactionList.innerHTML = '';
         historyTransactionCount.textContent = '0 items';
@@ -891,7 +891,7 @@ function renderHistoryView(filteredTransactions = null) {
     historyEmptyState.style.display = 'none';
     historyTransactionList.innerHTML = '';
     
-    transactionsToRender.forEach(transaction => {
+    expenseToRender.forEach(transaction => {
         const li = document.createElement('li');
         li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors';
         
@@ -930,7 +930,7 @@ function renderHistoryView(filteredTransactions = null) {
         historyTransactionList.appendChild(li);
     });
     
-    historyTransactionCount.textContent = `${transactionsToRender.length} item${transactionsToRender.length !== 1 ? 's' : ''}`;
+    historyTransactionCount.textContent = `${expenseToRender.length} item${expenseToRender.length !== 1 ? 's' : ''}`;
 }
 
 function filterHistoryTransactions() {
@@ -939,7 +939,7 @@ function filterHistoryTransactions() {
     const categoryFilter = historyCategoryFilter.value;
     const sortBy = historySortBy.value;
     
-    let filtered = transactions;
+    let filtered = expense;
     
     // Apply filters
     if (searchTerm) {
@@ -981,9 +981,9 @@ function filterHistoryTransactions() {
 }
 
 function updateHistoryCategoryFilter() {
-    // Get unique categories from transactions
+    // Get unique categories from expense
     const categories = new Set();
-    transactions.forEach(t => categories.add(t.category));
+    expense.forEach(t => categories.add(t.category));
     
     // Store current selected value
     const currentValue = historyCategoryFilter.value;
@@ -1043,10 +1043,10 @@ function formatDate(dateString) {
 
 // --- ACCOUNT VIEW ---
 async function renderAccountView() {
-    // Update stats from in-memory transactions
+    // Update stats from in-memory expense
     const symbol = getCurrencySymbol(currentCurrency);
     const { income, expenses, balance } = calculateSummary();
-    accountTotalTx.textContent = transactions.length;
+    accountTotalTx.textContent = expense.length;
     accountTotalIncome.textContent = `${symbol}${income.toFixed(2)}`;
     accountTotalExpense.textContent = `${symbol}${expenses.toFixed(2)}`;
     accountNetBalance.textContent = `${symbol}${balance.toFixed(2)}`;
@@ -1115,12 +1115,12 @@ async function changePassword(e) {
 }
 
 function exportTransactionsCSV() {
-    if (transactions.length === 0) {
-        alert('No transactions to export.');
+    if (expense.length === 0) {
+        alert('No expense to export.');
         return;
     }
     const header = ['Date', 'Type', 'Category', 'Amount', 'Currency', 'Family Member', 'Note'];
-    const rows = transactions.map(t => [
+    const rows = expense.map(t => [
         t.date,
         t.type,
         t.category,
@@ -1134,25 +1134,25 @@ function exportTransactionsCSV() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `spendswise-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `spendswise-expense-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
 }
 
 async function confirmClearAllData() {
-    if (!confirm('Are you sure? This will permanently delete ALL your transactions from the server. This cannot be undone.')) return;
+    if (!confirm('Are you sure? This will permanently delete ALL your expense from the server. This cannot be undone.')) return;
     try {
         // Delete each transaction individually via existing DELETE endpoint
-        const ids = transactions.map(t => t.id);
+        const ids = expense.map(t => t.id);
         await Promise.all(ids.map(id => apiFetch(`/expenses/${id}`, { method: 'DELETE' })));
-        transactions = [];
+        expense = [];
         updateSummary();
         renderTransactions();
         updateExpenseChart();
         renderAccountView();
-        alert('All transactions deleted.');
+        alert('All expense deleted.');
     } catch (err) {
-        console.error('Failed to delete all transactions:', err);
+        console.error('Failed to delete all expense:', err);
         alert('Something went wrong. Please try again.');
     }
 }

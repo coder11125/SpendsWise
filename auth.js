@@ -64,9 +64,9 @@ function showApp(email) {
 function logout() {
     localStorage.removeItem('sw_token');
     localStorage.removeItem('sw_email');
-    // Clear in-memory transactions so the next user sees a clean slate
-    if (typeof transactions !== 'undefined') {
-        transactions = [];
+    // Clear in-memory expense so the next user sees a clean slate
+    if (typeof expense !== 'undefined') {
+        expense = [];
         if (typeof updateSummary === 'function') updateSummary();
         if (typeof renderTransactions === 'function') renderTransactions();
         if (typeof updateExpenseChart === 'function') updateExpenseChart();
