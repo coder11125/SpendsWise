@@ -5,7 +5,8 @@
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "auth.js", "use": "@vercel/static" },
     { "src": "script.js", "use": "@vercel/static" },
-    { "src": "dist/output.css", "use": "@vercel/static" }
+    { "src": "dist/output.css", "use": "@vercel/static" },
+    { "src": "images/wallet.svg", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/server/src/app.ts" },
