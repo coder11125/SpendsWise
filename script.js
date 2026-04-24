@@ -1065,7 +1065,11 @@ async function renderAccountView() {
 
         // Keep localStorage email in sync
         localStorage.setItem('sw_email', email);
-        document.getElementById('authUserEmail').textContent = email;
+        const emailElement = document.getElementById('authUserEmail');
+        if (emailElement) {
+            emailElement.textContent = email;
+            emailElement.parentElement.style.display = 'block';
+        }
     } catch (err) {
         console.error('Failed to load profile:', err);
     }

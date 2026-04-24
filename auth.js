@@ -57,7 +57,12 @@ async function handleAuth(e) {
 
 function showApp(email) {
     document.getElementById('authModal').classList.add('hidden');
-    document.getElementById('authUserEmail').textContent = email;
+    const emailElement = document.getElementById('authUserEmail');
+    // Ensure the email is displayed in the sidebar
+    if (emailElement) {
+        emailElement.textContent = email;
+        emailElement.parentElement.style.display = 'block';
+    }
     if (typeof loadTransactions === 'function') loadTransactions();
 }
 
