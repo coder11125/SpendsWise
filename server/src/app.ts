@@ -3,7 +3,6 @@ import cors from "cors";
 import { connectDB } from "./db";
 import authRoutes from "./routes/auth";
 import expenseRoutes from "./routes/expenses";
-import "./types/express";
 
 const app = express();
 app.use(cors());
