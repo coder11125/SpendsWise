@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpendsWise - Global Budget Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased h-screen flex overflow-hidden">
+
+    <!-- Sidebar Overlay (Mobile) -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-slate-900/50 z-30 hidden lg:hidden"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex-shrink-0 fixed lg:static inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col h-full z-40">
+        <div class="h-16 flex items-center px-6 border-b border-slate-100 flex-shrink-0">
+            <div class="flex items-center gap-2">
+                <div class="bg-blue-600 text-white p-1.5 rounded-lg">
+                    <i class="ph-fill ph-wallet text-2xl"></i>
+                </div>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">SpendsWise</h1>
+            </div>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+            <a href="#" class="sidebar-link active flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-blue-50 text-blue-700 transition-colors" data-filter="all">
+                <i class="ph ph-squares-four text-lg"></i> Dashboard
+            </a>
+            <a href="#" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" data-filter="income">
+                <i class="ph ph-trend-up text-lg"></i> Income
+            </a>
+            <a href="#" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" data-filter="expense">
+                <i class="ph ph-trend-down text-lg"></i> Expense
+            </a>
+            <a href="#" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" data-filter="history">
+                <i class="ph ph-list-dashes text-lg"></i> Transaction History
+            </a>
+            <div class="pt-4 mt-4 border-t border-slate-100"></div>
+            <a href="#" id="sidebarPeopleBtn" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+                <i class="ph ph-users text-lg"></i> People
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <div class="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative w-full">
+
+        <!-- Top Navigation -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-10 flex-shrink-0">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between lg:justify-end">
+                
+                <!-- Mobile Logo (Hidden on Desktop Sidebar view) -->
+                <div class="flex items-center gap-2 lg:hidden">
+                    <button id="mobileMenuBtn" class="text-slate-500 hover:text-blue-600 transition-colors mr-1">
+                        <i class="ph ph-list text-2xl"></i>
+                    </button>
+                    <div class="bg-blue-600 text-white p-1.5 rounded-lg">
+                        <i class="ph-fill ph-wallet text-xl"></i>
+                    </div>
+                    <h1 class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">SpendsWise</h1>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <label for="currencyButton" class="text-sm font-medium text-slate-500 hidden sm:block">Currency:</label>
+                    <div class="relative">
+                        <button id="currencyButton" class="bg-slate-100 border border-slate-200 text-slate-700 py-1.5 pl-3 pr-8 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer hover:bg-slate-200 transition-colors flex items-center">
+                            <span id="currentCurrency">USD</span>
+                            <i class="ph ph-caret-down absolute right-2.5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+            
+            <!-- Dashboard View -->
+            <div id="dashboardView" class="view-content">
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- Total Balance -->
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <i class="ph-fill ph-scales text-6xl text-blue-600"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-500 mb-1">Total Balance</p>
+                        <h2 id="totalBalance" class="text-3xl font-bold text-slate-800">$0.00</h2>
+                    </div>
+                    
+                    <!-- Total Income -->
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <i class="ph-fill ph-trend-up text-6xl text-emerald-500"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-500 mb-1">Total Income</p>
+                        <h2 id="totalIncome" class="text-3xl font-bold text-emerald-600">+$0.00</h2>
+                    </div>
+                    
+                    <!-- Total Expense -->
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <i class="ph-fill ph-trend-down text-6xl text-rose-500"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-500 mb-1">Total Expenses</p>
+                        <h2 id="totalExpense" class="text-3xl font-bold text-rose-600">-$0.00</h2>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Left Column: Add Transaction & Chart -->
+                    <div class="lg:col-span-1 space-y-8">
+                        
+                        <!-- Add Transaction Form -->
+                        <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i class="ph ph-plus-circle text-blue-500"></i> New Transaction
+                            </h3>
+                            <form id="transactionForm" class="space-y-4">
+                                
+                                <!-- Type -->
+                                <div class="flex p-1 bg-slate-100 rounded-lg">
+                                    <label class="flex-1 cursor-pointer">
+                                        <input type="radio" name="type" value="expense" class="peer sr-only" checked>
+                                        <div class="text-center py-2 rounded-md text-sm font-medium text-slate-500 peer-checked:bg-white peer-checked:text-rose-600 peer-checked:shadow-sm transition-all">
+                                            Expense
+                                        </div>
+                                    </label>
+                                    <label class="flex-1 cursor-pointer">
+                                        <input type="radio" name="type" value="income" class="peer sr-only">
+                                        <div class="text-center py-2 rounded-md text-sm font-medium text-slate-500 peer-checked:bg-white peer-checked:text-emerald-600 peer-checked:shadow-sm transition-all">
+                                            Income
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <!-- Amount -->
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Amount</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span id="currencySymbol" class="text-slate-400 sm:text-sm">$</span>
+                                        </div>
+                                        <input type="number" id="amount" step="0.01" min="0.01" required placeholder="0.00" 
+                                            class="input-field w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 placeholder-slate-400">
+                                    </div>
+                                </div>
+
+                                <!-- Category -->
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Category</label>
+                                    <div class="relative">
+                                        <select id="category" required class="input-field w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 appearance-none">
+                                            <option value="" disabled selected>Select category...</option>
+                                            <optgroup label="Expenses" id="expenseCategories">
+                                                <option value="Food & Dining">Food & Dining</option>
+                                                <option value="Housing">Housing</option>
+                                                <option value="Transportation">Transportation</option>
+                                                <option value="Utilities">Utilities</option>
+                                                <option value="Entertainment">Entertainment</option>
+                                                <option value="Healthcare">Healthcare</option>
+                                                <option value="Shopping">Shopping</option>
+                                                <option value="Other">Other Expense</option>
+                                            </optgroup>
+                                            <optgroup label="Income" id="incomeCategories">
+                                                <option value="Salary">Salary / Wages</option>
+                                                <option value="Freelance">Freelance</option>
+                                                <option value="Investments">Investments</option>
+                                                <option value="Gifts">Gifts</option>
+                                                <option value="Other">Other Income</option>
+                                            </optgroup>
+                                        </select>
+                                        <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                                    </div>
+                                </div>
+
+                                <!-- Date -->
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Date</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <i class="ph ph-calendar-blank text-slate-400"></i>
+                                        </div>
+                                        <input type="text" id="date" required placeholder="Select date..." 
+                                            class="input-field w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 placeholder-slate-400 cursor-pointer">
+                                    </div>
+                                </div>
+
+                                <!-- Family Member -->
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Family Member (Optional)</label>
+                                    <div class="relative">
+                                        <select id="familyMember" class="input-field w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 appearance-none">
+                                            <option value="" selected>None / Myself</option>
+                                            <!-- Populated by JS -->
+                                        </select>
+                                        <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                                    </div>
+                                </div>
+
+                                <!-- Note -->
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Note (Optional)</label>
+                                    <input type="text" id="note" placeholder="What was this for?" 
+                                        class="input-field w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 placeholder-slate-400">
+                                </div>
+
+                                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
+                                    <i class="ph ph-check-circle"></i> Add Transaction
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Expenses Breakdown Chart -->
+                        <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hidden sm:block">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i class="ph ph-pie-chart text-blue-500"></i> Expenses Breakdown
+                            </h3>
+                            <div class="relative w-full aspect-square flex items-center justify-center">
+                                <canvas id="expenseChart" class="w-full h-full max-w-[250px] max-h-[250px]"></canvas>
+                                <!-- Center absolute text for doughnut -->
+                                <div id="chartCenterText" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Total</span>
+                                    <span id="chartTotalValue" class="text-lg font-bold text-slate-800">$0.00</span>
+                                </div>
+                            </div>
+                            <div id="chartLegend" class="mt-4 grid grid-cols-2 gap-2 text-xs">
+                                <!-- Legend inserted by JS -->
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Column: Recent Transactions -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm h-full flex flex-col">
+                            <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <i class="ph ph-list-dashes text-blue-500"></i> Recent Transactions
+                                </h3>
+                                <span id="transactionCount" class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-full">0 items</span>
+                            </div>
+                            
+                            <!-- List Container -->
+                            <div class="flex-grow overflow-y-auto custom-scrollbar p-2 sm:p-4 max-h-[600px]" id="transactionListContainer">
+                                
+                                <!-- Empty State -->
+                                <div id="emptyState" class="flex flex-col items-center justify-center h-full py-16 text-center px-4">
+                                    <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                                        <i class="ph ph-receipt text-4xl text-slate-300"></i>
+                                    </div>
+                                    <h4 class="text-slate-700 font-semibold mb-1">No transactions yet</h4>
+                                    <p class="text-slate-500 text-sm max-w-xs">Start managing your budget by adding your first income or expense transaction.</p>
+                                </div>
+
+                                <!-- Actual List -->
+                                <ul id="transactionList" class="space-y-2">
+                                    <!-- Items populated by JS -->
+                                </ul>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Income View -->
+            <div id="incomeView" class="view-content hidden">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
+                        <div class="bg-emerald-100 text-emerald-600 p-2 rounded-lg">
+                            <i class="ph ph-trend-up text-xl"></i>
+                        </div>
+                        Income Overview
+                    </h2>
+                    <p class="text-slate-600">Track and manage all your income sources</p>
+                </div>
+
+                <!-- Income Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <p class="text-sm font-semibold text-slate-500 mb-1">Total Income</p>
+                        <h3 id="incomeViewTotal" class="text-3xl font-bold text-emerald-600">$0.00</h3>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <p class="text-sm font-semibold text-slate-500 mb-1">Income Count</p>
+                        <h3 id="incomeViewCount" class="text-3xl font-bold text-slate-800">0</h3>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <p class="text-sm font-semibold text-slate-500 mb-1">Average Income</p>
+                        <h3 id="incomeViewAverage" class="text-3xl font-bold text-slate-800">$0.00</h3>
+                    </div>
+                </div>
+
+                <!-- Income Transactions List -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i class="ph ph-money text-blue-500"></i> Income Transactions
+                        </h3>
+                        <span id="incomeTransactionCount" class="text-xs font-medium bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full">0 items</span>
+                    </div>
+                    <div class="flex-grow overflow-y-auto custom-scrollbar p-2 sm:p-4 max-h-[600px]">
+                        <div id="incomeEmptyState" class="flex flex-col items-center justify-center h-full py-16 text-center px-4">
+                            <div class="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
+                                <i class="ph ph-trend-up text-4xl text-emerald-300"></i>
+                            </div>
+                            <h4 class="text-slate-700 font-semibold mb-1">No income transactions</h4>
+                            <p class="text-slate-500 text-sm max-w-xs">Start tracking your income by adding your first income transaction.</p>
+                        </div>
+                        <ul id="incomeTransactionList" class="space-y-2">
+                            <!-- Items populated by JS -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expense View -->
+            <div id="expenseView" class="view-content hidden">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
+                        <div class="bg-rose-100 text-rose-600 p-2 rounded-lg">
+                            <i class="ph ph-trend-down text-xl"></i>
+                        </div>
+                        Expense Overview
+                    </h2>
+                    <p class="text-slate-600">Track and manage all your expenses</p>
+                </div>
+
+                <!-- Expense Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <p class="text-sm font-semibold text-slate-500 mb-1">Total Expenses</p>
+                        <h3 id="expenseViewTotal" class="text-3xl font-bold text-rose-600">$0.00</h3>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <p class="text-sm font-semibold text-slate-500 mb-1">Expense Count</p>
+                        <h3 id="expenseViewCount" class="text-3xl font-bold text-slate-800">0</h3>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <p class="text-sm font-semibold text-slate-500 mb-1">Average Expense</p>
+                        <h3 id="expenseViewAverage" class="text-3xl font-bold text-slate-800">$0.00</h3>
+                    </div>
+                </div>
+
+                <!-- Expense Breakdown Chart -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                    <div class="lg:col-span-1">
+                        <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i class="ph ph-pie-chart text-blue-500"></i> Expenses by Category
+                            </h3>
+                            <div class="relative w-full aspect-square flex items-center justify-center">
+                                <canvas id="expenseChartExpenseView" class="w-full h-full max-w-[250px] max-h-[250px]"></canvas>
+                                <div id="expenseChartCenterText" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Total</span>
+                                    <span id="expenseChartTotalValue" class="text-lg font-bold text-slate-800">$0.00</span>
+                                </div>
+                            </div>
+                            <div id="expenseChartLegend" class="mt-4 grid grid-cols-2 gap-2 text-xs">
+                                <!-- Legend inserted by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Expense Categories -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i class="ph ph-bar-chart text-blue-500"></i> Top Spending Categories
+                            </h3>
+                            <div id="topExpenseCategories" class="space-y-3">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Expense Transactions List -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i class="ph ph-list-dashes text-blue-500"></i> Expense Transactions
+                        </h3>
+                        <span id="expenseTransactionCount" class="text-xs font-medium bg-rose-100 text-rose-600 px-2 py-1 rounded-full">0 items</span>
+                    </div>
+                    <div class="flex-grow overflow-y-auto custom-scrollbar p-2 sm:p-4 max-h-[600px]">
+                        <div id="expenseEmptyState" class="flex flex-col items-center justify-center h-full py-16 text-center px-4">
+                            <div class="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mb-4">
+                                <i class="ph ph-trend-down text-4xl text-rose-300"></i>
+                            </div>
+                            <h4 class="text-slate-700 font-semibold mb-1">No expense transactions</h4>
+                            <p class="text-slate-500 text-sm max-w-xs">Start tracking your expenses by adding your first expense transaction.</p>
+                        </div>
+                        <ul id="expenseTransactionList" class="space-y-2">
+                            <!-- Items populated by JS -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction History View -->
+            <div id="historyView" class="view-content hidden">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
+                        <div class="bg-blue-100 text-blue-600 p-2 rounded-lg">
+                            <i class="ph ph-list-dashes text-xl"></i>
+                        </div>
+                        Transaction History
+                    </h2>
+                    <p class="text-slate-600">View and manage all your transactions</p>
+                </div>
+
+                <!-- Search and Filter Options -->
+                <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-8">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Search</label>
+                            <input type="text" id="historySearch" placeholder="Search transactions..." 
+                                class="input-field w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 placeholder-slate-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Type</label>
+                            <select id="historyTypeFilter" class="input-field w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 appearance-none">
+                                <option value="">All Types</option>
+                                <option value="income">Income Only</option>
+                                <option value="expense">Expense Only</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Category</label>
+                            <select id="historyCategoryFilter" class="input-field w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 appearance-none">
+                                <option value="">All Categories</option>
+                                <!-- Categories populated by JS -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Sort By</label>
+                            <select id="historySortBy" class="input-field w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 appearance-none">
+                                <option value="date-desc">Date (Newest)</option>
+                                <option value="date-asc">Date (Oldest)</option>
+                                <option value="amount-desc">Amount (Highest)</option>
+                                <option value="amount-asc">Amount (Lowest)</option>
+                                <option value="category">Category (A-Z)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All Transactions List -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i class="ph ph-list-dashes text-blue-500"></i> All Transactions
+                        </h3>
+                        <span id="historyTransactionCount" class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-full">0 items</span>
+                    </div>
+                    <div class="flex-grow overflow-y-auto custom-scrollbar p-2 sm:p-4 max-h-[600px]">
+                        <div id="historyEmptyState" class="flex flex-col items-center justify-center h-full py-16 text-center px-4">
+                            <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                                <i class="ph ph-receipt text-4xl text-slate-300"></i>
+                            </div>
+                            <h4 class="text-slate-700 font-semibold mb-1">No transactions yet</h4>
+                            <p class="text-slate-500 text-sm max-w-xs">Start managing your budget by adding your first income or expense transaction.</p>
+                        </div>
+                        <ul id="historyTransactionList" class="space-y-2">
+                            <!-- Items populated by JS -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+        <!-- Footer -->
+        <footer class="bg-white border-t border-slate-200 mt-auto flex-shrink-0">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center">
+                <p class="text-slate-500 text-sm flex items-center justify-center gap-2">
+                    Built with <i class="ph-fill ph-heart text-rose-500"></i> for personal finance management.
+                </p>
+            </div>
+        </footer>
+
+    </div> <!-- End Main Content Wrapper -->
+
+    <!-- Manage Persons Modal -->
+    <div id="personModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 px-4">
+        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-fade-in">
+            <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="ph ph-users text-blue-500"></i> Manage Family Members
+                </h3>
+                <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="ph ph-x text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="addPersonForm" class="flex gap-2 mb-6">
+                    <input type="text" id="newPersonName" placeholder="Enter name..." required
+                        class="input-field flex-grow px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 placeholder-slate-400">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Add
+                    </button>
+                </form>
+                
+                <div class="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Current Members</div>
+                <ul id="managedMembersList" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                    <!-- Members listed here -->
+                </ul>
+                <div id="noMembersState" class="text-center py-4 text-sm text-slate-500 hidden">
+                    No family members added yet.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Currency Selector Modal -->
+    <div id="currencyModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 px-4">
+        <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl overflow-hidden animate-fade-in">
+            <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="ph ph-currency-circle-dollar text-blue-500"></i> Select Currency
+                </h3>
+                <button id="closeCurrencyModalBtn" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="ph ph-x text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="ph ph-magnifying-glass text-slate-400"></i>
+                        </div>
+                        <input type="text" id="currencySearch" placeholder="Search currency..." 
+                            class="input-field w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 placeholder-slate-400">
+                    </div>
+                </div>
+                
+                <!-- Popular Currencies Section -->
+                <div class="mb-6">
+                    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Popular Currencies</div>
+                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2" id="popularCurrencies">
+                        <!-- Popular currencies will be populated by JS -->
+                    </div>
+                </div>
+                
+                <!-- All Currencies Grid -->
+                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">All Currencies</div>
+                <div class="max-h-96 overflow-y-auto custom-scrollbar">
+                    <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2" id="allCurrencies">
+                        <!-- All currencies will be populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script src="script.js"></script>
+
+</body>
+</html>
