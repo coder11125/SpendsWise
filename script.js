@@ -1,6 +1,4 @@
 // --- API SYNC ---
-const API_BASE = '/api';
-
 function getAuthToken() {
     return localStorage.getItem('sw_token');
 }
