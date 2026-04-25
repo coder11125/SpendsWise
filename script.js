@@ -819,21 +819,23 @@ function updateExpenseChart() {
 }
 
 function renderExpenseChart(categoryData, total) {
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const dpr = window.devicePixelRatio || 1;
+    const LOGICAL = 250;
+    canvas.width = LOGICAL * dpr;
+    canvas.height = LOGICAL * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, LOGICAL, LOGICAL);
     chartLegend.innerHTML = '';
-    
+
     if (categoryData.length === 0) {
         chartCenterText.querySelector('span:last-child').textContent = '$0.00';
         return;
     }
-    
-    // Set canvas size
-    const size = Math.min(canvas.width, canvas.height);
-    const centerX = size / 2;
-    const centerY = size / 2;
-    const innerRadius = size * 0.3;
-    const outerRadius = size * 0.45;
+
+    const centerX = LOGICAL / 2;
+    const centerY = LOGICAL / 2;
+    const innerRadius = LOGICAL * 0.3;
+    const outerRadius = LOGICAL * 0.45;
     
     // Calculate angles
     let currentAngle = -Math.PI / 2; // Start from top
