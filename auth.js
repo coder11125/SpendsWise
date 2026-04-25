@@ -1,6 +1,8 @@
 const API_BASE = '/api';
 
 let currentTab = 'login';
+let pollInterval = null;
+const POLL_INTERVAL_MS = 30000;
 
 function switchAuthTab(tab) {
     currentTab = tab;
@@ -64,9 +66,15 @@ function showApp(email) {
         emailElement.parentElement.style.display = 'block';
     }
     if (typeof loadExpenses === 'function') loadExpenses();
+    clearInterval(pollInterval);
+    pollInterval = setInterval(() => {
+        if (typeof loadExpenses === 'function') loadExpenses();
+    }, POLL_INTERVAL_MS);
 }
 
 function logout() {
+    clearInterval(pollInterval);
+    pollInterval = null;
     localStorage.removeItem('sw_token');
     localStorage.removeItem('sw_email');
     // Clear in-memory expense so the next user sees a clean slate
