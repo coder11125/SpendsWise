@@ -485,13 +485,12 @@ async function addExpense(e) {
 }
 
 function updateCategoryOptions(type) {
-    // Toggle visibility of category option groups
     if (type === 'expense') {
-        expenseCategories.parentElement.style.display = 'block';
-        incomeCategories.parentElement.style.display = 'none';
+        expenseCategories.style.display = '';
+        incomeCategories.style.display = 'none';
     } else {
-        expenseCategories.parentElement.style.display = 'none';
-        incomeCategories.parentElement.style.display = 'block';
+        expenseCategories.style.display = 'none';
+        incomeCategories.style.display = '';
     }
 }
 
