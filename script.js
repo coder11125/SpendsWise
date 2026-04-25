@@ -28,7 +28,7 @@ function mapServerExpense(exp) {
     };
 }
 
-async function loadTransactions() {
+async function loadExpenses() {
     if (!getAuthToken()) return;
     try {
         const res = await apiFetch('/expenses');
@@ -36,7 +36,7 @@ async function loadTransactions() {
         const data = await res.json();
         expense = data.map(mapServerExpense);
         updateSummary();
-        renderTransactions();
+        renderExpenses();
         updateExpenseChart();
         if (currentFilter === 'income') renderIncomeView();
         else if (currentFilter === 'expense') renderExpenseView();
@@ -90,11 +90,11 @@ const currentCurrencyEl = document.getElementById('currentCurrency');
 const totalBalanceEl = document.getElementById('totalBalance');
 const totalIncomeEl = document.getElementById('totalIncome');
 const totalExpenseEl = document.getElementById('totalExpense');
-const form = document.getElementById('transactionForm');
+const form = document.getElementById('expenseForm');
 const dateInput = document.getElementById('date');
-const transactionList = document.getElementById('transactionList');
+const expenseList = document.getElementById('expenseList');
 const emptyState = document.getElementById('emptyState');
-const transactionCount = document.getElementById('transactionCount');
+const expenseCount = document.getElementById('expenseCount');
 const typeRadios = document.querySelectorAll('input[name="type"]');
 const categorySelect = document.getElementById('category');
 const expenseCategories = document.getElementById('expenseCategories');
@@ -117,17 +117,17 @@ const viewContents = document.querySelectorAll('.view-content');
 const incomeViewTotal = document.getElementById('incomeViewTotal');
 const incomeViewCount = document.getElementById('incomeViewCount');
 const incomeViewAverage = document.getElementById('incomeViewAverage');
-const incomeTransactionCount = document.getElementById('incomeTransactionCount');
+const incomeExpenseCount = document.getElementById('incomeExpenseCount');
 const incomeEmptyState = document.getElementById('incomeEmptyState');
-const incomeTransactionList = document.getElementById('incomeTransactionList');
+const incomeExpenseList = document.getElementById('incomeExpenseList');
 
 // Expense View Elements
 const expenseViewTotal = document.getElementById('expenseViewTotal');
 const expenseViewCount = document.getElementById('expenseViewCount');
 const expenseViewAverage = document.getElementById('expenseViewAverage');
-const expenseTransactionCount = document.getElementById('expenseTransactionCount');
+const expenseEntryCount = document.getElementById('expenseEntryCount');
 const expenseEmptyState = document.getElementById('expenseEmptyState');
-const expenseTransactionList = document.getElementById('expenseTransactionList');
+const expenseEntryList = document.getElementById('expenseEntryList');
 const expenseCanvas = document.getElementById('expenseChartExpenseView');
 const expenseCtx = expenseCanvas.getContext('2d');
 const expenseChartLegend = document.getElementById('expenseChartLegend');
@@ -139,9 +139,9 @@ const historySearch = document.getElementById('historySearch');
 const historyTypeFilter = document.getElementById('historyTypeFilter');
 const historyCategoryFilter = document.getElementById('historyCategoryFilter');
 const historySortBy = document.getElementById('historySortBy');
-const historyTransactionCount = document.getElementById('historyTransactionCount');
+const historyExpenseCount = document.getElementById('historyExpenseCount');
 const historyEmptyState = document.getElementById('historyEmptyState');
-const historyTransactionList = document.getElementById('historyTransactionList');
+const historyExpenseList = document.getElementById('historyExpenseList');
 
 // Account View Elements
 const accountView = document.getElementById('accountView');
@@ -191,7 +191,7 @@ function init() {
         openCurrencyModal();
     });
 
-    form.addEventListener('submit', addTransaction);
+    form.addEventListener('submit', addExpense);
 
     // Mobile Menu Listeners
     if (mobileMenuBtn) {
@@ -280,17 +280,17 @@ function init() {
     });
 
     // History view listeners
-    historySearch.addEventListener('input', filterHistoryTransactions);
-    historyTypeFilter.addEventListener('change', filterHistoryTransactions);
-    historyCategoryFilter.addEventListener('change', filterHistoryTransactions);
-    historySortBy.addEventListener('change', filterHistoryTransactions);
+    historySearch.addEventListener('input', filterHistoryExpenses);
+    historyTypeFilter.addEventListener('change', filterHistoryExpenses);
+    historyCategoryFilter.addEventListener('change', filterHistoryExpenses);
+    historySortBy.addEventListener('change', filterHistoryExpenses);
 
     // Initialize views
     updateSummary();
-    renderTransactions();
+    renderExpenses();
 
     // Load persisted expense from server if logged in
-    loadTransactions();
+    loadExpenses();
 }
 
 // --- CURRENCY HANDLING ---
@@ -354,7 +354,7 @@ function selectCurrency(currency) {
     
     // Update all currency displays
     updateSummary();
-    renderTransactions();
+    renderExpenses();
     renderIncomeView();
     renderExpenseView();
     updateExpenseChart();
@@ -415,8 +415,8 @@ function updateFamilyMemberSelect() {
     });
 }
 
-// --- TRANSACTION HANDLING ---
-async function addTransaction(e) {
+// --- EXPENSE HANDLING ---
+async function addExpense(e) {
     e.preventDefault();
 
     const type = form.type.value;
@@ -428,7 +428,7 @@ async function addTransaction(e) {
 
     if (!(type && amount && category && date)) return;
 
-    let transaction;
+    let newEntry;
 
     if (getAuthToken()) {
         try {
@@ -438,19 +438,19 @@ async function addTransaction(e) {
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                console.error('Failed to save transaction:', err.error ?? res.status);
+                console.error('Failed to save expense:', err.error ?? res.status);
                 return;
             }
-            transaction = mapServerExpense(await res.json());
+            newEntry = mapServerExpense(await res.json());
         } catch (err) {
-            console.error('Network error saving transaction:', err);
+            console.error('Network error saving expense:', err);
             return;
         }
     } else {
-        transaction = { id: String(Date.now()), type, amount, category, date, familyMember, note, currency: currentCurrency };
+        newEntry = { id: String(Date.now()), type, amount, category, date, familyMember, note, currency: currentCurrency };
     }
 
-    expense.unshift(transaction);
+    expense.unshift(newEntry);
 
     // Reset form
     if (type === 'expense') {
@@ -471,7 +471,7 @@ async function addTransaction(e) {
 
     // Update UI
     updateSummary();
-    renderTransactions();
+    renderExpenses();
     updateExpenseChart();
 
     // Update current view if needed
@@ -495,23 +495,23 @@ function updateCategoryOptions(type) {
     }
 }
 
-async function deleteTransaction(id) {
+async function deleteExpense(id) {
     if (getAuthToken()) {
         try {
             const res = await apiFetch(`/expenses/${id}`, { method: 'DELETE' });
             if (!res.ok && res.status !== 404) {
-                console.error('Failed to delete transaction, status:', res.status);
+                console.error('Failed to delete expense, status:', res.status);
                 return;
             }
         } catch (err) {
-            console.error('Network error deleting transaction:', err);
+            console.error('Network error deleting expense:', err);
             return;
         }
     }
 
-    expense = expense.filter(transaction => transaction.id !== id);
+    expense = expense.filter(item => item.id !== id);
     updateSummary();
-    renderTransactions();
+    renderExpenses();
     updateExpenseChart();
 
     // Update current view if needed
@@ -529,11 +529,11 @@ function calculateSummary() {
     let income = 0;
     let expenses = 0;
     
-    expense.forEach(transaction => {
-        if (transaction.type === 'income') {
-            income += transaction.amount;
+    expense.forEach(item => {
+        if (item.type === 'income') {
+            income += item.amount;
         } else {
-            expenses += transaction.amount;
+            expenses += item.amount;
         }
     });
     
@@ -545,34 +545,34 @@ function calculateSummary() {
 }
 
 function calculateIncomeSummary() {
-    const incomeTransactions = expense.filter(t => t.type === 'income');
+    const incomeItems = expense.filter(t => t.type === 'income');
     
-    const total = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const count = incomeTransactions.length;
+    const total = incomeItems.reduce((sum, t) => sum + t.amount, 0);
+    const count = incomeItems.length;
     const average = count > 0 ? total / count : 0;
     
     return { total, count, average };
 }
 
 function calculateExpenseSummary() {
-    const expenseTransactions = expense.filter(t => t.type === 'expense');
+    const expenseItems = expense.filter(t => t.type === 'expense');
     
-    const total = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const count = expenseTransactions.length;
+    const total = expenseItems.reduce((sum, t) => sum + t.amount, 0);
+    const count = expenseItems.length;
     const average = count > 0 ? total / count : 0;
     
     return { total, count, average };
 }
 
 function calculateExpenseByCategory() {
-    const expenseTransactions = expense.filter(t => t.type === 'expense');
+    const expenseItems = expense.filter(t => t.type === 'expense');
     const categoryTotals = {};
     
-    expenseTransactions.forEach(transaction => {
-        if (!categoryTotals[transaction.category]) {
-            categoryTotals[transaction.category] = 0;
+    expenseItems.forEach(item => {
+        if (!categoryTotals[item.category]) {
+            categoryTotals[item.category] = 0;
         }
-        categoryTotals[transaction.category] += transaction.amount;
+        categoryTotals[item.category] += item.amount;
     });
     
     const total = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0);
@@ -600,27 +600,27 @@ function updateSummary() {
     totalExpenseEl.textContent = `-${symbol}${summary.expenses.toFixed(2)}`;
 }
 
-function renderTransactions() {
+function renderExpenses() {
     if (expense.length === 0) {
         emptyState.style.display = 'flex';
-        transactionList.innerHTML = '';
-        transactionCount.textContent = '0 items';
+        expenseList.innerHTML = '';
+        expenseCount.textContent = '0 items';
         return;
     }
     
     emptyState.style.display = 'none';
-    transactionList.innerHTML = '';
+    expenseList.innerHTML = '';
     
     // Show only the most recent 10 expense on dashboard
-    const recentTransactions = expense.slice(0, 10);
+    const recentItems = expense.slice(0, 10);
     
-    recentTransactions.forEach(transaction => {
+    recentItems.forEach(item => {
         const li = document.createElement('li');
         li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors animate-fade-in';
         
-        const typeIcon = transaction.type === 'income' ? 'ph-trend-up' : 'ph-trend-down';
-        const typeColor = transaction.type === 'income' ? 'text-emerald-600' : 'text-rose-600';
-        const bgColor = transaction.type === 'income' ? 'bg-emerald-100' : 'bg-rose-100';
+        const typeIcon = item.type === 'income' ? 'ph-trend-up' : 'ph-trend-down';
+        const typeColor = item.type === 'income' ? 'text-emerald-600' : 'text-rose-600';
+        const bgColor = item.type === 'income' ? 'bg-emerald-100' : 'bg-rose-100';
         
         li.innerHTML = `
             <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -629,30 +629,30 @@ function renderTransactions() {
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
-                        <p class="font-medium text-slate-800 truncate">${transaction.category}</p>
-                        ${transaction.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${transaction.familyMember}</span>` : ''}
+                        <p class="font-medium text-slate-800 truncate">${item.category}</p>
+                        ${item.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${item.familyMember}</span>` : ''}
                     </div>
                     <div class="flex items-center gap-2 text-xs text-slate-500">
-                        <span>${formatDate(transaction.date)}</span>
-                        ${transaction.note ? `<span>•</span><span class="truncate">${transaction.note}</span>` : ''}
+                        <span>${formatDate(item.date)}</span>
+                        ${item.note ? `<span>•</span><span class="truncate">${item.note}</span>` : ''}
                     </div>
                 </div>
             </div>
             <div class="flex items-center gap-3">
                 <div class="text-right">
-                    <p class="${typeColor} font-semibold">${transaction.type === 'income' ? '+' : '-'}${getCurrencySymbol(transaction.currency)}${transaction.amount.toFixed(2)}</p>
-                    <p class="text-xs text-slate-400">${transaction.currency}</p>
+                    <p class="${typeColor} font-semibold">${item.type === 'income' ? '+' : '-'}${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)}</p>
+                    <p class="text-xs text-slate-400">${item.currency}</p>
                 </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction('${transaction.id}')">
+                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteExpense('${item.id}')">
                     <i class="ph ph-trash text-sm"></i>
                 </button>
             </div>
         `;
 
-        transactionList.appendChild(li);
+        expenseList.appendChild(li);
     });
     
-    transactionCount.textContent = `${expense.length} item${expense.length !== 1 ? 's' : ''}`;
+    expenseCount.textContent = `${expense.length} item${expense.length !== 1 ? 's' : ''}`;
 }
 
 function renderIncomeView() {
@@ -663,53 +663,53 @@ function renderIncomeView() {
     incomeViewCount.textContent = count;
     incomeViewAverage.textContent = `${symbol}${average.toFixed(2)}`;
     
-    const incomeTransactions = expense.filter(t => t.type === 'income');
+    const incomeItems = expense.filter(t => t.type === 'income');
     
-    if (incomeTransactions.length === 0) {
+    if (incomeItems.length === 0) {
         incomeEmptyState.style.display = 'flex';
-        incomeTransactionList.innerHTML = '';
-        incomeTransactionCount.textContent = '0 items';
+        incomeExpenseList.innerHTML = '';
+        incomeExpenseCount.textContent = '0 items';
         return;
     }
     
     incomeEmptyState.style.display = 'none';
-    incomeTransactionList.innerHTML = '';
+    incomeExpenseList.innerHTML = '';
     
-    incomeTransactions.forEach(transaction => {
+    incomeItems.forEach(item => {
         const li = document.createElement('li');
         li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors animate-fade-in';
         
         li.innerHTML = `
             <div class="flex items-center gap-3 flex-1 min-w-0">
                 <div class="bg-emerald-100 p-2 rounded-lg flex-shrink-0">
-                    <i class="ph ${categoryIcons[transaction.category] || categoryIcons['Other']} text-emerald-600"></i>
+                    <i class="ph ${categoryIcons[item.category] || categoryIcons['Other']} text-emerald-600"></i>
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
-                        <p class="font-medium text-slate-800 truncate">${transaction.category}</p>
-                        ${transaction.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${transaction.familyMember}</span>` : ''}
+                        <p class="font-medium text-slate-800 truncate">${item.category}</p>
+                        ${item.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${item.familyMember}</span>` : ''}
                     </div>
                     <div class="flex items-center gap-2 text-xs text-slate-500">
-                        <span>${formatDate(transaction.date)}</span>
-                        ${transaction.note ? `<span>•</span><span class="truncate">${transaction.note}</span>` : ''}
+                        <span>${formatDate(item.date)}</span>
+                        ${item.note ? `<span>•</span><span class="truncate">${item.note}</span>` : ''}
                     </div>
                 </div>
             </div>
             <div class="flex items-center gap-3">
                 <div class="text-right">
-                    <p class="text-emerald-600 font-semibold">+${getCurrencySymbol(transaction.currency)}${transaction.amount.toFixed(2)}</p>
-                    <p class="text-xs text-slate-400">${transaction.currency}</p>
+                    <p class="text-emerald-600 font-semibold">+${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)}</p>
+                    <p class="text-xs text-slate-400">${item.currency}</p>
                 </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction('${transaction.id}')">
+                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteExpense('${item.id}')">
                     <i class="ph ph-trash text-sm"></i>
                 </button>
             </div>
         `;
 
-        incomeTransactionList.appendChild(li);
+        incomeExpenseList.appendChild(li);
     });
     
-    incomeTransactionCount.textContent = `${incomeTransactions.length} item${incomeTransactions.length !== 1 ? 's' : ''}`;
+    incomeExpenseCount.textContent = `${incomeItems.length} item${incomeItems.length !== 1 ? 's' : ''}`;
 }
 
 function renderExpenseView() {
@@ -720,55 +720,55 @@ function renderExpenseView() {
     expenseViewCount.textContent = count;
     expenseViewAverage.textContent = `${symbol}${average.toFixed(2)}`;
     
-    const expenseTransactions = expense.filter(t => t.type === 'expense');
+    const expenseItems = expense.filter(t => t.type === 'expense');
     
-    if (expenseTransactions.length === 0) {
+    if (expenseItems.length === 0) {
         expenseEmptyState.style.display = 'flex';
-        expenseTransactionList.innerHTML = '';
-        expenseTransactionCount.textContent = '0 items';
+        expenseEntryList.innerHTML = '';
+        expenseEntryCount.textContent = '0 items';
         topExpenseCategories.innerHTML = '<p class="text-center text-slate-500 text-sm">No expenses to analyze yet.</p>';
         renderExpenseChart([], 0);
         return;
     }
     
     expenseEmptyState.style.display = 'none';
-    expenseTransactionList.innerHTML = '';
+    expenseEntryList.innerHTML = '';
     
-    expenseTransactions.forEach(transaction => {
+    expenseItems.forEach(item => {
         const li = document.createElement('li');
         li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors animate-fade-in';
         
         li.innerHTML = `
             <div class="flex items-center gap-3 flex-1 min-w-0">
                 <div class="bg-rose-100 p-2 rounded-lg flex-shrink-0">
-                    <i class="ph ${categoryIcons[transaction.category] || categoryIcons['Other']} text-rose-600"></i>
+                    <i class="ph ${categoryIcons[item.category] || categoryIcons['Other']} text-rose-600"></i>
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
-                        <p class="font-medium text-slate-800 truncate">${transaction.category}</p>
-                        ${transaction.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${transaction.familyMember}</span>` : ''}
+                        <p class="font-medium text-slate-800 truncate">${item.category}</p>
+                        ${item.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${item.familyMember}</span>` : ''}
                     </div>
                     <div class="flex items-center gap-2 text-xs text-slate-500">
-                        <span>${formatDate(transaction.date)}</span>
-                        ${transaction.note ? `<span>•</span><span class="truncate">${transaction.note}</span>` : ''}
+                        <span>${formatDate(item.date)}</span>
+                        ${item.note ? `<span>•</span><span class="truncate">${item.note}</span>` : ''}
                     </div>
                 </div>
             </div>
             <div class="flex items-center gap-3">
                 <div class="text-right">
-                    <p class="text-rose-600 font-semibold">-${getCurrencySymbol(transaction.currency)}${transaction.amount.toFixed(2)}</p>
-                    <p class="text-xs text-slate-400">${transaction.currency}</p>
+                    <p class="text-rose-600 font-semibold">-${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)}</p>
+                    <p class="text-xs text-slate-400">${item.currency}</p>
                 </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction('${transaction.id}')">
+                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteExpense('${item.id}')">
                     <i class="ph ph-trash text-sm"></i>
                 </button>
             </div>
         `;
 
-        expenseTransactionList.appendChild(li);
+        expenseEntryList.appendChild(li);
     });
     
-    expenseTransactionCount.textContent = `${expenseTransactions.length} item${expenseTransactions.length !== 1 ? 's' : ''}`;
+    expenseEntryCount.textContent = `${expenseItems.length} item${expenseItems.length !== 1 ? 's' : ''}`;
     
     // Update expense breakdown and chart
     const { data: categoryData, total: expenseTotal } = calculateExpenseByCategory();
@@ -875,29 +875,29 @@ function renderExpenseChart(categoryData, total) {
     chartTotalValue.textContent = `${getCurrencySymbol(currentCurrency)}${total.toFixed(2)}`;
 }
 
-function renderHistoryView(filteredTransactions = null) {
-    const expenseToRender = filteredTransactions || expense;
+function renderHistoryView(filteredExpenses = null) {
+    const expenseToRender = filteredExpenses || expense;
     
     // Update category filter options
     updateHistoryCategoryFilter();
     
     if (expenseToRender.length === 0) {
         historyEmptyState.style.display = 'flex';
-        historyTransactionList.innerHTML = '';
-        historyTransactionCount.textContent = '0 items';
+        historyExpenseList.innerHTML = '';
+        historyExpenseCount.textContent = '0 items';
         return;
     }
     
     historyEmptyState.style.display = 'none';
-    historyTransactionList.innerHTML = '';
+    historyExpenseList.innerHTML = '';
     
-    expenseToRender.forEach(transaction => {
+    expenseToRender.forEach(item => {
         const li = document.createElement('li');
         li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors';
         
-        const typeIcon = transaction.type === 'income' ? 'ph-trend-up' : 'ph-trend-down';
-        const typeColor = transaction.type === 'income' ? 'text-emerald-600' : 'text-rose-600';
-        const bgColor = transaction.type === 'income' ? 'bg-emerald-100' : 'bg-rose-100';
+        const typeIcon = item.type === 'income' ? 'ph-trend-up' : 'ph-trend-down';
+        const typeColor = item.type === 'income' ? 'text-emerald-600' : 'text-rose-600';
+        const bgColor = item.type === 'income' ? 'bg-emerald-100' : 'bg-rose-100';
         
         li.innerHTML = `
             <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -906,34 +906,34 @@ function renderHistoryView(filteredTransactions = null) {
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
-                        <p class="font-medium text-slate-800 truncate">${transaction.category}</p>
-                        <span class="text-xs ${transaction.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} px-1.5 py-0.5 rounded-full">${transaction.type}</span>
-                        ${transaction.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${transaction.familyMember}</span>` : ''}
+                        <p class="font-medium text-slate-800 truncate">${item.category}</p>
+                        <span class="text-xs ${item.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} px-1.5 py-0.5 rounded-full">${item.type}</span>
+                        ${item.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${item.familyMember}</span>` : ''}
                     </div>
                     <div class="flex items-center gap-2 text-xs text-slate-500">
-                        <span>${formatDate(transaction.date)}</span>
-                        ${transaction.note ? `<span>•</span><span class="truncate">${transaction.note}</span>` : ''}
+                        <span>${formatDate(item.date)}</span>
+                        ${item.note ? `<span>•</span><span class="truncate">${item.note}</span>` : ''}
                     </div>
                 </div>
             </div>
             <div class="flex items-center gap-3">
                 <div class="text-right">
-                    <p class="${typeColor} font-semibold">${transaction.type === 'income' ? '+' : '-'}${getCurrencySymbol(transaction.currency)}${transaction.amount.toFixed(2)}</p>
-                    <p class="text-xs text-slate-400">${transaction.currency}</p>
+                    <p class="${typeColor} font-semibold">${item.type === 'income' ? '+' : '-'}${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)}</p>
+                    <p class="text-xs text-slate-400">${item.currency}</p>
                 </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteTransaction('${transaction.id}')">
+                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteExpense('${item.id}')">
                     <i class="ph ph-trash text-sm"></i>
                 </button>
             </div>
         `;
 
-        historyTransactionList.appendChild(li);
+        historyExpenseList.appendChild(li);
     });
     
-    historyTransactionCount.textContent = `${expenseToRender.length} item${expenseToRender.length !== 1 ? 's' : ''}`;
+    historyExpenseCount.textContent = `${expenseToRender.length} item${expenseToRender.length !== 1 ? 's' : ''}`;
 }
 
-function filterHistoryTransactions() {
+function filterHistoryExpenses() {
     const searchTerm = historySearch.value.trim().toLowerCase();
     const typeFilter = historyTypeFilter.value;
     const categoryFilter = historyCategoryFilter.value;
@@ -1118,7 +1118,7 @@ async function changePassword(e) {
     }
 }
 
-function exportTransactionsCSV() {
+function exportExpensesCSV() {
     if (expense.length === 0) {
         alert('No expense to export.');
         return;
@@ -1146,12 +1146,12 @@ function exportTransactionsCSV() {
 async function confirmClearAllData() {
     if (!confirm('Are you sure? This will permanently delete ALL your expense from the server. This cannot be undone.')) return;
     try {
-        // Delete each transaction individually via existing DELETE endpoint
+        // Delete each expense individually via existing DELETE endpoint
         const ids = expense.map(t => t.id);
         await Promise.all(ids.map(id => apiFetch(`/expenses/${id}`, { method: 'DELETE' })));
         expense = [];
         updateSummary();
-        renderTransactions();
+        renderExpenses();
         updateExpenseChart();
         renderAccountView();
         alert('All expense deleted.');

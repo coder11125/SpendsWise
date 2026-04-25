@@ -127,9 +127,9 @@
                         <!-- Add Expense Form -->
                         <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                             <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                <i class="ph ph-plus-circle text-blue-500"></i> New Transaction
+                                <i class="ph ph-plus-circle text-blue-500"></i> New Expense
                             </h3>
-                            <form id="transactionForm" class="space-y-4">
+                            <form id="expenseForm" class="space-y-4">
                                 
                                 <!-- Type -->
                                 <div class="flex p-1 bg-slate-100 rounded-lg">
@@ -219,7 +219,7 @@
                                 </div>
 
                                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
-                                    <i class="ph ph-check-circle"></i> Add Transaction
+                                    <i class="ph ph-check-circle"></i> Add Expense
                                 </button>
                             </form>
                         </div>
@@ -249,13 +249,13 @@
                         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm h-full flex flex-col">
                             <div class="p-6 border-b border-slate-100 flex items-center justify-between">
                                 <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                    <i class="ph ph-list-dashes text-blue-500"></i> Recent Transactions
+                                    <i class="ph ph-list-dashes text-blue-500"></i> Recent Expenses
                                 </h3>
-                                <span id="transactionCount" class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-full">0 items</span>
+                                <span id="expenseCount" class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-full">0 items</span>
                             </div>
                             
                             <!-- List Container -->
-                            <div class="flex-grow overflow-y-auto custom-scrollbar p-2 sm:p-4 max-h-[600px]" id="transactionListContainer">
+                            <div class="flex-grow overflow-y-auto custom-scrollbar p-2 sm:p-4 max-h-[600px]" id="expenseListContainer">
                                 
                                 <!-- Empty State -->
                                 <div id="emptyState" class="flex flex-col items-center justify-center h-full py-16 text-center px-4">
@@ -263,11 +263,11 @@
                                         <i class="ph ph-receipt text-4xl text-slate-300"></i>
                                     </div>
 <h4 class="text-slate-700 font-semibold mb-1">No expense yet</h4>
-                                    <p class="text-slate-500 text-sm max-w-xs">Start managing your budget by adding your first income or expense transaction.</p>
+                                    <p class="text-slate-500 text-sm max-w-xs">Start managing your budget by adding your first income or expense entry.</p>
                                 </div>
 
                                 <!-- Actual List -->
-                                <ul id="transactionList" class="space-y-2">
+                                <ul id="expenseList" class="space-y-2">
                                     <!-- Items populated by JS -->
                                 </ul>
 
@@ -305,13 +305,13 @@
                     </div>
                 </div>
 
-                <!-- Income Transactions List -->
+                <!-- Income Expenses List -->
                 <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
                     <div class="p-6 border-b border-slate-100 flex items-center justify-between">
                         <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <i class="ph ph-money text-blue-500"></i> Income Transactions
+                            <i class="ph ph-money text-blue-500"></i> Income Expenses
                         </h3>
-                        <span id="incomeTransactionCount" class="text-xs font-medium bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full">0 items</span>
+                        <span id="incomeExpenseCount" class="text-xs font-medium bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full">0 items</span>
                     </div>
                     <div class="flex-grow overflow-y-auto custom-scrollbar p-2 sm:p-4 max-h-[600px]">
                         <div id="incomeEmptyState" class="flex flex-col items-center justify-center h-full py-16 text-center px-4">
@@ -319,9 +319,9 @@
                                 <i class="ph ph-trend-up text-4xl text-emerald-300"></i>
                             </div>
                             <h4 class="text-slate-700 font-semibold mb-1">No income expense</h4>
-                            <p class="text-slate-500 text-sm max-w-xs">Start tracking your income by adding your first income transaction.</p>
+                            <p class="text-slate-500 text-sm max-w-xs">Start tracking your income by adding your first income entry.</p>
                         </div>
-                        <ul id="incomeTransactionList" class="space-y-2">
+                        <ul id="incomeExpenseList" class="space-y-2">
                             <!-- Items populated by JS -->
                         </ul>
                     </div>
@@ -389,13 +389,13 @@
                     </div>
                 </div>
 
-                <!-- Expense Transactions List -->
+                <!-- Expenses List -->
                 <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
                     <div class="p-6 border-b border-slate-100 flex items-center justify-between">
                         <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <i class="ph ph-list-dashes text-blue-500"></i> Expense Transactions
+                            <i class="ph ph-list-dashes text-blue-500"></i> Expenses
                         </h3>
-                        <span id="expenseTransactionCount" class="text-xs font-medium bg-rose-100 text-rose-600 px-2 py-1 rounded-full">0 items</span>
+                        <span id="expenseEntryCount" class="text-xs font-medium bg-rose-100 text-rose-600 px-2 py-1 rounded-full">0 items</span>
                     </div>
                     <div class="flex-grow overflow-y-auto custom-scrollbar p-2 sm:p-4 max-h-[600px]">
                         <div id="expenseEmptyState" class="flex flex-col items-center justify-center h-full py-16 text-center px-4">
@@ -403,23 +403,23 @@
                                 <i class="ph ph-trend-down text-4xl text-rose-300"></i>
                             </div>
                             <h4 class="text-slate-700 font-semibold mb-1">No expense items</h4>
-                            <p class="text-slate-500 text-sm max-w-xs">Start tracking your expenses by adding your first expense transaction.</p>
+                            <p class="text-slate-500 text-sm max-w-xs">Start tracking your expenses by adding your first expense entry.</p>
                         </div>
-                        <ul id="expenseTransactionList" class="space-y-2">
+                        <ul id="expenseEntryList" class="space-y-2">
                             <!-- Items populated by JS -->
                         </ul>
                     </div>
                 </div>
             </div>
 
-            <!-- Transaction History View -->
+            <!-- Expense History View -->
             <div id="historyView" class="view-content hidden">
                 <div class="mb-8">
                     <h2 class="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-3">
                         <div class="bg-blue-100 text-blue-600 p-2 rounded-lg">
                             <i class="ph ph-list-dashes text-xl"></i>
                         </div>
-                        Transaction History
+                        Expense History
                     </h2>
                     <p class="text-slate-600">View and manage all your expense</p>
                 </div>
@@ -460,13 +460,13 @@
                     </div>
                 </div>
 
-                <!-- All Transactions List -->
+                <!-- All Expenses List -->
                 <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
                     <div class="p-6 border-b border-slate-100 flex items-center justify-between">
                         <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <i class="ph ph-list-dashes text-blue-500"></i> All Transactions
+                            <i class="ph ph-list-dashes text-blue-500"></i> All Expenses
                         </h3>
-                        <span id="historyTransactionCount" class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-full">0 items</span>
+                        <span id="historyExpenseCount" class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-full">0 items</span>
                     </div>
                     <div class="flex-grow overflow-y-auto custom-scrollbar p-2 sm:p-4 max-h-[600px]">
                         <div id="historyEmptyState" class="flex flex-col items-center justify-center h-full py-16 text-center px-4">
@@ -474,9 +474,9 @@
                                 <i class="ph ph-receipt text-4xl text-slate-300"></i>
                             </div>
                             <h4 class="text-slate-700 font-semibold mb-1">No expense yet</h4>
-                            <p class="text-slate-500 text-sm max-w-xs">Start managing your budget by adding your first income or expense transaction.</p>
+                            <p class="text-slate-500 text-sm max-w-xs">Start managing your budget by adding your first income or expense entry.</p>
                         </div>
-                        <ul id="historyTransactionList" class="space-y-2">
+                        <ul id="historyExpenseList" class="space-y-2">
                             <!-- Items populated by JS -->
                         </ul>
                     </div>
@@ -512,7 +512,7 @@
                             <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Account Stats</h3>
                             <div class="space-y-4">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-sm text-slate-600">Total Transactions</span>
+                                    <span class="text-sm text-slate-600">Total Expenses</span>
                                     <span id="accountTotalTx" class="font-bold text-slate-800">0</span>
                                 </div>
                                 <div class="flex items-center justify-between">
@@ -534,7 +534,7 @@
                         <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                             <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Export Data</h3>
                             <p class="text-sm text-slate-500 mb-4">Download all your expense as a CSV file.</p>
-                            <button onclick="exportTransactionsCSV()" class="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
+                            <button onclick="exportExpensesCSV()" class="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
                                 <i class="ph ph-download-simple"></i> Export as CSV
                             </button>
                         </div>
@@ -586,7 +586,7 @@
                             </h3>
                             <p class="text-sm text-slate-500 mb-4">This will permanently delete all your expense from the server. Your account will remain active.</p>
                             <button onclick="confirmClearAllData()" class="flex items-center gap-2 border border-rose-300 text-rose-600 hover:bg-rose-50 text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">
-                                <i class="ph ph-trash"></i> Delete All Transactions
+                                <i class="ph ph-trash"></i> Delete All Expenses
                             </button>
                         </div>
 

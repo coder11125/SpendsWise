@@ -63,7 +63,7 @@ function showApp(email) {
         emailElement.textContent = email;
         emailElement.parentElement.style.display = 'block';
     }
-    if (typeof loadTransactions === 'function') loadTransactions();
+    if (typeof loadExpenses === 'function') loadExpenses();
 }
 
 function logout() {
@@ -73,7 +73,7 @@ function logout() {
     if (typeof expense !== 'undefined') {
         expense = [];
         if (typeof updateSummary === 'function') updateSummary();
-        if (typeof renderTransactions === 'function') renderTransactions();
+        if (typeof renderExpenses === 'function') renderExpenses();
         if (typeof updateExpenseChart === 'function') updateExpenseChart();
     }
     document.getElementById('authModal').classList.remove('hidden');
