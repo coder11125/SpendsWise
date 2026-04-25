@@ -28,7 +28,9 @@ export async function authRequired(req: Request, res: Response, next: NextFuncti
   // revocation take effect immediately rather than waiting for JWT expiry.
   try {
     const user = await UserModel.findById(payload.userId).select("tokenVersion").lean();
-    if (!user || user.tokenVersion !== (payload.tv ?? 0)) {
+    // Existing documents pre-dating the tokenVersion field have it as undefined;
+    // treat that as 0 so they aren't forced to re-login after the schema change.
+    if (!user || (user.tokenVersion ?? 0) !== (payload.tv ?? 0)) {
       res.status(401).json({ error: "Session invalidated — please log in again" });
       return;
     }
