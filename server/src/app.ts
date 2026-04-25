@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import { connectDB } from "./db";
 import authRoutes from "./routes/auth";
 import expenseRoutes from "./routes/expenses";
@@ -17,10 +18,13 @@ app.use(
   cors({
     origin: config.allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type"],
     credentials: true,
   })
 );
+
+// C3: Parse HttpOnly session cookies
+app.use(cookieParser());
 
 // H8: Tighten body size limit
 app.use(express.json({ limit: "10kb" }));

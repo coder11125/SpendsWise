@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt, { SignOptions } from "jsonwebtoken";
 import { UserModel } from "../models/User";
@@ -8,9 +8,18 @@ import { authRequired } from "../middleware/auth";
 
 const router = Router();
 
-function signToken(userId: string): string {
+const COOKIE_OPTS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict" as const,
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  path: "/",
+};
+
+function signAndSetCookie(res: Response, userId: string): void {
   const options: SignOptions = { expiresIn: config.jwtExpiresIn };
-  return jwt.sign({ userId }, config.jwtSecret, options);
+  const token = jwt.sign({ userId }, config.jwtSecret, options);
+  res.cookie("sw_session", token, COOKIE_OPTS);
 }
 
 router.post(
@@ -26,8 +35,8 @@ router.post(
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await UserModel.create({ email, passwordHash });
-    const token = signToken(user._id.toString());
-    return res.status(201).json({ token, user: { id: user._id, email: user.email } });
+    signAndSetCookie(res, user._id.toString());
+    return res.status(201).json({ user: { id: user._id, email: user.email } });
   })
 );
 
@@ -45,10 +54,15 @@ router.post(
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
-    const token = signToken(user._id.toString());
-    return res.json({ token, user: { id: user._id, email: user.email } });
+    signAndSetCookie(res, user._id.toString());
+    return res.json({ user: { id: user._id, email: user.email } });
   })
 );
+
+router.post("/logout", (_req, res) => {
+  res.clearCookie("sw_session", { path: "/" });
+  res.json({ message: "Logged out" });
+});
 
 router.get(
   "/me",

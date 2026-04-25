@@ -1,5 +1,9 @@
 const API_BASE = '/api';
 
+// Tracks whether the current session is authenticated.
+// Defined here (auth.js loads before script.js) so script.js can read it.
+let isLoggedIn = false;
+
 let currentTab = 'login';
 let pollInterval = null;
 const POLL_INTERVAL_MS = 30000;
@@ -33,6 +37,7 @@ async function handleAuth(e) {
     try {
         const res = await fetch(`${API_BASE}/auth/${currentTab === 'login' ? 'login' : 'register'}`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
         });
@@ -45,7 +50,7 @@ async function handleAuth(e) {
             return;
         }
 
-        localStorage.setItem('sw_token', data.token);
+        // Token is now in an HttpOnly cookie — store only the non-secret email for UI use
         localStorage.setItem('sw_email', data.user.email);
         showApp(data.user.email);
     } catch {
@@ -58,9 +63,9 @@ async function handleAuth(e) {
 }
 
 function showApp(email) {
+    isLoggedIn = true;
     document.getElementById('authModal').classList.add('hidden');
     const emailElement = document.getElementById('authUserEmail');
-    // Ensure the email is displayed in the sidebar
     if (emailElement) {
         emailElement.textContent = email;
         emailElement.parentElement.style.display = 'block';
@@ -72,12 +77,18 @@ function showApp(email) {
     }, POLL_INTERVAL_MS);
 }
 
-function logout() {
+async function logout() {
     clearInterval(pollInterval);
     pollInterval = null;
-    localStorage.removeItem('sw_token');
+    isLoggedIn = false;
+
+    // Clear the HttpOnly cookie server-side
+    try {
+        await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
+    } catch {}
+
     localStorage.removeItem('sw_email');
-    // Clear in-memory expense so the next user sees a clean slate
+
     if (typeof expense !== 'undefined') {
         expense = [];
         if (typeof updateSummary === 'function') updateSummary();
@@ -89,11 +100,18 @@ function logout() {
     document.getElementById('authPassword').value = '';
 }
 
-// On page load — skip the modal if already logged in
-(function init() {
-    const token = localStorage.getItem('sw_token');
-    const email = localStorage.getItem('sw_email');
-    if (token && email) {
-        showApp(email);
-    }
+// On page load — verify session with the server using the HttpOnly cookie.
+// If valid, skip the auth modal. If not, leave it visible.
+(async function init() {
+    const cachedEmail = localStorage.getItem('sw_email');
+    if (!cachedEmail) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
+        if (res.ok) {
+            const data = await res.json();
+            localStorage.setItem('sw_email', data.email);
+            showApp(data.email);
+        }
+    } catch {}
 })();

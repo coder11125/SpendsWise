@@ -1,15 +1,12 @@
 // --- API SYNC ---
-function getAuthToken() {
-    return localStorage.getItem('sw_token');
-}
-
+// Auth state is owned by auth.js (isLoggedIn). apiFetch relies on the
+// HttpOnly session cookie being sent automatically via credentials:'include'.
 async function apiFetch(path, options = {}) {
-    const token = getAuthToken();
     return fetch(`${API_BASE}${path}`, {
         ...options,
+        credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             ...(options.headers ?? {}),
         },
     });
@@ -29,7 +26,7 @@ function mapServerExpense(exp) {
 }
 
 async function loadExpenses() {
-    if (!getAuthToken()) return;
+    if (!isLoggedIn) return;
     try {
         const res = await apiFetch('/expenses');
         if (!res.ok) return;
@@ -388,12 +385,20 @@ function renderManageMembers() {
         familyMembers.forEach(member => {
             const li = document.createElement('li');
             li.className = 'flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2';
-            li.innerHTML = `
-                <span class="text-sm font-medium text-slate-700">${member}</span>
-                <button class="text-rose-500 hover:text-rose-700 transition-colors" onclick="removeMember('${member}')">
-                    <i class="ph ph-trash text-sm"></i>
-                </button>
-            `;
+
+            const span = document.createElement('span');
+            span.className = 'text-sm font-medium text-slate-700';
+            span.textContent = member;
+
+            const btn = document.createElement('button');
+            btn.className = 'text-rose-500 hover:text-rose-700 transition-colors';
+            const trashIcon = document.createElement('i');
+            trashIcon.className = 'ph ph-trash text-sm';
+            btn.appendChild(trashIcon);
+            btn.addEventListener('click', () => removeMember(member));
+
+            li.appendChild(span);
+            li.appendChild(btn);
             managedMembersList.appendChild(li);
         });
     }
@@ -431,7 +436,7 @@ async function addExpense(e) {
 
     let newEntry;
 
-    if (getAuthToken()) {
+    if (isLoggedIn) {
         try {
             const res = await apiFetch('/expenses', {
                 method: 'POST',
@@ -496,7 +501,7 @@ function updateCategoryOptions(type) {
 }
 
 async function deleteExpense(id) {
-    if (getAuthToken()) {
+    if (isLoggedIn) {
         try {
             const res = await apiFetch(`/expenses/${id}`, { method: 'DELETE' });
             if (!res.ok && res.status !== 404) {
@@ -591,6 +596,106 @@ function calculateExpenseByCategory() {
 }
 
 // --- UI RENDERING ---
+
+// Builds a safe expense/income list row using DOM methods (no innerHTML for user data).
+// Eliminates XSS via category, note, familyMember, and currency fields.
+function buildItemRow(item, { useTypeIcon, showTypeBadge, iconBgClass, iconColorClass, amountColorClass, amountPrefix }) {
+    const li = document.createElement('li');
+    li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors animate-fade-in';
+
+    // Left
+    const left = document.createElement('div');
+    left.className = 'flex items-center gap-3 flex-1 min-w-0';
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = `${iconBgClass} p-2 rounded-lg flex-shrink-0`;
+    const iconEl = document.createElement('i');
+    const iconName = useTypeIcon
+        ? (item.type === 'income' ? 'ph-trend-up' : 'ph-trend-down')
+        : (categoryIcons[item.category] || categoryIcons['Other']);
+    iconEl.className = `ph ${iconName} ${iconColorClass}`;
+    iconWrap.appendChild(iconEl);
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'flex-1 min-w-0';
+
+    const titleRow = document.createElement('div');
+    titleRow.className = 'flex items-center gap-2';
+
+    const categoryEl = document.createElement('p');
+    categoryEl.className = 'font-medium text-slate-800 truncate';
+    categoryEl.textContent = item.category;
+    titleRow.appendChild(categoryEl);
+
+    if (showTypeBadge) {
+        const typeBadge = document.createElement('span');
+        typeBadge.className = `text-xs ${item.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} px-1.5 py-0.5 rounded-full`;
+        typeBadge.textContent = item.type;
+        titleRow.appendChild(typeBadge);
+    }
+
+    if (item.familyMember) {
+        const memberBadge = document.createElement('span');
+        memberBadge.className = 'text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full';
+        memberBadge.textContent = item.familyMember;
+        titleRow.appendChild(memberBadge);
+    }
+
+    const metaRow = document.createElement('div');
+    metaRow.className = 'flex items-center gap-2 text-xs text-slate-500';
+
+    const dateEl = document.createElement('span');
+    dateEl.textContent = formatDate(item.date);
+    metaRow.appendChild(dateEl);
+
+    if (item.note) {
+        const dot = document.createElement('span');
+        dot.textContent = '•';
+        const noteEl = document.createElement('span');
+        noteEl.className = 'truncate';
+        noteEl.textContent = item.note;
+        metaRow.appendChild(dot);
+        metaRow.appendChild(noteEl);
+    }
+
+    textWrap.appendChild(titleRow);
+    textWrap.appendChild(metaRow);
+    left.appendChild(iconWrap);
+    left.appendChild(textWrap);
+
+    // Right
+    const right = document.createElement('div');
+    right.className = 'flex items-center gap-3';
+
+    const amountWrap = document.createElement('div');
+    amountWrap.className = 'text-right';
+
+    const amountEl = document.createElement('p');
+    amountEl.className = `${amountColorClass} font-semibold`;
+    amountEl.textContent = `${amountPrefix}${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)}`;
+
+    const currencyEl = document.createElement('p');
+    currencyEl.className = 'text-xs text-slate-400';
+    currencyEl.textContent = item.currency;
+
+    amountWrap.appendChild(amountEl);
+    amountWrap.appendChild(currencyEl);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'text-slate-400 hover:text-rose-600 transition-colors';
+    const trashIcon = document.createElement('i');
+    trashIcon.className = 'ph ph-trash text-sm';
+    delBtn.appendChild(trashIcon);
+    delBtn.addEventListener('click', () => deleteExpense(item.id));
+
+    right.appendChild(amountWrap);
+    right.appendChild(delBtn);
+
+    li.appendChild(left);
+    li.appendChild(right);
+    return li;
+}
+
 function updateSummary() {
     const summary = calculateSummary();
     const symbol = getCurrencySymbol(currentCurrency);
@@ -613,42 +718,17 @@ function renderExpenses() {
     
     // Show only the most recent 10 expense on dashboard
     const recentItems = expense.slice(0, 10);
-    
-    recentItems.forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors animate-fade-in';
-        
-        const typeIcon = item.type === 'income' ? 'ph-trend-up' : 'ph-trend-down';
-        const typeColor = item.type === 'income' ? 'text-emerald-600' : 'text-rose-600';
-        const bgColor = item.type === 'income' ? 'bg-emerald-100' : 'bg-rose-100';
-        
-        li.innerHTML = `
-            <div class="flex items-center gap-3 flex-1 min-w-0">
-                <div class="${bgColor} p-2 rounded-lg flex-shrink-0">
-                    <i class="ph ${typeIcon} ${typeColor}"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                        <p class="font-medium text-slate-800 truncate">${item.category}</p>
-                        ${item.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${item.familyMember}</span>` : ''}
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-slate-500">
-                        <span>${formatDate(item.date)}</span>
-                        ${item.note ? `<span>•</span><span class="truncate">${item.note}</span>` : ''}
-                    </div>
-                </div>
-            </div>
-            <div class="flex items-center gap-3">
-                <div class="text-right">
-                    <p class="${typeColor} font-semibold">${item.type === 'income' ? '+' : '-'}${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)}</p>
-                    <p class="text-xs text-slate-400">${item.currency}</p>
-                </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteExpense('${item.id}')">
-                    <i class="ph ph-trash text-sm"></i>
-                </button>
-            </div>
-        `;
 
+    recentItems.forEach(item => {
+        const isIncome = item.type === 'income';
+        const li = buildItemRow(item, {
+            useTypeIcon: true,
+            showTypeBadge: false,
+            iconBgClass: isIncome ? 'bg-emerald-100' : 'bg-rose-100',
+            iconColorClass: isIncome ? 'text-emerald-600' : 'text-rose-600',
+            amountColorClass: isIncome ? 'text-emerald-600' : 'text-rose-600',
+            amountPrefix: isIncome ? '+' : '-',
+        });
         expenseList.appendChild(li);
     });
     
@@ -676,36 +756,14 @@ function renderIncomeView() {
     incomeExpenseList.innerHTML = '';
     
     incomeItems.forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors animate-fade-in';
-        
-        li.innerHTML = `
-            <div class="flex items-center gap-3 flex-1 min-w-0">
-                <div class="bg-emerald-100 p-2 rounded-lg flex-shrink-0">
-                    <i class="ph ${categoryIcons[item.category] || categoryIcons['Other']} text-emerald-600"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                        <p class="font-medium text-slate-800 truncate">${item.category}</p>
-                        ${item.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${item.familyMember}</span>` : ''}
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-slate-500">
-                        <span>${formatDate(item.date)}</span>
-                        ${item.note ? `<span>•</span><span class="truncate">${item.note}</span>` : ''}
-                    </div>
-                </div>
-            </div>
-            <div class="flex items-center gap-3">
-                <div class="text-right">
-                    <p class="text-emerald-600 font-semibold">+${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)}</p>
-                    <p class="text-xs text-slate-400">${item.currency}</p>
-                </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteExpense('${item.id}')">
-                    <i class="ph ph-trash text-sm"></i>
-                </button>
-            </div>
-        `;
-
+        const li = buildItemRow(item, {
+            useTypeIcon: false,
+            showTypeBadge: false,
+            iconBgClass: 'bg-emerald-100',
+            iconColorClass: 'text-emerald-600',
+            amountColorClass: 'text-emerald-600',
+            amountPrefix: '+',
+        });
         incomeExpenseList.appendChild(li);
     });
     
@@ -735,36 +793,14 @@ function renderExpenseView() {
     expenseEntryList.innerHTML = '';
     
     expenseItems.forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors animate-fade-in';
-        
-        li.innerHTML = `
-            <div class="flex items-center gap-3 flex-1 min-w-0">
-                <div class="bg-rose-100 p-2 rounded-lg flex-shrink-0">
-                    <i class="ph ${categoryIcons[item.category] || categoryIcons['Other']} text-rose-600"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                        <p class="font-medium text-slate-800 truncate">${item.category}</p>
-                        ${item.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${item.familyMember}</span>` : ''}
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-slate-500">
-                        <span>${formatDate(item.date)}</span>
-                        ${item.note ? `<span>•</span><span class="truncate">${item.note}</span>` : ''}
-                    </div>
-                </div>
-            </div>
-            <div class="flex items-center gap-3">
-                <div class="text-right">
-                    <p class="text-rose-600 font-semibold">-${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)}</p>
-                    <p class="text-xs text-slate-400">${item.currency}</p>
-                </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteExpense('${item.id}')">
-                    <i class="ph ph-trash text-sm"></i>
-                </button>
-            </div>
-        `;
-
+        const li = buildItemRow(item, {
+            useTypeIcon: false,
+            showTypeBadge: false,
+            iconBgClass: 'bg-rose-100',
+            iconColorClass: 'text-rose-600',
+            amountColorClass: 'text-rose-600',
+            amountPrefix: '-',
+        });
         expenseEntryList.appendChild(li);
     });
     
@@ -789,26 +825,42 @@ function renderTopExpenseCategories(categoryData, total) {
     const symbol = getCurrencySymbol(currentCurrency);
     
     topCategories.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'flex items-center justify-between p-3 bg-slate-50 rounded-lg';
-        
         const colorIndex = categoryData.findIndex(c => c.category === item.category);
         const color = chartColors[colorIndex % chartColors.length];
-        
-        div.innerHTML = `
-            <div class="flex items-center gap-3">
-                <div class="w-3 h-3 rounded-full" style="background-color: ${color}"></div>
-                <div>
-                    <p class="font-medium text-slate-800">${item.category}</p>
-                    <p class="text-xs text-slate-500">${item.percentage.toFixed(1)}% of total</p>
-                </div>
-            </div>
-            <div class="text-right">
-                <p class="font-semibold text-slate-800">${symbol}${item.amount.toFixed(2)}</p>
-                <p class="text-xs text-slate-500">${item.amount.toFixed(1)}% of all expenses</p>
-            </div>
-        `;
-        
+
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-3 bg-slate-50 rounded-lg';
+
+        const leftDiv = document.createElement('div');
+        leftDiv.className = 'flex items-center gap-3';
+        const dot = document.createElement('div');
+        dot.className = 'w-3 h-3 rounded-full';
+        dot.style.backgroundColor = color;
+        const labelDiv = document.createElement('div');
+        const nameP = document.createElement('p');
+        nameP.className = 'font-medium text-slate-800';
+        nameP.textContent = item.category;
+        const pctP = document.createElement('p');
+        pctP.className = 'text-xs text-slate-500';
+        pctP.textContent = `${item.percentage.toFixed(1)}% of total`;
+        labelDiv.appendChild(nameP);
+        labelDiv.appendChild(pctP);
+        leftDiv.appendChild(dot);
+        leftDiv.appendChild(labelDiv);
+
+        const rightDiv = document.createElement('div');
+        rightDiv.className = 'text-right';
+        const amountP = document.createElement('p');
+        amountP.className = 'font-semibold text-slate-800';
+        amountP.textContent = `${symbol}${item.amount.toFixed(2)}`;
+        const pctAmountP = document.createElement('p');
+        pctAmountP.className = 'text-xs text-slate-500';
+        pctAmountP.textContent = `${item.percentage.toFixed(1)}% of all expenses`;
+        rightDiv.appendChild(amountP);
+        rightDiv.appendChild(pctAmountP);
+
+        div.appendChild(leftDiv);
+        div.appendChild(rightDiv);
         topExpenseCategories.appendChild(div);
     });
 }
@@ -861,13 +913,21 @@ function renderExpenseChart(categoryData, total) {
         // Add legend item
         const legendItem = document.createElement('div');
         legendItem.className = 'flex items-center gap-2';
-        legendItem.innerHTML = `
-            <div class="w-3 h-3 rounded-full" style="background-color: ${color}"></div>
-            <div class="flex-1">
-                <p class="font-medium text-slate-700 text-xs">${item.category}</p>
-                <p class="text-slate-500 text-xs">${item.percentage.toFixed(1)}%</p>
-            </div>
-        `;
+        const legendDot = document.createElement('div');
+        legendDot.className = 'w-3 h-3 rounded-full';
+        legendDot.style.backgroundColor = color;
+        const legendText = document.createElement('div');
+        legendText.className = 'flex-1';
+        const legendName = document.createElement('p');
+        legendName.className = 'font-medium text-slate-700 text-xs';
+        legendName.textContent = item.category;
+        const legendPct = document.createElement('p');
+        legendPct.className = 'text-slate-500 text-xs';
+        legendPct.textContent = `${item.percentage.toFixed(1)}%`;
+        legendText.appendChild(legendName);
+        legendText.appendChild(legendPct);
+        legendItem.appendChild(legendDot);
+        legendItem.appendChild(legendText);
         chartLegend.appendChild(legendItem);
         
         currentAngle += sliceAngle;
@@ -894,41 +954,15 @@ function renderHistoryView(filteredExpenses = null) {
     historyExpenseList.innerHTML = '';
     
     expenseToRender.forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors';
-        
-        const typeIcon = item.type === 'income' ? 'ph-trend-up' : 'ph-trend-down';
-        const typeColor = item.type === 'income' ? 'text-emerald-600' : 'text-rose-600';
-        const bgColor = item.type === 'income' ? 'bg-emerald-100' : 'bg-rose-100';
-        
-        li.innerHTML = `
-            <div class="flex items-center gap-3 flex-1 min-w-0">
-                <div class="${bgColor} p-2 rounded-lg flex-shrink-0">
-                    <i class="ph ${typeIcon} ${typeColor}"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                        <p class="font-medium text-slate-800 truncate">${item.category}</p>
-                        <span class="text-xs ${item.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} px-1.5 py-0.5 rounded-full">${item.type}</span>
-                        ${item.familyMember ? `<span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">${item.familyMember}</span>` : ''}
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-slate-500">
-                        <span>${formatDate(item.date)}</span>
-                        ${item.note ? `<span>•</span><span class="truncate">${item.note}</span>` : ''}
-                    </div>
-                </div>
-            </div>
-            <div class="flex items-center gap-3">
-                <div class="text-right">
-                    <p class="${typeColor} font-semibold">${item.type === 'income' ? '+' : '-'}${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)}</p>
-                    <p class="text-xs text-slate-400">${item.currency}</p>
-                </div>
-                <button class="text-slate-400 hover:text-rose-600 transition-colors" onclick="deleteExpense('${item.id}')">
-                    <i class="ph ph-trash text-sm"></i>
-                </button>
-            </div>
-        `;
-
+        const isIncome = item.type === 'income';
+        const li = buildItemRow(item, {
+            useTypeIcon: true,
+            showTypeBadge: true,
+            iconBgClass: isIncome ? 'bg-emerald-100' : 'bg-rose-100',
+            iconColorClass: isIncome ? 'text-emerald-600' : 'text-rose-600',
+            amountColorClass: isIncome ? 'text-emerald-600' : 'text-rose-600',
+            amountPrefix: isIncome ? '+' : '-',
+        });
         historyExpenseList.appendChild(li);
     });
     
