@@ -20,7 +20,7 @@
     <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex-shrink-0 fixed lg:static inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col h-full z-40">
         <div class="h-16 flex items-center px-6 border-b border-slate-100 flex-shrink-0">
             <div class="flex items-center gap-2">
-                <div class="bg-blue-600 text-white p-1.5 rounded-lg">
+                <div class="bg-blue-600 text-white p-1.5 rounded-lg flex items-center justify-center">
                     <i class="ph-fill ph-wallet text-2xl"></i>
                 </div>
                 <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">SpendsWise</h1>
@@ -67,7 +67,7 @@
                     <button id="mobileMenuBtn" class="text-slate-500 hover:text-blue-600 transition-colors mr-1">
                         <i class="ph ph-list text-2xl"></i>
                     </button>
-                    <div class="bg-blue-600 text-white p-1.5 rounded-lg">
+                    <div class="bg-blue-600 text-white p-1.5 rounded-lg flex items-center justify-center">
                         <i class="ph-fill ph-wallet text-xl"></i>
                     </div>
                     <h1 class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">SpendsWise</h1>
@@ -230,7 +230,7 @@
                                 <i class="ph ph-pie-chart text-blue-500"></i> Expenses Breakdown
                             </h3>
                             <div class="relative w-full aspect-square flex items-center justify-center">
-                                <canvas id="expenseChart" class="w-full h-full max-w-[250px] max-h-[250px]"></canvas>
+                                <canvas id="expenseChart" width="250" height="250" class="w-full h-full max-w-[250px] max-h-[250px]"></canvas>
                                 <!-- Center absolute text for doughnut -->
                                 <div id="chartCenterText" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                     <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Total</span>
@@ -364,7 +364,7 @@
                                 <i class="ph ph-pie-chart text-blue-500"></i> Expenses by Category
                             </h3>
                             <div class="relative w-full aspect-square flex items-center justify-center">
-                                <canvas id="expenseChartExpenseView" class="w-full h-full max-w-[250px] max-h-[250px]"></canvas>
+                                <canvas id="expenseChartExpenseView" width="250" height="250" class="w-full h-full max-w-[250px] max-h-[250px]"></canvas>
                                 <div id="expenseChartCenterText" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                     <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Total</span>
                                     <span id="expenseChartTotalValue" class="text-lg font-bold text-slate-800">$0.00</span>
@@ -674,7 +674,7 @@
     <div id="authModal" class="fixed inset-0 bg-slate-900/70 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
             <div class="flex items-center gap-2 mb-6 justify-center">
-                <div class="bg-blue-600 text-white p-1.5 rounded-lg">
+                <div class="bg-blue-600 text-white p-1.5 rounded-lg flex items-center justify-center">
                     <i class="ph-fill ph-wallet text-2xl"></i>
                 </div>
                 <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">SpendsWise</h1>
