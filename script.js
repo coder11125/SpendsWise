@@ -49,7 +49,7 @@ async function loadExpenses() {
 // --- DATA & STATE ---
 // In-memory state (Single session as per guidelines)
 let expense = [];
-let currentCurrency = 'USD';
+let currentCurrency = localStorage.getItem('sw_currency') || 'USD';
 let familyMembers = []; // State for explicitly added family members
 let currentFilter = 'all'; // Current sidebar filter view
 
@@ -349,6 +349,7 @@ function renderCurrencyOptions(searchQuery = '') {
 
 function selectCurrency(currency) {
     currentCurrency = currency;
+    localStorage.setItem('sw_currency', currency);
     currentCurrencyEl.textContent = currency;
     currencySymbolSpan.textContent = getCurrencySymbol(currency);
     
