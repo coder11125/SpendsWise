@@ -8,6 +8,18 @@ import { authRequired } from "../middleware/auth";
 
 const router = Router();
 
+// H1: Minimum 12 chars, requires upper, lower, digit, and special character.
+// H2: Hard cap at 72 bytes — bcrypt silently truncates beyond this boundary.
+const PASSWORD_RULES =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]).{12,72}$/;
+
+function validatePassword(password: string): string | null {
+  if (password.length > 72) return "Password must be 72 characters or fewer";
+  if (!PASSWORD_RULES.test(password))
+    return "Password must be 12–72 characters and include uppercase, lowercase, a number, and a special character";
+  return null;
+}
+
 const COOKIE_OPTS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -26,9 +38,11 @@ router.post(
   "/register",
   asyncHandler(async (req, res) => {
     const { email, password } = req.body ?? {};
-    if (typeof email !== "string" || typeof password !== "string" || password.length < 6) {
-      return res.status(400).json({ error: "Email and password (min 6 chars) required" });
+    if (typeof email !== "string" || typeof password !== "string") {
+      return res.status(400).json({ error: "Email and password required" });
     }
+    const pwErr = validatePassword(password);
+    if (pwErr) return res.status(400).json({ error: pwErr });
 
     const existing = await UserModel.findOne({ email: email.toLowerCase() });
     if (existing) return res.status(409).json({ error: "Email already registered" });
@@ -79,9 +93,11 @@ router.put(
   authRequired,
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body ?? {};
-    if (typeof currentPassword !== "string" || typeof newPassword !== "string" || newPassword.length < 6) {
-      return res.status(400).json({ error: "currentPassword and newPassword (min 6 chars) are required" });
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+      return res.status(400).json({ error: "currentPassword and newPassword are required" });
     }
+    const pwErr = validatePassword(newPassword);
+    if (pwErr) return res.status(400).json({ error: pwErr });
 
     const user = await UserModel.findById(req.userId);
     if (!user) return res.status(404).json({ error: "User not found" });

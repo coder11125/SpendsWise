@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
+import mongoSanitize from "express-mongo-sanitize";
 import { connectDB } from "./db";
 import authRoutes from "./routes/auth";
 import expenseRoutes from "./routes/expenses";
@@ -28,6 +29,9 @@ app.use(cookieParser());
 
 // H8: Tighten body size limit
 app.use(express.json({ limit: "10kb" }));
+
+// H3: Strip MongoDB operator keys ($, .) from all request bodies and query strings
+app.use(mongoSanitize());
 
 // C4: Rate-limit auth endpoints — 10 attempts per 15 min per IP
 // Note: in-memory store is per-serverless-instance; add an Upstash/Redis store
