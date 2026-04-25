@@ -5,6 +5,7 @@ import { UserModel } from "../models/User";
 import { config } from "../config";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { authRequired } from "../middleware/auth";
+import { generateCsrfToken } from "../middleware/csrf";
 
 const router = Router();
 
@@ -28,11 +29,20 @@ const COOKIE_OPTS = {
   path: "/",
 };
 
-function signAndSetCookie(res: Response, userId: string): void {
+// C4: embed tokenVersion (tv) in the JWT so authRequired can verify it against
+// the DB and immediately detect revoked sessions (e.g. after password change).
+function signAndSetCookie(res: Response, userId: string, tokenVersion: number): void {
   const options: SignOptions = { expiresIn: config.jwtExpiresIn };
-  const token = jwt.sign({ userId }, config.jwtSecret, options);
+  const token = jwt.sign({ userId, tv: tokenVersion }, config.jwtSecret, options);
   res.cookie("sw_session", token, COOKIE_OPTS);
 }
+
+// C1: Issue a CSRF token. The browser sends it back as x-csrf-token on every
+// state-changing request; doubleCsrfProtection validates header vs. cookie.
+router.get("/csrf", (req, res) => {
+  const token = generateCsrfToken(req, res);
+  res.json({ token });
+});
 
 router.post(
   "/register",
@@ -49,7 +59,7 @@ router.post(
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await UserModel.create({ email, passwordHash });
-    signAndSetCookie(res, user._id.toString());
+    signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
     return res.status(201).json({ user: { id: user._id, email: user.email } });
   })
 );
@@ -68,7 +78,7 @@ router.post(
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
-    signAndSetCookie(res, user._id.toString());
+    signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
     return res.json({ user: { id: user._id, email: user.email } });
   })
 );
@@ -82,7 +92,7 @@ router.get(
   "/me",
   authRequired,
   asyncHandler(async (req, res) => {
-    const user = await UserModel.findById(req.userId).select("-passwordHash");
+    const user = await UserModel.findById(req.userId).select("-passwordHash -tokenVersion");
     if (!user) return res.status(404).json({ error: "User not found" });
     return res.json({ id: user._id, email: user.email, createdAt: user.createdAt });
   })
@@ -105,8 +115,13 @@ router.put(
     const ok = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "Current password is incorrect" });
 
+    // C4: Increment tokenVersion to invalidate all existing sessions (including
+    // any stolen cookies), then re-issue a fresh cookie for the current request.
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();
+
+    signAndSetCookie(res, user._id.toString(), user.tokenVersion);
     return res.json({ message: "Password updated successfully" });
   })
 );

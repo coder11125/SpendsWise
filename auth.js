@@ -4,6 +4,20 @@ const API_BASE = '/api';
 // Defined here (auth.js loads before script.js) so script.js can read it.
 let isLoggedIn = false;
 
+// C1: CSRF token fetched from the server and included as x-csrf-token on all
+// state-changing requests. Exposed as a global so script.js can use it in apiFetch.
+let csrfToken = null;
+
+async function fetchCsrfToken() {
+    try {
+        const res = await fetch(`${API_BASE}/auth/csrf`, { credentials: 'include' });
+        if (res.ok) {
+            const data = await res.json();
+            csrfToken = data.token;
+        }
+    } catch {}
+}
+
 let currentTab = 'login';
 let pollInterval = null;
 const POLL_INTERVAL_MS = 30000;
@@ -38,7 +52,7 @@ async function handleAuth(e) {
         const res = await fetch(`${API_BASE}/auth/${currentTab === 'login' ? 'login' : 'register'}`, {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken ?? '' },
             body: JSON.stringify({ email, password }),
         });
 
@@ -84,7 +98,11 @@ async function logout() {
 
     // Clear the HttpOnly cookie server-side
     try {
-        await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
+        await fetch(`${API_BASE}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken ?? '' },
+        });
     } catch {}
 
     localStorage.removeItem('sw_email');
@@ -100,9 +118,11 @@ async function logout() {
     document.getElementById('authPassword').value = '';
 }
 
-// On page load — verify session with the server using the HttpOnly cookie.
-// If valid, skip the auth modal. If not, leave it visible.
+// On page load — fetch a CSRF token first, then verify the session cookie.
+// fetchCsrfToken() must run before any state-changing request is made.
 (async function init() {
+    await fetchCsrfToken();
+
     const cachedEmail = localStorage.getItem('sw_email');
     if (!cachedEmail) return;
 

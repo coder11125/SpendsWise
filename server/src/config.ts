@@ -12,6 +12,7 @@ export const config = {
   port: Number(process.env.PORT ?? 4000),
   mongoUri: required("MONGODB_URI"),
   jwtSecret: required("JWT_SECRET"),
+  csrfSecret: required("CSRF_SECRET"),
   jwtExpiresIn: "7d" as const,
   // Comma-separated list of allowed origins. Set ALLOWED_ORIGINS in your env.
   allowedOrigins: (process.env.ALLOWED_ORIGINS ?? "https://spends-wise.vercel.app")

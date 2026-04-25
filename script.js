@@ -7,6 +7,9 @@ async function apiFetch(path, options = {}) {
         credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
+            // C1: csrfToken is defined in auth.js (loads first). The server only
+            // validates this header on non-GET requests, so including it always is safe.
+            'x-csrf-token': csrfToken ?? '',
             ...(options.headers ?? {}),
         },
     });
