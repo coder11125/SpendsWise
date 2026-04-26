@@ -15,7 +15,13 @@ async function fetchCsrfToken() {
             const data = await res.json();
             csrfToken = data.token;
         }
-    } catch {}
+    } catch {
+        const errorEl = document.getElementById('authError');
+        if (errorEl) {
+            errorEl.textContent = 'Unable to connect to server. Please refresh the page.';
+            errorEl.classList.remove('hidden');
+        }
+    }
 }
 
 let currentTab = 'login';

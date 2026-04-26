@@ -435,7 +435,7 @@ async function addExpense(e) {
     const familyMember = form.familyMember.value || '';
     const note = form.note.value || '';
 
-    if (!(type && amount && category && date)) return;
+    if (!type || Number.isNaN(amount) || !category || !date) return;
 
     let newEntry;
 
@@ -1000,10 +1000,10 @@ function filterHistoryExpenses() {
     // Apply sorting
     switch (sortBy) {
         case 'date-desc':
-            filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+            filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             break;
         case 'date-asc':
-            filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+            filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             break;
         case 'amount-desc':
             filtered.sort((a, b) => b.amount - a.amount);
@@ -1077,7 +1077,10 @@ function switchView(filter) {
 // --- HELPER FUNCTIONS ---
 function formatDate(dateString) {
     const options = { month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    // Split parts to construct a local Date, avoiding the UTC→local shift that
+    // causes "2026-04-26" to display as Apr 25 in negative-UTC timezones.
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString(undefined, options);
 }
 
 // --- ACCOUNT VIEW ---

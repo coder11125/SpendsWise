@@ -79,7 +79,14 @@ app.use((_req, _res, next) => {
   getDB().then(() => next()).catch(next);
 });
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/health", async (_req, res) => {
+  try {
+    await getDB();
+    res.json({ ok: true });
+  } catch {
+    res.status(503).json({ ok: false, error: "Database unavailable" });
+  }
+});
 
 // C1: Apply CSRF protection to all state-changing routes.
 // GET /api/auth/csrf is exempt because CSRF middleware ignores GET requests.
