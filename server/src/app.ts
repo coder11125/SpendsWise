@@ -4,7 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import mongoSanitize from "express-mongo-sanitize";
-import { connectDB } from "./db";
+import { getDB } from "./db";
 import authRoutes from "./routes/auth";
 import expenseRoutes from "./routes/expenses";
 import { config } from "./config";
@@ -16,6 +16,9 @@ const app = express();
 // and express-rate-limit uses the correct IP instead of the proxy's shared IP.
 app.set("trust proxy", 1);
 
+// Helmet applies only to Express API responses (/api/*, /health).
+// Static files (index.html, CDN scripts) are served by Vercel, so
+// COOP/CORP headers here do not interfere with CDN-loaded assets.
 app.use(helmet());
 
 app.use(
@@ -70,11 +73,10 @@ const expenseLimiter = rateLimit({
   message: { error: "Too many requests, please try again later." },
 });
 
-// Cache the DB connection promise so serverless warm starts don't reconnect
-let dbPromise: Promise<void> | null = null;
+// getDB() caches the connection and resets on disconnect so serverless
+// warm starts reuse existing connections and dropped connections self-heal.
 app.use((_req, _res, next) => {
-  if (!dbPromise) dbPromise = connectDB();
-  dbPromise.then(() => next()).catch(next);
+  getDB().then(() => next()).catch(next);
 });
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

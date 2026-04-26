@@ -1,11 +1,32 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import { config } from "../config";
 import { UserModel } from "../models/User";
 
 interface JwtPayload {
   userId: string;
   tv: number; // C4: token version for server-side revocation
+  exp?: number;
+}
+
+const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const REFRESH_THRESHOLD_MS = 24 * 60 * 60 * 1000; // slide if < 1 day left
+
+function maybeRefreshSession(res: Response, payload: JwtPayload): void {
+  const exp = (payload.exp ?? 0) * 1000;
+  if (Date.now() < exp - REFRESH_THRESHOLD_MS) return;
+  const token = jwt.sign(
+    { userId: payload.userId, tv: payload.tv },
+    config.jwtSecret,
+    { expiresIn: "7d" } as SignOptions
+  );
+  res.cookie("sw_session", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV !== "development",
+    sameSite: "strict" as const,
+    maxAge: SESSION_MAX_AGE_MS,
+    path: "/",
+  });
 }
 
 export async function authRequired(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -39,6 +60,7 @@ export async function authRequired(req: Request, res: Response, next: NextFuncti
     return;
   }
 
+  maybeRefreshSession(res, payload);
   req.userId = payload.userId;
   next();
 }
