@@ -23,7 +23,7 @@ function validatePassword(password: string): string | null {
 
 const COOKIE_OPTS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: process.env.NODE_ENV !== "development",
   sameSite: "strict" as const,
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
   path: "/",
@@ -51,16 +51,25 @@ router.post(
     if (typeof email !== "string" || typeof password !== "string") {
       return res.status(400).json({ error: "Email and password required" });
     }
+    const normalizedEmail = email.toLowerCase().trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || normalizedEmail.length > 254) {
+      return res.status(400).json({ error: "Invalid email address" });
+    }
     const pwErr = validatePassword(password);
     if (pwErr) return res.status(400).json({ error: pwErr });
 
-    const existing = await UserModel.findOne({ email: email.toLowerCase() });
+    const existing = await UserModel.findOne({ email: normalizedEmail });
     if (existing) return res.status(409).json({ error: "Email already registered" });
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const user = await UserModel.create({ email, passwordHash });
-    signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
-    return res.status(201).json({ user: { id: user._id, email: user.email } });
+    const passwordHash = await bcrypt.hash(password, 12);
+    try {
+      const user = await UserModel.create({ email: normalizedEmail, passwordHash });
+      signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
+      return res.status(201).json({ user: { id: user._id, email: user.email } });
+    } catch (err: any) {
+      if (err.code === 11000) return res.status(409).json({ error: "Email already registered" });
+      throw err;
+    }
   })
 );
 
@@ -118,7 +127,7 @@ router.put(
     // C4: Increment tokenVersion to invalidate all existing sessions (including
     // any stolen cookies), then re-issue a fresh cookie for the current request.
     user.tokenVersion = (user.tokenVersion ?? 0) + 1;
-    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
     await user.save();
 
     signAndSetCookie(res, user._id.toString(), user.tokenVersion);

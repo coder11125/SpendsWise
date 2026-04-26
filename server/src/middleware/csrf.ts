@@ -12,7 +12,7 @@ export const { invalidCsrfTokenError, generateCsrfToken, doubleCsrfProtection } 
     httpOnly: true,
     sameSite: "strict" as const,
     path: "/",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV !== "development",
   },
   size: 64,
   getCsrfTokenFromRequest: (req) => req.headers["x-csrf-token"],

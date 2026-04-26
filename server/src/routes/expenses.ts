@@ -24,21 +24,34 @@ router.post(
   "/",
   asyncHandler(async (req, res) => {
     const { amount, category, note, date, type, currency, familyMember } = req.body ?? {};
-    if (typeof amount !== "number" || amount < 0 || typeof category !== "string" || !category.trim()) {
-      return res.status(400).json({ error: "amount (>=0) and category are required" });
+    if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0 || amount > 1e12) {
+      return res.status(400).json({ error: "amount must be a finite number >= 0 and <= 1,000,000,000,000" });
+    }
+    if (typeof category !== "string" || !category.trim() || category.length > 64) {
+      return res.status(400).json({ error: "category is required and must be 64 characters or fewer" });
     }
     if (type !== "income" && type !== "expense") {
       return res.status(400).json({ error: "type must be 'income' or 'expense'" });
     }
+    const parsedDate = date ? new Date(date) : new Date();
+    if (date && (Number.isNaN(parsedDate.getTime()) || parsedDate.getFullYear() < 1970 || parsedDate.getFullYear() > 2100)) {
+      return res.status(400).json({ error: "Invalid date" });
+    }
+    const resolvedCurrency = typeof currency === "string" && currency.trim() ? currency.trim() : "USD";
+    if (!/^[A-Z]{2,8}$/.test(resolvedCurrency)) {
+      return res.status(400).json({ error: "Invalid currency code" });
+    }
+    const resolvedFamilyMember = typeof familyMember === "string" ? familyMember.trim().slice(0, 64) : "";
+    const resolvedNote = typeof note === "string" ? note.slice(0, 500) : "";
     const expense = await ExpenseModel.create({
       userId: req.userId,
       type,
       amount,
-      category,
-      currency: typeof currency === "string" && currency.trim() ? currency.trim() : "USD",
-      familyMember: typeof familyMember === "string" ? familyMember.trim() : "",
-      note: typeof note === "string" ? note : "",
-      date: date ? new Date(date) : new Date(),
+      category: category.trim(),
+      currency: resolvedCurrency,
+      familyMember: resolvedFamilyMember,
+      note: resolvedNote,
+      date: parsedDate,
     });
     return res.status(201).json(expense);
   })
@@ -53,29 +66,37 @@ router.put(
     const { amount, category, note, date, type, currency, familyMember } = req.body ?? {};
     const update: Record<string, unknown> = {};
     if (amount !== undefined) {
-      if (typeof amount !== "number" || amount < 0) return res.status(400).json({ error: "Invalid amount" });
+      if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0 || amount > 1e12)
+        return res.status(400).json({ error: "amount must be a finite number >= 0 and <= 1,000,000,000,000" });
       update.amount = amount;
     }
     if (category !== undefined) {
-      if (typeof category !== "string" || !category.trim()) return res.status(400).json({ error: "Invalid category" });
-      update.category = category;
+      if (typeof category !== "string" || !category.trim() || category.length > 64)
+        return res.status(400).json({ error: "category must be a non-empty string of 64 characters or fewer" });
+      update.category = category.trim();
     }
     if (note !== undefined) {
       if (typeof note !== "string") return res.status(400).json({ error: "Invalid note" });
-      update.note = note;
+      update.note = note.slice(0, 500);
     }
-    if (date !== undefined) update.date = new Date(date);
+    if (date !== undefined) {
+      const d = new Date(date);
+      if (Number.isNaN(d.getTime()) || d.getFullYear() < 1970 || d.getFullYear() > 2100)
+        return res.status(400).json({ error: "Invalid date" });
+      update.date = d;
+    }
     if (type !== undefined) {
       if (type !== "income" && type !== "expense") return res.status(400).json({ error: "Invalid type" });
       update.type = type;
     }
     if (currency !== undefined) {
-      if (typeof currency !== "string" || !currency.trim()) return res.status(400).json({ error: "Invalid currency" });
+      if (typeof currency !== "string" || !/^[A-Z]{2,8}$/.test(currency.trim()))
+        return res.status(400).json({ error: "Invalid currency code" });
       update.currency = currency.trim();
     }
     if (familyMember !== undefined) {
       if (typeof familyMember !== "string") return res.status(400).json({ error: "Invalid familyMember" });
-      update.familyMember = familyMember.trim();
+      update.familyMember = familyMember.trim().slice(0, 64);
     }
 
     const expense = await ExpenseModel.findOneAndUpdate(
