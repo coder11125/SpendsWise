@@ -110,6 +110,14 @@ router.put(
 );
 
 router.delete(
+  "/",
+  asyncHandler(async (req, res) => {
+    await ExpenseModel.deleteMany({ userId: req.userId });
+    return res.status(204).send();
+  })
+);
+
+router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
     const { id } = req.params;

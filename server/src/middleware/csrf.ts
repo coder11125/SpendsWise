@@ -3,10 +3,9 @@ import { config } from "../config";
 
 export const { invalidCsrfTokenError, generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
   getSecret: () => config.csrfSecret,
-  // Using empty string so the CSRF token is not tied to a specific session.
-  // This is safe because the CSRF cookie is HttpOnly+SameSite=Strict and the
-  // CORS allow-list blocks cross-origin reads of the token response.
-  getSessionIdentifier: () => "",
+  // Bind the CSRF token to the session JWT so a leaked token is only valid for
+  // that specific session, not all sessions sharing the same CSRF secret.
+  getSessionIdentifier: (req) => (req as any).cookies?.sw_session ?? "",
   cookieName: "sw_csrf",
   cookieOptions: {
     httpOnly: true,

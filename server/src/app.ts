@@ -20,7 +20,14 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: config.allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || config.allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`[CORS] Rejected origin: ${origin}`);
+        callback(null, false);
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
     // x-csrf-token must be in allowedHeaders for browsers to send it cross-origin
     allowedHeaders: ["Content-Type", "x-csrf-token"],
@@ -89,7 +96,7 @@ app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
 });
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err.name, err.message);
+  console.error(err.stack ?? err);
   res.status(500).json({ error: "Internal server error" });
 });
 

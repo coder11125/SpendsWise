@@ -64,8 +64,6 @@ async function handleAuth(e) {
             return;
         }
 
-        // Token is now in an HttpOnly cookie — store only the non-secret email for UI use
-        localStorage.setItem('sw_email', data.user.email);
         showApp(data.user.email);
     } catch {
         errorEl.textContent = 'Network error — is the server running?';
@@ -87,7 +85,7 @@ function showApp(email) {
     if (typeof loadExpenses === 'function') loadExpenses();
     clearInterval(pollInterval);
     pollInterval = setInterval(() => {
-        if (typeof loadExpenses === 'function') loadExpenses();
+        if (document.visibilityState === 'visible' && typeof loadExpenses === 'function') loadExpenses();
     }, POLL_INTERVAL_MS);
 }
 
@@ -105,8 +103,6 @@ async function logout() {
         });
     } catch {}
 
-    localStorage.removeItem('sw_email');
-
     if (typeof expense !== 'undefined') {
         expense = [];
         if (typeof updateSummary === 'function') updateSummary();
@@ -123,14 +119,10 @@ async function logout() {
 (async function init() {
     await fetchCsrfToken();
 
-    const cachedEmail = localStorage.getItem('sw_email');
-    if (!cachedEmail) return;
-
     try {
         const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
         if (res.ok) {
             const data = await res.json();
-            localStorage.setItem('sw_email', data.email);
             showApp(data.email);
         }
     } catch {}

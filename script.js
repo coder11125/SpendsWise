@@ -1185,9 +1185,8 @@ function exportExpensesCSV() {
 async function confirmClearAllData() {
     if (!confirm('Are you sure? This will permanently delete ALL your expense from the server. This cannot be undone.')) return;
     try {
-        // Delete each expense individually via existing DELETE endpoint
-        const ids = expense.map(t => t.id);
-        await Promise.all(ids.map(id => apiFetch(`/expenses/${id}`, { method: 'DELETE' })));
+        const res = await apiFetch('/expenses', { method: 'DELETE' });
+        if (!res.ok) throw new Error('Server error');
         expense = [];
         updateSummary();
         renderExpenses();
