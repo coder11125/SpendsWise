@@ -178,6 +178,11 @@ const sidebarLinks = document.querySelectorAll('.sidebar-link');
 const sidebarPeopleBtn = document.getElementById('sidebarPeopleBtn');
 const personModal = document.getElementById('personModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
+const deleteAllModal = document.getElementById('deleteAllModal');
+const closeDeleteAllModalBtn = document.getElementById('closeDeleteAllModalBtn');
+const cancelDeleteAllBtn = document.getElementById('cancelDeleteAllBtn');
+const confirmDeleteAllBtn = document.getElementById('confirmDeleteAllBtn');
+const deleteAllError = document.getElementById('deleteAllError');
 const addPersonForm = document.getElementById('addPersonForm');
 const newPersonName = document.getElementById('newPersonName');
 const managedMembersList = document.getElementById('managedMembersList');
@@ -255,6 +260,35 @@ function init() {
         if(e.target === personModal) {
             personModal.classList.add('hidden');
             personModal.classList.remove('flex');
+        }
+    });
+
+    // Delete All Modal
+    closeDeleteAllModalBtn.addEventListener('click', closeDeleteAllModal);
+    cancelDeleteAllBtn.addEventListener('click', closeDeleteAllModal);
+    deleteAllModal.addEventListener('click', (e) => {
+        if (e.target === deleteAllModal) closeDeleteAllModal();
+    });
+    confirmDeleteAllBtn.addEventListener('click', async () => {
+        confirmDeleteAllBtn.disabled = true;
+        confirmDeleteAllBtn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Deleting...';
+        deleteAllError.classList.add('hidden');
+        try {
+            const res = await apiFetch('/expenses', { method: 'DELETE', body: JSON.stringify({ confirm: true }) });
+            if (!res.ok) throw new Error('Server error');
+            expense = [];
+            updateSummary();
+            renderExpenses();
+            updateExpenseChart();
+            renderAccountView();
+            closeDeleteAllModal();
+        } catch (err) {
+            console.error('Failed to delete all expenses:', err);
+            deleteAllError.textContent = 'Something went wrong. Please try again.';
+            deleteAllError.classList.remove('hidden');
+        } finally {
+            confirmDeleteAllBtn.disabled = false;
+            confirmDeleteAllBtn.innerHTML = '<i class="ph ph-trash"></i> Delete All';
         }
     });
 
@@ -1257,21 +1291,18 @@ function exportExpensesCSV() {
     URL.revokeObjectURL(url);
 }
 
-async function confirmClearAllData() {
-    if (!confirm('Are you sure? This will permanently delete ALL your expense from the server. This cannot be undone.')) return;
-    try {
-        const res = await apiFetch('/expenses', { method: 'DELETE' });
-        if (!res.ok) throw new Error('Server error');
-        expense = [];
-        updateSummary();
-        renderExpenses();
-        updateExpenseChart();
-        renderAccountView();
-        alert('All expense deleted.');
-    } catch (err) {
-        console.error('Failed to delete all expense:', err);
-        alert('Something went wrong. Please try again.');
-    }
+function confirmClearAllData() {
+    deleteAllError.classList.add('hidden');
+    deleteAllError.textContent = '';
+    deleteAllModal.classList.remove('hidden');
+    deleteAllModal.classList.add('flex');
+}
+
+function closeDeleteAllModal() {
+    deleteAllModal.classList.add('hidden');
+    deleteAllModal.classList.remove('flex');
+    deleteAllError.classList.add('hidden');
+    deleteAllError.textContent = '';
 }
 
 // --- START THE APP ---

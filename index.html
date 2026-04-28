@@ -677,6 +677,40 @@
         </div>
     </div>
 
+    <!-- Delete All Expenses Confirmation Modal -->
+    <div id="deleteAllModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 px-4">
+        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-fade-in">
+            <div class="p-6 border-b border-rose-100 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-rose-600 flex items-center gap-2">
+                    <i class="ph ph-warning text-rose-500"></i> Delete All Expenses
+                </h3>
+                <button id="closeDeleteAllModalBtn" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="ph ph-x text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="ph ph-trash text-2xl text-rose-500"></i>
+                    </div>
+                    <div>
+                        <p class="text-slate-800 font-semibold mb-1">This cannot be undone</p>
+                        <p class="text-sm text-slate-500">All your expense records will be permanently deleted from the server. Your account will remain active.</p>
+                    </div>
+                </div>
+                <div id="deleteAllError" class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3"></div>
+                <div class="flex gap-3">
+                    <button id="cancelDeleteAllBtn" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                    <button id="confirmDeleteAllBtn" class="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <i class="ph ph-trash"></i> Delete All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Auth Modal -->
     <div id="authModal" class="fixed inset-0 bg-slate-900/70 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
