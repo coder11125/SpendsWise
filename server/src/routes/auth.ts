@@ -63,9 +63,9 @@ router.post(
 
     const passwordHash = await bcrypt.hash(password, 12);
     try {
-      const user = await UserModel.create({ email: normalizedEmail, passwordHash });
+      const user = await UserModel.create({ email: normalizedEmail, passwordHash, familyMembers: [] });
       signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
-      return res.status(201).json({ user: { id: user._id, email: user.email } });
+      return res.status(201).json({ user: { id: user._id, email: user.email, familyMembers: user.familyMembers ?? [] } });
     } catch (err: any) {
       if (err.code === 11000) return res.status(409).json({ error: "Email already registered" });
       throw err;
@@ -88,7 +88,7 @@ router.post(
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
     signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
-    return res.json({ user: { id: user._id, email: user.email } });
+    return res.json({ user: { id: user._id, email: user.email, familyMembers: user.familyMembers ?? [] } });
   })
 );
 
@@ -103,7 +103,12 @@ router.get(
   asyncHandler(async (req, res) => {
     const user = await UserModel.findById(req.userId).select("-passwordHash -tokenVersion");
     if (!user) return res.status(404).json({ error: "User not found" });
-    return res.json({ id: user._id, email: user.email, createdAt: user.createdAt });
+    return res.json({
+      id: user._id,
+      email: user.email,
+      createdAt: user.createdAt,
+      familyMembers: user.familyMembers ?? [],
+    });
   })
 );
 

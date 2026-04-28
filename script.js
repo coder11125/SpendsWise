@@ -53,6 +53,16 @@ let currentCurrency = localStorage.getItem('sw_currency') || 'USD';
 let familyMembers = []; // State for explicitly added family members
 let currentFilter = 'all'; // Current sidebar filter view
 
+function setFamilyMembers(members) {
+    familyMembers = Array.isArray(members) ? [...members] : [];
+    renderManageMembers();
+    updateFamilyMemberSelect();
+}
+
+function clearFamilyMembers() {
+    setFamilyMembers([]);
+}
+
 // Comprehensive list of active global currencies
 const currencies = [
     "AED", "AFN", "ALL", "AMD", "ANG", "AOA", "ARS", "AUD", "AWG", "AZN", "BAM", "BBD", "BDT", "BGN", "BHD", "BIF", "BMD", "BND", "BOB", "BRL", "BSD", "BTN", "BWP", "BYN", "BZD", "CAD", "CDF", "CHF", "CLP", "CNY", "COP", "CRC", "CUP", "CVE", "CZK", "DJF", "DKK", "DOP", "DZD", "EGP", "ERN", "ETB", "EUR", "FJD", "FKP", "FOK", "GBP", "GEL", "GGP", "GHS", "GIP", "GMD", "GNF", "GTQ", "GYD", "HKD", "HNL", "HRK", "HTG", "HUF", "IDR", "ILS", "IMP", "INR", "IQD", "IRR", "ISK", "JEP", "JMD", "JOD", "JPY", "KES", "KGS", "KHR", "KID", "KMF", "KRW", "KWD", "KYD", "KZT", "LAK", "LBP", "LKR", "LRD", "LSL", "LYD", "MAD", "MDL", "MGA", "MKD", "MMK", "MNT", "MOP", "MRU", "MUR", "MVR", "MWK", "MXN", "MYR", "MZN", "NAD", "NGN", "NIO", "NOK", "NPR", "NZD", "OMR", "PAB", "PEN", "PGK", "PHP", "PKR", "PLN", "PYG", "QAR", "RON", "RSD", "RUB", "RWF", "SAR", "SBD", "SCR", "SDG", "SEK", "SGD", "SHP", "SLE", "SLL", "SOS", "SRD", "SSP", "STN", "SYP", "SZL", "THB", "TJS", "TMT", "TND", "TOP", "TRY", "TTD", "TVD", "TWD", "TZS", "UAH", "UGX", "USD", "UYU", "UZS", "VES", "VND", "VUV", "WST", "XAF", "XCD", "XDR", "XOF", "XPF", "YER", "ZAR", "ZMW", "ZWL"
@@ -248,15 +258,11 @@ function init() {
         }
     });
 
-    addPersonForm.addEventListener('submit', (e) => {
+    addPersonForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = newPersonName.value.trim();
-        if(name && !familyMembers.includes(name)) {
-            familyMembers.push(name);
-            newPersonName.value = '';
-            renderManageMembers();
-            updateFamilyMemberSelect();
-        }
+        if (!name) return;
+        await addFamilyMember(name);
     });
 
     // Currency modal listeners
@@ -291,6 +297,9 @@ function init() {
 
     // Load persisted expense from server if logged in
     loadExpenses();
+    if (isLoggedIn) {
+        loadFamilyMembers();
+    }
 }
 
 // --- CURRENCY HANDLING ---
@@ -377,6 +386,51 @@ function closeCurrencyModal() {
 }
 
 // --- FAMILY MEMBERS MANAGEMENT ---
+async function loadFamilyMembers() {
+    if (!isLoggedIn) return;
+
+    try {
+        const res = await apiFetch('/family-members');
+        if (!res.ok) return;
+        const data = await res.json();
+        setFamilyMembers(data.familyMembers);
+    } catch (err) {
+        console.error('Failed to load family members:', err);
+    }
+}
+
+async function addFamilyMember(name) {
+    const normalizedName = name.trim();
+    if (!normalizedName) return;
+
+    if (familyMembers.some(member => member.toLowerCase() === normalizedName.toLowerCase())) {
+        return;
+    }
+
+    if (isLoggedIn) {
+        try {
+            const res = await apiFetch('/family-members', {
+                method: 'POST',
+                body: JSON.stringify({ name: normalizedName }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                console.error('Failed to save family member:', err.error ?? res.status);
+                return;
+            }
+            const data = await res.json();
+            setFamilyMembers(data.familyMembers);
+        } catch (err) {
+            console.error('Network error saving family member:', err);
+            return;
+        }
+    } else {
+        setFamilyMembers([...familyMembers, normalizedName]);
+    }
+
+    newPersonName.value = '';
+}
+
 function renderManageMembers() {
     if (familyMembers.length === 0) {
         managedMembersList.innerHTML = '';
@@ -407,10 +461,28 @@ function renderManageMembers() {
     }
 }
 
-function removeMember(name) {
-    familyMembers = familyMembers.filter(member => member !== name);
-    renderManageMembers();
-    updateFamilyMemberSelect();
+async function removeMember(name) {
+    if (isLoggedIn) {
+        try {
+            const res = await apiFetch('/family-members', {
+                method: 'DELETE',
+                body: JSON.stringify({ name }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                console.error('Failed to delete family member:', err.error ?? res.status);
+                return;
+            }
+            const data = await res.json();
+            setFamilyMembers(data.familyMembers);
+            return;
+        } catch (err) {
+            console.error('Network error deleting family member:', err);
+            return;
+        }
+    }
+
+    setFamilyMembers(familyMembers.filter(member => member !== name));
 }
 
 function updateFamilyMemberSelect() {

@@ -106,6 +106,9 @@ Session is managed via an HttpOnly cookie (`sw_session`). All state-changing req
 | POST   | `/api/auth/logout`    | no   | —                                                                    |
 | GET    | `/api/auth/me`        | yes  | —                                                                    |
 | PUT    | `/api/auth/password`  | yes  | `{ currentPassword, newPassword }`                                   |
+| GET    | `/api/family-members` | yes  | — Returns `{ familyMembers }`                                        |
+| POST   | `/api/family-members` | yes  | `{ name }`                                                           |
+| DELETE | `/api/family-members` | yes  | `{ name }`                                                           |
 | GET    | `/api/expenses`       | yes  | —                                                                    |
 | POST   | `/api/expenses`       | yes  | `{ amount, category, type, note?, date?, currency?, familyMember? }` |
 | PUT    | `/api/expenses/:id`   | yes  | any subset of the above fields                                       |
@@ -113,7 +116,7 @@ Session is managed via an HttpOnly cookie (`sw_session`). All state-changing req
 
 ### Data model
 
-**User**: `email` (unique), `passwordHash`, `tokenVersion`, timestamps.
+**User**: `email` (unique), `passwordHash`, `familyMembers[]`, `tokenVersion`, timestamps.
 
 **Expense**: `userId` (ref User), `type` (`income` | `expense`), `amount` (>= 0), `category`, `note`, `date`, `currency`, `familyMember`, timestamps.
 

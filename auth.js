@@ -70,7 +70,7 @@ async function handleAuth(e) {
             return;
         }
 
-        showApp(data.user.email);
+        showApp(data.user.email, data.user.familyMembers);
     } catch {
         errorEl.textContent = 'Network error — is the server running?';
         errorEl.classList.remove('hidden');
@@ -80,13 +80,18 @@ async function handleAuth(e) {
     }
 }
 
-function showApp(email) {
+function showApp(email, members = null) {
     isLoggedIn = true;
     document.getElementById('authModal').classList.add('hidden');
     const emailElement = document.getElementById('authUserEmail');
     if (emailElement) {
         emailElement.textContent = email;
         emailElement.parentElement.style.display = 'block';
+    }
+    if (Array.isArray(members) && typeof setFamilyMembers === 'function') {
+        setFamilyMembers(members);
+    } else if (typeof loadFamilyMembers === 'function') {
+        loadFamilyMembers();
     }
     if (typeof loadExpenses === 'function') loadExpenses();
     clearInterval(pollInterval);
@@ -115,6 +120,7 @@ async function logout() {
         if (typeof renderExpenses === 'function') renderExpenses();
         if (typeof updateExpenseChart === 'function') updateExpenseChart();
     }
+    if (typeof clearFamilyMembers === 'function') clearFamilyMembers();
     document.getElementById('authModal').classList.remove('hidden');
     document.getElementById('authEmail').value = '';
     document.getElementById('authPassword').value = '';
@@ -129,7 +135,7 @@ async function logout() {
         const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
         if (res.ok) {
             const data = await res.json();
-            showApp(data.email);
+            showApp(data.email, data.familyMembers);
         }
     } catch {}
 })();

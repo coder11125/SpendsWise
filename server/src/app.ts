@@ -7,6 +7,7 @@ import mongoSanitize from "express-mongo-sanitize";
 import { getDB } from "./db";
 import authRoutes from "./routes/auth";
 import expenseRoutes from "./routes/expenses";
+import familyMemberRoutes from "./routes/familyMembers";
 import { config } from "./config";
 import { doubleCsrfProtection, invalidCsrfTokenError } from "./middleware/csrf";
 
@@ -94,6 +95,7 @@ app.use(doubleCsrfProtection);
 
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/expenses", expenseLimiter, expenseRoutes);
+app.use("/api/family-members", expenseLimiter, familyMemberRoutes);
 
 // C1: Handle CSRF validation failures with a clear 403 before the generic handler
 app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
