@@ -194,8 +194,8 @@ function init() {
     // Initialize Currency Selector
     initializeCurrencySelector();
 
-    // Initialize Modern Date Picker (Flatpickr)
-    flatpickr("#date", {
+    // Initialize Modern Date Picker (Flatpickr) — store instance to avoid re-initializing on reset
+    window.datePicker = flatpickr("#date", {
         defaultDate: "today",
         dateFormat: "Y-m-d",
         disableMobile: true // Ensures the custom modern UI shows on mobile devices instead of native pickers
@@ -582,7 +582,7 @@ async function addExpense(e) {
     form.familyMember.value = '';
 
     // Reset date picker to today
-    flatpickr("#date").setDate("today");
+    window.datePicker.setDate("today");
 
     // Update UI
     updateSummary();
