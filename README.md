@@ -6,29 +6,37 @@ A budget tracker with a static frontend and a TypeScript + Express + MongoDB bac
 
 ```
 SpendsWise/
-├── index.html          # frontend entry
-├── auth.js             # auth page logic
-├── script.js           # main frontend logic
-├── styles.css          # base styles
+├── index.html              # frontend entry
+├── auth.js                 # auth page logic
+├── script.js               # main frontend logic
+├── styles.css              # base styles
 ├── src/
-│   └── input.css       # Tailwind source
+│   └── input.css           # Tailwind source
 ├── dist/
-│   └── output.css      # compiled Tailwind output
+│   └── output.css          # compiled Tailwind output
 ├── images/
 │   └── wallet.svg
-├── package.json        # root — Tailwind build scripts
-├── vercel.json         # Vercel deployment config
-└── server/             # Node.js + TypeScript API
+├── package.json            # root — Tailwind build scripts
+├── vercel.json             # Vercel deployment config
+└── server/                 # Node.js + TypeScript API
     ├── src/
-    │   ├── app.ts              # Express app (Vercel entry)
-    │   ├── index.ts            # local dev entry
-    │   ├── config.ts           # env loader
-    │   ├── db.ts               # Mongoose connection
-    │   ├── models/             # User, Expense
-    │   ├── middleware/         # auth, asyncHandler, csrf
-    │   ├── routes/             # auth, expenses
+    │   ├── app.ts          # Express app (Vercel entry)
+    │   ├── index.ts        # local dev entry
+    │   ├── config.ts       # env loader
+    │   ├── db.ts           # Mongoose connection
+    │   ├── models/
+    │   │   ├── User.ts     # user schema & model
+    │   │   └── Expense.ts  # expense schema & model
+    │   ├── middleware/
+    │   │   ├── auth.ts     # JWT verification, sets req.userId
+    │   │   ├── asyncHandler.ts  # wraps async route handlers
+    │   │   └── csrf.ts     # double-submit CSRF protection
+    │   ├── routes/
+    │   │   ├── auth.ts     # register, login, logout, me, password
+    │   │   ├── expenses.ts # CRUD + bulk import for expenses
+    │   │   └── familyMembers.ts # add / list / delete members
     │   └── types/
-    │       └── express.d.ts    # Request.userId augmentation
+    │       └── express.d.ts  # Request.userId augmentation
     ├── .env.example
     ├── package.json
     └── tsconfig.json
@@ -36,7 +44,7 @@ SpendsWise/
 
 ## Frontend
 
-Static pages using Tailwind CSS (compiled locally), Phosphor icons, and Flatpickr.
+Static pages using Tailwind CSS (compiled locally), Phosphor icons, and Flatpickr. Supports light and dark mode via a toggle in the Account view — preference is persisted in `localStorage` and applied before first render to prevent flash.
 
 ### Build CSS
 
@@ -111,8 +119,10 @@ Session is managed via an HttpOnly cookie (`sw_session`). All state-changing req
 | DELETE | `/api/family-members` | yes  | `{ name }`                                                           |
 | GET    | `/api/expenses`       | yes  | —                                                                    |
 | POST   | `/api/expenses`       | yes  | `{ amount, category, type, note?, date?, currency?, familyMember? }` |
+| POST   | `/api/expenses/bulk`  | yes  | `{ rows: [...] }` — import up to 1000 rows; returns `{ imported, skipped }` |
 | PUT    | `/api/expenses/:id`   | yes  | any subset of the above fields                                       |
 | DELETE | `/api/expenses/:id`   | yes  | —                                                                    |
+| DELETE | `/api/expenses`       | yes  | `{ confirm: true }` — deletes all expenses for the user              |
 
 ### Data model
 
