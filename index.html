@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; font-src 'self' https://unpkg.com data:; img-src 'self' data: https://unpkg.com; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none';">
     <title>SpendsWise - Global Budget Tracker</title>
+    <script>try{if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}</script>
     <link rel="icon" type="image/svg+xml" href="images/wallet.svg">
     <link rel="shortcut icon" href="images/wallet.svg">
     <link rel="stylesheet" href="dist/output.css">
@@ -549,6 +550,21 @@
                                     <i class="ph ph-upload-simple"></i> Import from CSV
                                 </button>
                                 <input type="file" id="csvImportInput" accept=".csv" class="hidden">
+                            </div>
+                        </div>
+
+                        <!-- Appearance Card -->
+                        <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                            <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Appearance</h3>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i id="themeIcon" class="ph ph-sun text-amber-400 text-lg"></i>
+                                    <span class="text-sm font-medium text-slate-700">Dark Mode</span>
+                                </div>
+                                <button id="darkModeToggle" onclick="toggleDarkMode()" role="switch" aria-checked="false" aria-label="Toggle dark mode"
+                                    class="relative w-11 h-6 rounded-full transition-colors duration-200 bg-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                    <span id="darkModeThumb" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"></span>
+                                </button>
                             </div>
                         </div>
 

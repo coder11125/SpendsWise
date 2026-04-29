@@ -210,6 +210,8 @@ function init() {
 
     form.addEventListener('submit', addExpense);
 
+    updateDarkModeToggle(document.documentElement.classList.contains('dark'));
+
     csvImportInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -1272,6 +1274,32 @@ async function changePassword(e) {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="ph ph-floppy-disk"></i> Update Password';
+    }
+}
+
+function toggleDarkMode() {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateDarkModeToggle(isDark);
+}
+
+function updateDarkModeToggle(isDark) {
+    const toggle = document.getElementById('darkModeToggle');
+    const thumb = document.getElementById('darkModeThumb');
+    const icon = document.getElementById('themeIcon');
+    if (!toggle) return;
+    if (isDark) {
+        toggle.classList.remove('bg-slate-200');
+        toggle.classList.add('bg-blue-600');
+        thumb.style.transform = 'translateX(20px)';
+        toggle.setAttribute('aria-checked', 'true');
+        if (icon) icon.className = 'ph ph-moon text-blue-400 text-lg';
+    } else {
+        toggle.classList.remove('bg-blue-600');
+        toggle.classList.add('bg-slate-200');
+        thumb.style.transform = 'translateX(0)';
+        toggle.setAttribute('aria-checked', 'false');
+        if (icon) icon.className = 'ph ph-sun text-amber-400 text-lg';
     }
 }
 
