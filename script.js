@@ -178,6 +178,8 @@ const sidebarLinks = document.querySelectorAll('.sidebar-link');
 const sidebarPeopleBtn = document.getElementById('sidebarPeopleBtn');
 const personModal = document.getElementById('personModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
+const csvImportInput = document.getElementById('csvImportInput');
+const importModal = document.getElementById('importModal');
 const deleteAllModal = document.getElementById('deleteAllModal');
 const closeDeleteAllModalBtn = document.getElementById('closeDeleteAllModalBtn');
 const cancelDeleteAllBtn = document.getElementById('cancelDeleteAllBtn');
@@ -207,6 +209,13 @@ function init() {
     });
 
     form.addEventListener('submit', addExpense);
+
+    csvImportInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const text = await file.text();
+        await processImportCSV(text);
+    });
 
     // Mobile Menu Listeners
     if (mobileMenuBtn) {
@@ -1264,6 +1273,120 @@ async function changePassword(e) {
         btn.disabled = false;
         btn.innerHTML = '<i class="ph ph-floppy-disk"></i> Update Password';
     }
+}
+
+function triggerImportCSV() {
+    csvImportInput.value = '';
+    csvImportInput.click();
+}
+
+async function processImportCSV(text) {
+    const lines = text.trim().split('\n').filter(l => l.trim());
+    if (lines.length < 2) {
+        showImportResult(0, [{ row: 0, reason: 'File is empty or has no data rows.' }]);
+        return;
+    }
+    const dataLines = lines.slice(1); // skip header
+    if (dataLines.length > 1000) {
+        showImportResult(0, [{ row: 0, reason: 'File exceeds the 1000-row limit. Split it into smaller files.' }]);
+        return;
+    }
+
+    const rows = [];
+    const clientErrors = [];
+
+    dataLines.forEach((line, idx) => {
+        const rowNum = idx + 2; // 1-based + 1 for header
+        const parts = line.split(',');
+        if (parts.length < 7) {
+            clientErrors.push({ row: rowNum, reason: `Expected 7 columns, got ${parts.length}.` });
+            return;
+        }
+        const [rawDate, rawType, rawCategory, rawAmount, rawCurrency, rawMember, ...noteParts] = parts;
+        const amount = parseFloat(rawAmount);
+        const type = rawType.trim().toLowerCase();
+
+        if (type !== 'income' && type !== 'expense') {
+            clientErrors.push({ row: rowNum, reason: `Invalid type "${rawType.trim()}". Must be "income" or "expense".` });
+            return;
+        }
+        if (isNaN(amount) || amount < 0 || amount > 1e12) {
+            clientErrors.push({ row: rowNum, reason: `Invalid amount "${rawAmount.trim()}".` });
+            return;
+        }
+        if (!rawCategory.trim()) {
+            clientErrors.push({ row: rowNum, reason: 'Category is required.' });
+            return;
+        }
+        const parsedDate = new Date(rawDate.trim());
+        if (isNaN(parsedDate.getTime())) {
+            clientErrors.push({ row: rowNum, reason: `Invalid date "${rawDate.trim()}".` });
+            return;
+        }
+        const currency = rawCurrency.trim() || currentCurrency;
+        rows.push({
+            _rowNum: rowNum,
+            date: rawDate.trim(),
+            type,
+            category: rawCategory.trim(),
+            amount,
+            currency,
+            familyMember: rawMember.trim(),
+            note: noteParts.join(',').trim(),
+        });
+    });
+
+    if (rows.length === 0) {
+        showImportResult(0, clientErrors);
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/expenses/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rows: rows.map(({ _rowNum, ...r }) => r) }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showImportResult(0, [{ row: 0, reason: data.error ?? 'Server error.' }]);
+            return;
+        }
+        const serverSkipped = (data.skipped ?? []).map(s => ({
+            row: rows[s.index]?._rowNum ?? s.index + 2,
+            reason: s.reason,
+        }));
+        showImportResult(data.imported, [...clientErrors, ...serverSkipped]);
+        if (data.imported > 0) await loadExpenses();
+    } catch {
+        showImportResult(0, [{ row: 0, reason: 'Network error. Please try again.' }]);
+    }
+}
+
+function showImportResult(imported, skipped) {
+    document.getElementById('importResultImported').textContent = imported;
+    document.getElementById('importResultSkipped').textContent = skipped.length;
+    const errorSection = document.getElementById('importResultErrorSection');
+    const errorList = document.getElementById('importResultErrors');
+    errorList.innerHTML = '';
+    if (skipped.length > 0) {
+        errorSection.classList.remove('hidden');
+        skipped.forEach(({ row, reason }) => {
+            const li = document.createElement('li');
+            li.className = 'text-sm text-slate-600';
+            li.textContent = row > 0 ? `Row ${row}: ${reason}` : reason;
+            errorList.appendChild(li);
+        });
+    } else {
+        errorSection.classList.add('hidden');
+    }
+    importModal.classList.remove('hidden');
+    importModal.classList.add('flex');
+}
+
+function closeImportModal() {
+    importModal.classList.add('hidden');
+    importModal.classList.remove('flex');
 }
 
 function exportExpensesCSV() {

@@ -57,6 +57,63 @@ router.post(
   })
 );
 
+router.post(
+  "/bulk",
+  asyncHandler(async (req, res) => {
+    const { rows } = req.body ?? {};
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: "rows must be a non-empty array" });
+    }
+    if (rows.length > 1000) {
+      return res.status(400).json({ error: "Cannot import more than 1000 rows at a time" });
+    }
+
+    const toInsert: object[] = [];
+    const skipped: { index: number; reason: string }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const { amount, category, note, date, type, currency, familyMember } = rows[i] ?? {};
+      if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0 || amount > 1e12) {
+        skipped.push({ index: i, reason: "Invalid amount" });
+        continue;
+      }
+      if (typeof category !== "string" || !category.trim() || category.length > 64) {
+        skipped.push({ index: i, reason: "Invalid category" });
+        continue;
+      }
+      if (type !== "income" && type !== "expense") {
+        skipped.push({ index: i, reason: "Type must be 'income' or 'expense'" });
+        continue;
+      }
+      const parsedDate = date ? new Date(date) : new Date();
+      if (date && (Number.isNaN(parsedDate.getTime()) || parsedDate.getFullYear() < 1970 || parsedDate.getFullYear() > 2100)) {
+        skipped.push({ index: i, reason: "Invalid date" });
+        continue;
+      }
+      const resolvedCurrency =
+        typeof currency === "string" && /^[A-Z]{2,8}$/.test(currency.trim())
+          ? currency.trim()
+          : "USD";
+      toInsert.push({
+        userId: req.userId,
+        type,
+        amount,
+        category: category.trim(),
+        currency: resolvedCurrency,
+        familyMember: typeof familyMember === "string" ? familyMember.trim().slice(0, 64) : "",
+        note: typeof note === "string" ? note.slice(0, 500) : "",
+        date: parsedDate,
+      });
+    }
+
+    if (toInsert.length > 0) {
+      await ExpenseModel.insertMany(toInsert, { ordered: false });
+    }
+
+    return res.status(200).json({ imported: toInsert.length, skipped });
+  })
+);
+
 router.put(
   "/:id",
   asyncHandler(async (req, res) => {
@@ -112,6 +169,9 @@ router.put(
 router.delete(
   "/",
   asyncHandler(async (req, res) => {
+    if (req.body?.confirm !== true) {
+      return res.status(400).json({ error: "confirm: true required to delete all expenses" });
+    }
     await ExpenseModel.deleteMany({ userId: req.userId });
     return res.status(204).send();
   })
