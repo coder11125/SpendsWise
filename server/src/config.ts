@@ -14,8 +14,9 @@ export const config = {
   jwtSecret: required("JWT_SECRET"),
   csrfSecret: required("CSRF_SECRET"),
   jwtExpiresIn: "7d" as const,
-  // Comma-separated list of allowed origins. Set ALLOWED_ORIGINS in your env.
   allowedOrigins: (process.env.ALLOWED_ORIGINS ?? "https://spends-wise.vercel.app")
     .split(",")
     .map((o) => o.trim()),
+  groqApiKey: process.env.GROQ_API_KEY ?? "",
+  groqModel: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
 };

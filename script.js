@@ -2120,5 +2120,150 @@ function closeDeleteAllModal() {
     deleteAllError.textContent = '';
 }
 
+// --- AI ASSISTANT ---
+let aiChatHistory = [];
+
+function openAiChat() {
+    document.getElementById('aiChatPanel').classList.remove('translate-x-full');
+    document.getElementById('aiChatOverlay').classList.remove('hidden');
+    document.getElementById('aiChatInput').focus();
+}
+
+function closeAiChat() {
+    document.getElementById('aiChatPanel').classList.add('translate-x-full');
+    document.getElementById('aiChatOverlay').classList.add('hidden');
+}
+
+function appendAiMessage(role, content) {
+    const container = document.getElementById('aiChatMessages');
+    const isUser = role === 'user';
+    const div = document.createElement('div');
+    div.className = isUser ? 'flex justify-end' : 'flex gap-2';
+
+    if (isUser) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bg-indigo-600 text-white rounded-2xl rounded-tr-none px-4 py-2.5 text-sm max-w-[85%]';
+        bubble.textContent = content;
+        div.appendChild(bubble);
+    } else {
+        const avatar = document.createElement('div');
+        avatar.className = 'w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5';
+        avatar.innerHTML = '<i class="ph-fill ph-brain text-indigo-600 text-sm"></i>';
+        const bubble = document.createElement('div');
+        bubble.className = 'bg-slate-100 rounded-2xl rounded-tl-none px-4 py-2.5 text-sm text-slate-700 max-w-[85%] whitespace-pre-wrap';
+        bubble.textContent = content;
+        div.appendChild(avatar);
+        div.appendChild(bubble);
+    }
+
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return div;
+}
+
+async function sendAiMessage() {
+    const input = document.getElementById('aiChatInput');
+    const btn = document.getElementById('aiSendBtn');
+    const message = input.value.trim();
+    if (!message) return;
+
+    input.value = '';
+    input.disabled = true;
+    btn.disabled = true;
+
+    appendAiMessage('user', message);
+    const typing = appendAiMessage('assistant', '...');
+
+    try {
+        const res = await apiFetch('/ai/chat', {
+            method: 'POST',
+            body: JSON.stringify({ message, history: aiChatHistory }),
+        });
+        const data = await res.json();
+        typing.remove();
+
+        if (!res.ok) {
+            appendAiMessage('assistant', data.error ?? 'Something went wrong.');
+            return;
+        }
+
+        appendAiMessage('assistant', data.reply);
+        aiChatHistory.push({ role: 'user', content: message });
+        aiChatHistory.push({ role: 'assistant', content: data.reply });
+        if (aiChatHistory.length > 20) aiChatHistory = aiChatHistory.slice(-20);
+    } catch {
+        typing.remove();
+        appendAiMessage('assistant', 'Network error. Please try again.');
+    } finally {
+        input.disabled = false;
+        btn.disabled = false;
+        input.focus();
+    }
+}
+
+async function parseAndFillExpense() {
+    const input = document.getElementById('aiParseInput');
+    const btn = document.getElementById('aiParseBtn');
+    const errorEl = document.getElementById('aiParseError');
+    const text = input.value.trim();
+    if (!text) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-circle-notch animate-spin"></i>';
+    errorEl.classList.add('hidden');
+
+    try {
+        const res = await apiFetch('/ai/parse', {
+            method: 'POST',
+            body: JSON.stringify({ text }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorEl.textContent = data.error ?? 'Could not parse. Try: "spent 450 on lunch"';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        if (data.type === 'income') {
+            document.getElementById('typeIncome').checked = true;
+        } else {
+            document.getElementById('typeExpense').checked = true;
+        }
+        if (data.amount) document.getElementById('amount').value = data.amount;
+        if (data.category) {
+            const select = document.getElementById('category');
+            const option = Array.from(select.options).find(
+                (o) => o.value.toLowerCase() === data.category.toLowerCase()
+            );
+            if (option) select.value = option.value;
+        }
+        if (data.date) {
+            const fp = document.getElementById('date')._flatpickr;
+            if (fp) fp.setDate(data.date);
+            else document.getElementById('date').value = data.date;
+        }
+        if (data.note) document.getElementById('note').value = data.note;
+
+        input.value = '';
+        document.getElementById('amount').focus();
+    } catch {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ph ph-magic-wand"></i>';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('aiChatInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); }
+    });
+    document.getElementById('aiParseInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); parseAndFillExpense(); }
+    });
+});
+
 // --- START THE APP ---
 document.addEventListener('DOMContentLoaded', init);
