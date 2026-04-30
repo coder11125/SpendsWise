@@ -128,6 +128,16 @@
                     </div>
                 </div>
                 
+                <!-- Monthly Budget Overview -->
+                <div id="budgetOverviewCard" class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-8 hidden">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="ph ph-target text-blue-500"></i> This Month's Budget
+                    </h3>
+                    <div id="budgetOverviewList" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- populated by JS -->
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <!-- Left Column: Add Expense & Chart -->
                     <div class="lg:col-span-1 space-y-8">
@@ -606,6 +616,37 @@
                                     <i class="ph ph-floppy-disk"></i> Update Password
                                 </button>
                             </form>
+                        </div>
+
+                        <!-- Monthly Budget Goals -->
+                        <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                            <h3 class="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
+                                <i class="ph ph-target text-blue-500"></i> Monthly Budget Goals
+                            </h3>
+                            <p class="text-sm text-slate-500 mb-5">Set a monthly spending limit per category.</p>
+                            <form id="budgetGoalForm" class="flex gap-2 mb-5">
+                                <div class="relative flex-1">
+                                    <select id="budgetCategory" required class="input-field w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 appearance-none text-sm">
+                                        <option value="" disabled selected>Category...</option>
+                                        <option value="Food & Dining">Food & Dining</option>
+                                        <option value="Housing">Housing</option>
+                                        <option value="Transportation">Transportation</option>
+                                        <option value="Utilities">Utilities</option>
+                                        <option value="Entertainment">Entertainment</option>
+                                        <option value="Healthcare">Healthcare</option>
+                                        <option value="Shopping">Shopping</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                    <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                                </div>
+                                <input type="number" id="budgetAmount" min="1" step="0.01" required placeholder="Limit"
+                                    class="input-field w-24 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 placeholder-slate-400 text-sm">
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                    Set
+                                </button>
+                            </form>
+                            <div id="budgetGoalsList" class="space-y-2"></div>
+                            <div id="noBudgetGoalsState" class="text-center py-3 text-sm text-slate-500">No budget goals set yet.</div>
                         </div>
 
                         <!-- Danger Zone -->

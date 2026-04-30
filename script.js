@@ -52,6 +52,7 @@ let expense = [];
 let currentCurrency = localStorage.getItem('sw_currency') || 'USD';
 let familyMembers = []; // State for explicitly added family members
 let currentFilter = 'all'; // Current sidebar filter view
+let budgetGoals = JSON.parse(localStorage.getItem('sw_budget_goals') || '{}');
 
 function setFamilyMembers(members) {
     familyMembers = Array.isArray(members) ? [...members] : [];
@@ -301,6 +302,20 @@ function init() {
             confirmDeleteAllBtn.disabled = false;
             confirmDeleteAllBtn.innerHTML = '<i class="ph ph-trash"></i> Delete All';
         }
+    });
+
+    // Budget goals form
+    document.getElementById('budgetGoalForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const category = document.getElementById('budgetCategory').value;
+        const amount = parseFloat(document.getElementById('budgetAmount').value);
+        if (!category || Number.isNaN(amount) || amount <= 0) return;
+        budgetGoals[category] = amount;
+        saveBudgetGoals();
+        renderBudgetGoalsList();
+        renderBudgetOverview();
+        document.getElementById('budgetCategory').value = '';
+        document.getElementById('budgetAmount').value = '';
     });
 
     // Edit modal
@@ -776,6 +791,140 @@ async function saveEditExpense(e) {
     }
 }
 
+// --- BUDGET GOALS ---
+function saveBudgetGoals() {
+    localStorage.setItem('sw_budget_goals', JSON.stringify(budgetGoals));
+}
+
+function getCurrentMonthExpenseByCategory() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const totals = {};
+    expense.forEach(item => {
+        if (item.type !== 'expense') return;
+        const [y, m] = item.date.split('-').map(Number);
+        if (y === year && m - 1 === month) {
+            totals[item.category] = (totals[item.category] || 0) + item.amount;
+        }
+    });
+    return totals;
+}
+
+function renderBudgetOverview() {
+    const card = document.getElementById('budgetOverviewCard');
+    const list = document.getElementById('budgetOverviewList');
+    const goals = Object.keys(budgetGoals);
+
+    if (goals.length === 0) {
+        card.classList.add('hidden');
+        return;
+    }
+
+    card.classList.remove('hidden');
+    list.innerHTML = '';
+
+    const monthlySpend = getCurrentMonthExpenseByCategory();
+    const symbol = getCurrencySymbol(currentCurrency);
+
+    goals.forEach(category => {
+        const limit = budgetGoals[category];
+        const spent = monthlySpend[category] || 0;
+        const pct = Math.min((spent / limit) * 100, 100);
+        const over = spent > limit;
+
+        let barColor, textColor;
+        if (over || pct >= 90) { barColor = 'bg-rose-500'; textColor = 'text-rose-600'; }
+        else if (pct >= 70)    { barColor = 'bg-amber-500'; textColor = 'text-amber-600'; }
+        else                   { barColor = 'bg-emerald-500'; textColor = 'text-emerald-600'; }
+
+        const div = document.createElement('div');
+        div.className = 'bg-slate-50 rounded-xl p-4';
+
+        const headerRow = document.createElement('div');
+        headerRow.className = 'flex items-center justify-between mb-2';
+
+        const leftSpan = document.createElement('div');
+        leftSpan.className = 'flex items-center gap-2';
+        const iconEl = document.createElement('i');
+        iconEl.className = `ph ${categoryIcons[category] || categoryIcons['Other']} text-slate-500`;
+        const catSpan = document.createElement('span');
+        catSpan.className = 'text-sm font-medium text-slate-700';
+        catSpan.textContent = category;
+        leftSpan.appendChild(iconEl);
+        leftSpan.appendChild(catSpan);
+
+        const rightSpan = document.createElement('span');
+        rightSpan.className = `text-xs font-semibold ${textColor}`;
+        rightSpan.textContent = over
+            ? `${symbol}${spent.toFixed(2)} / ${symbol}${limit.toFixed(2)} — over!`
+            : `${symbol}${spent.toFixed(2)} / ${symbol}${limit.toFixed(2)}`;
+
+        headerRow.appendChild(leftSpan);
+        headerRow.appendChild(rightSpan);
+
+        const barBg = document.createElement('div');
+        barBg.className = 'w-full bg-slate-200 rounded-full h-1.5';
+        const barFill = document.createElement('div');
+        barFill.className = `${barColor} h-1.5 rounded-full transition-all duration-500`;
+        barFill.style.width = `${pct}%`;
+        barBg.appendChild(barFill);
+
+        div.appendChild(headerRow);
+        div.appendChild(barBg);
+        list.appendChild(div);
+    });
+}
+
+function renderBudgetGoalsList() {
+    const list = document.getElementById('budgetGoalsList');
+    const empty = document.getElementById('noBudgetGoalsState');
+    if (!list) return;
+
+    const goals = Object.keys(budgetGoals);
+    list.innerHTML = '';
+
+    if (goals.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+    }
+
+    empty.classList.add('hidden');
+    const symbol = getCurrencySymbol(currentCurrency);
+
+    goals.forEach(category => {
+        const limit = budgetGoals[category];
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2.5';
+
+        const left = document.createElement('div');
+        const catEl = document.createElement('p');
+        catEl.className = 'text-sm font-medium text-slate-700';
+        catEl.textContent = category;
+        const amtEl = document.createElement('p');
+        amtEl.className = 'text-xs text-slate-500';
+        amtEl.textContent = `${symbol}${limit.toFixed(2)} / month`;
+        left.appendChild(catEl);
+        left.appendChild(amtEl);
+
+        const btn = document.createElement('button');
+        btn.className = 'text-rose-400 hover:text-rose-600 transition-colors';
+        const icon = document.createElement('i');
+        icon.className = 'ph ph-trash text-sm';
+        btn.appendChild(icon);
+        btn.addEventListener('click', () => {
+            delete budgetGoals[category];
+            saveBudgetGoals();
+            renderBudgetGoalsList();
+            renderBudgetOverview();
+        });
+
+        row.appendChild(left);
+        row.appendChild(btn);
+        list.appendChild(row);
+    });
+}
+
 // --- CALCULATIONS ---
 function calculateSummary() {
     let income = 0;
@@ -988,6 +1137,7 @@ function renderExpenses() {
     });
     
     expenseCount.textContent = `${expense.length} item${expense.length !== 1 ? 's' : ''}`;
+    renderBudgetOverview();
 }
 
 function renderIncomeView() {
@@ -1345,6 +1495,8 @@ async function renderAccountView() {
     accountTotalExpense.textContent = `${symbol}${expenses.toFixed(2)}`;
     accountNetBalance.textContent = `${symbol}${balance.toFixed(2)}`;
     accountNetBalance.className = `font-bold ${balance >= 0 ? 'text-blue-600' : 'text-rose-600'}`;
+
+    renderBudgetGoalsList();
 
     // Fetch profile from server
     try {
