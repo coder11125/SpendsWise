@@ -303,6 +303,19 @@ function init() {
         }
     });
 
+    // Edit modal
+    document.getElementById('editModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('editModal')) closeEditModal();
+    });
+    document.getElementById('editExpenseForm').addEventListener('submit', saveEditExpense);
+    document.querySelectorAll('input[name="editType"]').forEach(radio => {
+        radio.addEventListener('change', () => updateEditCategoryOptions(radio.value));
+    });
+    window.editDatePicker = flatpickr('#editDate', {
+        dateFormat: 'Y-m-d',
+        disableMobile: true,
+    });
+
     addPersonForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = newPersonName.value.trim();
@@ -649,6 +662,120 @@ async function deleteExpense(id) {
     }
 }
 
+// --- EDIT EXPENSE ---
+let editingExpenseId = null;
+
+function openEditModal(item) {
+    editingExpenseId = item.id;
+
+    const editTypeExpense = document.getElementById('editTypeExpense');
+    const editTypeIncome = document.getElementById('editTypeIncome');
+    if (item.type === 'income') {
+        editTypeIncome.checked = true;
+    } else {
+        editTypeExpense.checked = true;
+    }
+    updateEditCategoryOptions(item.type);
+
+    document.getElementById('editAmount').value = item.amount;
+    document.getElementById('editCurrencySymbol').textContent = getCurrencySymbol(item.currency);
+    document.getElementById('editNote').value = item.note || '';
+
+    const editCategorySelect = document.getElementById('editCategory');
+    editCategorySelect.value = item.category;
+
+    if (window.editDatePicker) {
+        window.editDatePicker.setDate(item.date);
+    }
+
+    const editFamilyMember = document.getElementById('editFamilyMember');
+    editFamilyMember.innerHTML = '<option value="">None / Myself</option>';
+    familyMembers.forEach(member => {
+        const option = document.createElement('option');
+        option.value = member;
+        option.textContent = member;
+        editFamilyMember.appendChild(option);
+    });
+    editFamilyMember.value = item.familyMember || '';
+
+    document.getElementById('editExpenseError').classList.add('hidden');
+
+    const editModal = document.getElementById('editModal');
+    editModal.classList.remove('hidden');
+    editModal.classList.add('flex');
+}
+
+function closeEditModal() {
+    const editModal = document.getElementById('editModal');
+    editModal.classList.add('hidden');
+    editModal.classList.remove('flex');
+    editingExpenseId = null;
+}
+
+function updateEditCategoryOptions(type) {
+    const editExpenseCats = document.getElementById('editExpenseCategories');
+    const editIncomeCats = document.getElementById('editIncomeCategories');
+    if (type === 'expense') {
+        editExpenseCats.style.display = '';
+        editIncomeCats.style.display = 'none';
+    } else {
+        editExpenseCats.style.display = 'none';
+        editIncomeCats.style.display = '';
+    }
+}
+
+async function saveEditExpense(e) {
+    e.preventDefault();
+    if (!editingExpenseId) return;
+
+    const errorEl = document.getElementById('editExpenseError');
+    const btn = document.getElementById('editExpenseBtn');
+    errorEl.classList.add('hidden');
+
+    const type = document.querySelector('input[name="editType"]:checked').value;
+    const amount = parseFloat(document.getElementById('editAmount').value);
+    const category = document.getElementById('editCategory').value;
+    const date = document.getElementById('editDate').value;
+    const familyMember = document.getElementById('editFamilyMember').value || '';
+    const note = document.getElementById('editNote').value || '';
+
+    if (!type || Number.isNaN(amount) || !category || !date) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Saving...';
+
+    try {
+        const res = await apiFetch(`/expenses/${editingExpenseId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ type, amount, category, date, familyMember, note }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            errorEl.textContent = err.error ?? 'Failed to save changes.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        const updated = mapServerExpense(await res.json());
+        expense = expense.map(item => item.id === editingExpenseId ? updated : item);
+
+        updateSummary();
+        renderExpenses();
+        updateExpenseChart();
+        if (currentFilter === 'income') renderIncomeView();
+        else if (currentFilter === 'expense') renderExpenseView();
+        else if (currentFilter === 'history') renderHistoryView();
+
+        closeEditModal();
+    } catch (err) {
+        console.error('Network error editing expense:', err);
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ph ph-floppy-disk"></i> Save Changes';
+    }
+}
+
 // --- CALCULATIONS ---
 function calculateSummary() {
     let income = 0;
@@ -801,6 +928,13 @@ function buildItemRow(item, { useTypeIcon, showTypeBadge, iconBgClass, iconColor
     amountWrap.appendChild(amountEl);
     amountWrap.appendChild(currencyEl);
 
+    const editBtn = document.createElement('button');
+    editBtn.className = 'text-slate-400 hover:text-blue-600 transition-colors';
+    const editIcon = document.createElement('i');
+    editIcon.className = 'ph ph-pencil-simple text-sm';
+    editBtn.appendChild(editIcon);
+    editBtn.addEventListener('click', () => openEditModal(item));
+
     const delBtn = document.createElement('button');
     delBtn.className = 'text-slate-400 hover:text-rose-600 transition-colors';
     const trashIcon = document.createElement('i');
@@ -809,6 +943,7 @@ function buildItemRow(item, { useTypeIcon, showTypeBadge, iconBgClass, iconColor
     delBtn.addEventListener('click', () => deleteExpense(item.id));
 
     right.appendChild(amountWrap);
+    right.appendChild(editBtn);
     right.appendChild(delBtn);
 
     li.appendChild(left);
