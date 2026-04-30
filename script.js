@@ -2134,6 +2134,22 @@ function closeAiChat() {
     document.getElementById('aiChatOverlay').classList.add('hidden');
 }
 
+function clearAiChat() {
+    aiChatHistory = [];
+    const container = document.getElementById('aiChatMessages');
+    container.innerHTML = '';
+}
+
+function newAiChat() {
+    aiChatHistory = [];
+    const container = document.getElementById('aiChatMessages');
+    container.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'flex gap-2';
+    div.innerHTML = `<div class="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5"><i class="ph-fill ph-brain text-indigo-600 text-sm"></i></div><div class="bg-slate-100 rounded-2xl rounded-tl-none px-4 py-2.5 text-sm text-slate-700 max-w-[85%]">New conversation started. What would you like to know about your finances?</div>`;
+    container.appendChild(div);
+}
+
 function appendAiMessage(role, content) {
     const container = document.getElementById('aiChatMessages');
     const isUser = role === 'user';

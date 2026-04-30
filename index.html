@@ -1036,9 +1036,17 @@
                     <p class="text-xs text-indigo-200">Ask anything about your finances</p>
                 </div>
             </div>
-            <button onclick="closeAiChat()" class="text-indigo-200 hover:text-white transition-colors">
-                <i class="ph ph-x text-xl"></i>
-            </button>
+            <div class="flex items-center gap-1">
+                <button onclick="clearAiChat()" title="Clear chat" class="text-indigo-200 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10">
+                    <i class="ph ph-eraser text-lg"></i>
+                </button>
+                <button onclick="newAiChat()" title="New chat" class="text-indigo-200 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10">
+                    <i class="ph ph-plus text-lg"></i>
+                </button>
+                <button onclick="closeAiChat()" title="Close" class="text-indigo-200 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10">
+                    <i class="ph ph-x text-lg"></i>
+                </button>
+            </div>
         </div>
         <div id="aiChatMessages" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
             <div class="flex gap-2">
