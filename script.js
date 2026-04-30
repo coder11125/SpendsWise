@@ -316,6 +316,9 @@ function init() {
         renderBudgetOverview();
         document.getElementById('budgetCategory').value = '';
         document.getElementById('budgetAmount').value = '';
+        const form = document.getElementById('budgetGoalForm');
+        form.classList.add('hidden');
+        form.classList.remove('flex');
     });
 
     // Edit modal
@@ -792,6 +795,12 @@ async function saveEditExpense(e) {
 }
 
 // --- BUDGET GOALS ---
+function toggleBudgetForm() {
+    const form = document.getElementById('budgetGoalForm');
+    form.classList.toggle('hidden');
+    form.classList.toggle('flex');
+}
+
 function saveBudgetGoals() {
     localStorage.setItem('sw_budget_goals', JSON.stringify(budgetGoals));
 }

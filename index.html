@@ -624,7 +624,10 @@
                                 <i class="ph ph-target text-blue-500"></i> Monthly Budget Goals
                             </h3>
                             <p class="text-sm text-slate-500 mb-5">Set a monthly spending limit per category.</p>
-                            <form id="budgetGoalForm" class="flex gap-2 mb-5">
+                            <button type="button" id="showBudgetFormBtn" onclick="toggleBudgetForm()" class="mb-4 flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors">
+                                <i class="ph ph-plus-circle"></i> Add Goal
+                            </button>
+                            <form id="budgetGoalForm" class="hidden flex gap-2 mb-5">
                                 <div class="relative flex-1">
                                     <select id="budgetCategory" required class="input-field w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none text-slate-800 appearance-none text-sm">
                                         <option value="" disabled selected>Category...</option>
