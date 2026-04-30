@@ -52,6 +52,8 @@ let expense = [];
 let currentCurrency = localStorage.getItem('sw_currency') || 'USD';
 let familyMembers = []; // State for explicitly added family members
 let currentFilter = 'all'; // Current sidebar filter view
+let dashboardTrendRange = 'month';
+let expenseTrendRange = 'month';
 let budgetGoals = JSON.parse(localStorage.getItem('sw_budget_goals') || '{}');
 
 function setFamilyMembers(members) {
@@ -116,6 +118,12 @@ const ctx = canvas.getContext('2d');
 const chartLegend = document.getElementById('chartLegend');
 const chartTotalValue = document.getElementById('chartTotalValue');
 const chartCenterText = document.getElementById('chartCenterText');
+const dashboardTrendCanvas = document.getElementById('dashboardExpenseTrendChart');
+const dashboardTrendCtx = dashboardTrendCanvas.getContext('2d');
+const dashboardTrendLabel = document.getElementById('dashboardTrendLabel');
+const dashboardTrendTotal = document.getElementById('dashboardTrendTotal');
+const dashboardTrendAverage = document.getElementById('dashboardTrendAverage');
+const dashboardTrendEmpty = document.getElementById('dashboardTrendEmpty');
 
 // View Elements
 const dashboardView = document.getElementById('dashboardView');
@@ -144,6 +152,12 @@ const expenseCtx = expenseCanvas.getContext('2d');
 const expenseChartLegend = document.getElementById('expenseChartLegend');
 const expenseChartTotalValue = document.getElementById('expenseChartTotalValue');
 const topExpenseCategories = document.getElementById('topExpenseCategories');
+const expenseTrendCanvas = document.getElementById('expenseTrendChart');
+const expenseTrendCtx = expenseTrendCanvas.getContext('2d');
+const expenseTrendLabel = document.getElementById('expenseTrendLabel');
+const expenseTrendTotal = document.getElementById('expenseTrendTotal');
+const expenseTrendAverage = document.getElementById('expenseTrendAverage');
+const expenseTrendEmpty = document.getElementById('expenseTrendEmpty');
 
 // History View Elements
 const historySearch = document.getElementById('historySearch');
@@ -367,9 +381,33 @@ function init() {
     historyCategoryFilter.addEventListener('change', filterHistoryExpenses);
     historySortBy.addEventListener('change', filterHistoryExpenses);
 
+    document.querySelectorAll('[data-trend-controls]').forEach(group => {
+        group.addEventListener('click', (e) => {
+            const button = e.target.closest('[data-range]');
+            if (!button) return;
+
+            const range = button.dataset.range;
+            if (group.dataset.trendControls === 'dashboard') {
+                dashboardTrendRange = range;
+                renderDashboardExpenseTrend();
+            } else {
+                expenseTrendRange = range;
+                renderExpenseTrend();
+            }
+            updateTrendControlStyles();
+        });
+    });
+
+    window.addEventListener('resize', () => {
+        renderDashboardExpenseTrend();
+        renderExpenseTrend();
+    });
+
     // Initialize views
     updateSummary();
     renderExpenses();
+    renderExpenseTrend();
+    updateTrendControlStyles();
 
     // Load persisted expense from server if logged in
     loadExpenses();
@@ -1000,6 +1038,132 @@ function calculateExpenseByCategory() {
     return { data, total };
 }
 
+function parseLocalExpenseDate(dateString) {
+    const [year, month, day] = String(dateString).split('-').map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+}
+
+function startOfDay(date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date, days) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
+}
+
+function formatDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatMonthKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+}
+
+function getTrendPeriodLabel(range) {
+    switch (range) {
+        case 'all':
+            return 'All Time';
+        case 'week':
+            return 'Last 7 Days';
+        case 'day':
+            return 'Today';
+        case 'month':
+        default:
+            return 'This Month';
+    }
+}
+
+function calculateExpenseTrendData(range) {
+    const today = startOfDay(new Date());
+    const expenseItems = expense
+        .filter(item => item.type === 'expense')
+        .map(item => ({ ...item, parsedDate: parseLocalExpenseDate(item.date) }))
+        .filter(item => item.parsedDate);
+
+    const buckets = [];
+    const bucketTotals = {};
+
+    if (range === 'all') {
+        if (expenseItems.length === 0) {
+            return { points: [], total: 0, average: 0, periodLabel: getTrendPeriodLabel(range) };
+        }
+
+        const dates = expenseItems.map(item => item.parsedDate);
+        let cursor = new Date(Math.min(...dates));
+        const last = new Date(Math.max(...dates));
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+        const end = new Date(last.getFullYear(), last.getMonth(), 1);
+
+        while (cursor <= end) {
+            const key = formatMonthKey(cursor);
+            buckets.push({
+                key,
+                label: cursor.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }),
+            });
+            bucketTotals[key] = 0;
+            cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+        }
+
+        expenseItems.forEach(item => {
+            const key = formatMonthKey(item.parsedDate);
+            bucketTotals[key] = (bucketTotals[key] || 0) + item.amount;
+        });
+    } else {
+        let start;
+        let end;
+
+        if (range === 'week') {
+            start = addDays(today, -6);
+            end = today;
+        } else if (range === 'day') {
+            start = today;
+            end = today;
+        } else {
+            start = new Date(today.getFullYear(), today.getMonth(), 1);
+            end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        }
+
+        for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
+            const key = formatDateKey(cursor);
+            buckets.push({
+                key,
+                label: range === 'day'
+                    ? 'Today'
+                    : cursor.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+            });
+            bucketTotals[key] = 0;
+        }
+
+        expenseItems.forEach(item => {
+            if (item.parsedDate < start || item.parsedDate > end) return;
+            const key = formatDateKey(item.parsedDate);
+            bucketTotals[key] = (bucketTotals[key] || 0) + item.amount;
+        });
+    }
+
+    const points = buckets.map(bucket => ({
+        ...bucket,
+        amount: bucketTotals[bucket.key] || 0,
+    }));
+    const total = points.reduce((sum, point) => sum + point.amount, 0);
+    const activeBuckets = points.filter(point => point.amount > 0).length;
+
+    return {
+        points,
+        total,
+        average: activeBuckets > 0 ? total / activeBuckets : 0,
+        periodLabel: getTrendPeriodLabel(range),
+    };
+}
+
 // --- UI RENDERING ---
 
 // Builds a safe expense/income list row using DOM methods (no innerHTML for user data).
@@ -1123,6 +1287,8 @@ function renderExpenses() {
         emptyState.style.display = 'flex';
         expenseList.innerHTML = '';
         expenseCount.textContent = '0 items';
+        renderDashboardExpenseTrend();
+        renderBudgetOverview();
         return;
     }
     
@@ -1147,6 +1313,7 @@ function renderExpenses() {
     
     expenseCount.textContent = `${expense.length} item${expense.length !== 1 ? 's' : ''}`;
     renderBudgetOverview();
+    renderDashboardExpenseTrend();
 }
 
 function renderIncomeView() {
@@ -1200,6 +1367,7 @@ function renderExpenseView() {
         expenseEntryCount.textContent = '0 items';
         topExpenseCategories.innerHTML = '<p class="text-center text-slate-500 text-sm">No expenses to analyze yet.</p>';
         renderExpenseChart([], 0);
+        renderExpenseTrend();
         return;
     }
     
@@ -1224,6 +1392,7 @@ function renderExpenseView() {
     const { data: categoryData, total: expenseTotal } = calculateExpenseByCategory();
     renderTopExpenseCategories(categoryData, expenseTotal);
     renderExpenseChart(categoryData, expenseTotal);
+    renderExpenseTrend();
 }
 
 function renderTopExpenseCategories(categoryData, total) {
@@ -1282,6 +1451,8 @@ function renderTopExpenseCategories(categoryData, total) {
 function updateExpenseChart() {
     const { data, total } = calculateExpenseByCategory();
     renderExpenseChart(data, total);
+    renderDashboardExpenseTrend();
+    renderExpenseTrend();
 }
 
 function renderExpenseChart(categoryData, total) {
@@ -1349,6 +1520,202 @@ function renderExpenseChart(categoryData, total) {
     
     // Update center text
     chartTotalValue.textContent = `${getCurrencySymbol(currentCurrency)}${total.toFixed(2)}`;
+}
+
+function updateTrendControlStyles() {
+    document.querySelectorAll('[data-trend-controls]').forEach(group => {
+        const selectedRange = group.dataset.trendControls === 'dashboard'
+            ? dashboardTrendRange
+            : expenseTrendRange;
+
+        group.querySelectorAll('[data-range]').forEach(button => {
+            const isActive = button.dataset.range === selectedRange;
+            button.className = isActive
+                ? 'trend-range-btn px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-blue-700 shadow-sm transition-colors'
+                : 'trend-range-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors';
+        });
+    });
+}
+
+function renderDashboardExpenseTrend() {
+    renderExpenseTrendChart({
+        canvas: dashboardTrendCanvas,
+        ctx: dashboardTrendCtx,
+        range: dashboardTrendRange,
+        labelEl: dashboardTrendLabel,
+        totalEl: dashboardTrendTotal,
+        averageEl: dashboardTrendAverage,
+        emptyEl: dashboardTrendEmpty,
+    });
+}
+
+function renderExpenseTrend() {
+    renderExpenseTrendChart({
+        canvas: expenseTrendCanvas,
+        ctx: expenseTrendCtx,
+        range: expenseTrendRange,
+        labelEl: expenseTrendLabel,
+        totalEl: expenseTrendTotal,
+        averageEl: expenseTrendAverage,
+        emptyEl: expenseTrendEmpty,
+    });
+}
+
+function renderExpenseTrendChart({ canvas, ctx, range, labelEl, totalEl, averageEl, emptyEl }) {
+    const { points, total, average, periodLabel } = calculateExpenseTrendData(range);
+    const symbol = getCurrencySymbol(currentCurrency);
+
+    labelEl.textContent = periodLabel;
+    totalEl.textContent = `${symbol}${total.toFixed(2)}`;
+    averageEl.textContent = `Avg ${symbol}${average.toFixed(2)}`;
+    emptyEl.classList.toggle('hidden', total > 0);
+
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const logicalWidth = Math.max(Math.round(rect.width || canvas.parentElement.clientWidth || 640), 320);
+    const logicalHeight = Math.max(Math.round(rect.height || canvas.parentElement.clientHeight || 260), 220);
+    canvas.width = logicalWidth * dpr;
+    canvas.height = logicalHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+
+    if (points.length === 0 || total === 0) {
+        drawTrendEmptyState(ctx, logicalWidth, logicalHeight);
+        return;
+    }
+
+    const isDark = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? '#334155' : '#e2e8f0';
+    const labelColor = isDark ? '#94a3b8' : '#64748b';
+    const lineColor = '#e11d48';
+    const fillColor = isDark ? 'rgba(225, 29, 72, 0.16)' : 'rgba(225, 29, 72, 0.12)';
+    const axisLeft = 54;
+    const axisRight = 18;
+    const axisTop = 16;
+    const axisBottom = 36;
+    const chartWidth = logicalWidth - axisLeft - axisRight;
+    const chartHeight = logicalHeight - axisTop - axisBottom;
+    const maxAmount = Math.max(...points.map(point => point.amount));
+    const yMax = maxAmount === 0 ? 1 : maxAmount * 1.15;
+
+    ctx.font = '12px sans-serif';
+    ctx.textBaseline = 'middle';
+
+    for (let i = 0; i <= 4; i++) {
+        const y = axisTop + (chartHeight / 4) * i;
+        const value = yMax - (yMax / 4) * i;
+
+        ctx.beginPath();
+        ctx.moveTo(axisLeft, y);
+        ctx.lineTo(logicalWidth - axisRight, y);
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = labelColor;
+        ctx.textAlign = 'right';
+        ctx.fillText(compactCurrencyValue(value, symbol), axisLeft - 8, y);
+    }
+
+    const xForIndex = (index) => {
+        if (points.length === 1) return axisLeft + chartWidth / 2;
+        return axisLeft + (chartWidth / (points.length - 1)) * index;
+    };
+    const yForAmount = (amount) => axisTop + chartHeight - (amount / yMax) * chartHeight;
+
+    const coordinates = points.map((point, index) => ({
+        x: xForIndex(index),
+        y: yForAmount(point.amount),
+        ...point,
+    }));
+
+    if (coordinates.length === 1) {
+        const point = coordinates[0];
+        const barWidth = Math.min(72, chartWidth * 0.35);
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(point.x - barWidth / 2, point.y, barWidth, axisTop + chartHeight - point.y);
+        ctx.fillStyle = lineColor;
+        ctx.fillRect(point.x - barWidth / 2, point.y, barWidth, axisTop + chartHeight - point.y);
+    } else {
+        ctx.beginPath();
+        coordinates.forEach((point, index) => {
+            if (index === 0) ctx.moveTo(point.x, point.y);
+            else ctx.lineTo(point.x, point.y);
+        });
+        ctx.lineTo(coordinates[coordinates.length - 1].x, axisTop + chartHeight);
+        ctx.lineTo(coordinates[0].x, axisTop + chartHeight);
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+
+        ctx.beginPath();
+        coordinates.forEach((point, index) => {
+            if (index === 0) ctx.moveTo(point.x, point.y);
+            else ctx.lineTo(point.x, point.y);
+        });
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+    }
+
+    coordinates.forEach(point => {
+        if (point.amount <= 0) return;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    });
+
+    drawTrendXAxisLabels(ctx, coordinates, logicalWidth, logicalHeight, axisLeft, axisRight, labelColor);
+}
+
+function drawTrendXAxisLabels(ctx, points, width, height, axisLeft, axisRight, labelColor) {
+    const maxLabels = Math.min(6, points.length);
+    const labelIndexes = new Set();
+    if (points.length === 1) {
+        labelIndexes.add(0);
+    } else {
+        for (let i = 0; i < maxLabels; i++) {
+            labelIndexes.add(Math.round((i * (points.length - 1)) / (maxLabels - 1)));
+        }
+    }
+
+    ctx.fillStyle = labelColor;
+    ctx.font = '12px sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'center';
+
+    points.forEach((point, index) => {
+        if (!labelIndexes.has(index)) return;
+        const x = Math.min(Math.max(point.x, axisLeft), width - axisRight);
+        ctx.fillText(point.label, x, height - 26);
+    });
+}
+
+function drawTrendEmptyState(ctx, width, height) {
+    const isDark = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) {
+        const y = (height / 5) * i;
+        ctx.beginPath();
+        ctx.moveTo(28, y);
+        ctx.lineTo(width - 18, y);
+        ctx.stroke();
+    }
+}
+
+function compactCurrencyValue(value, symbol) {
+    if (value >= 1000000) return `${symbol}${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${symbol}${(value / 1000).toFixed(1)}k`;
+    return `${symbol}${value.toFixed(0)}`;
 }
 
 function renderHistoryView(filteredExpenses = null) {
@@ -1481,6 +1848,7 @@ function switchView(filter) {
             break;
         default:
             dashboardView.classList.remove('hidden');
+            renderDashboardExpenseTrend();
             break;
     }
 }

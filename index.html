@@ -264,6 +264,33 @@
 
                     <!-- Right Column: Recent Expenses -->
                     <div class="lg:col-span-2">
+                        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-8">
+                            <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <i class="ph ph-chart-line-up text-blue-500"></i> Expense Trend
+                                </h3>
+                                <div class="flex p-1 bg-slate-100 rounded-lg" data-trend-controls="dashboard">
+                                    <button type="button" data-range="all" class="trend-range-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">All</button>
+                                    <button type="button" data-range="week" class="trend-range-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">Week</button>
+                                    <button type="button" data-range="month" class="trend-range-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">Month</button>
+                                    <button type="button" data-range="day" class="trend-range-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">Day</button>
+                                </div>
+                            </div>
+                            <div class="p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <p id="dashboardTrendLabel" class="text-xs font-semibold uppercase tracking-wider text-slate-500">This Month</p>
+                                        <p id="dashboardTrendTotal" class="text-2xl font-bold text-slate-800">$0.00</p>
+                                    </div>
+                                    <p id="dashboardTrendAverage" class="text-sm font-medium text-slate-500">Avg $0.00</p>
+                                </div>
+                                <div class="relative w-full h-64">
+                                    <canvas id="dashboardExpenseTrendChart" class="w-full h-full"></canvas>
+                                </div>
+                                <div id="dashboardTrendEmpty" class="hidden text-center text-sm text-slate-500 py-6">No expenses in this range.</div>
+                            </div>
+                        </div>
+
                         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm h-full flex flex-col">
                             <div class="p-6 border-b border-slate-100 flex items-center justify-between">
                                 <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -404,6 +431,34 @@
                                 <!-- Populated by JS -->
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Expense Trend Chart -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-8">
+                    <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i class="ph ph-chart-line-up text-blue-500"></i> Expense Trend
+                        </h3>
+                        <div class="flex p-1 bg-slate-100 rounded-lg" data-trend-controls="expense">
+                            <button type="button" data-range="all" class="trend-range-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">All</button>
+                            <button type="button" data-range="week" class="trend-range-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">Week</button>
+                            <button type="button" data-range="month" class="trend-range-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">Month</button>
+                            <button type="button" data-range="day" class="trend-range-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">Day</button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <p id="expenseTrendLabel" class="text-xs font-semibold uppercase tracking-wider text-slate-500">This Month</p>
+                                <p id="expenseTrendTotal" class="text-2xl font-bold text-slate-800">$0.00</p>
+                            </div>
+                            <p id="expenseTrendAverage" class="text-sm font-medium text-slate-500">Avg $0.00</p>
+                        </div>
+                        <div class="relative w-full h-72">
+                            <canvas id="expenseTrendChart" class="w-full h-full"></canvas>
+                        </div>
+                        <div id="expenseTrendEmpty" class="hidden text-center text-sm text-slate-500 py-6">No expenses in this range.</div>
                     </div>
                 </div>
 
