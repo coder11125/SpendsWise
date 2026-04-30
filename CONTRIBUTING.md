@@ -22,6 +22,7 @@ SpendsWise/
 ├── auth.js                 # Auth page logic
 ├── script.js               # App logic (expenses, views, charts)
 ├── styles.css              # Base styles
+├── CLAUDE.md               # Claude Code instructions
 ├── src/
 │   └── input.css           # Tailwind source — edit this, not dist/
 ├── dist/
@@ -126,6 +127,7 @@ Open `index.html` directly in a browser, or serve the root directory with any st
 - Edit **`src/input.css`** only — never edit `dist/output.css` directly.
 - Dark mode uses Tailwind's `class` strategy. The `dark` class is toggled on `<html>` by `toggleDarkMode()` in `script.js` and persisted in `localStorage`. An inline `<script>` in `<head>` applies the class before CSS renders to prevent flash.
 - All dark mode overrides live at the bottom of `src/input.css` under the `/* ── Dark Mode ── */` block. Add new overrides there — do not scatter `dark:` utilities across the HTML.
+- `build:css` compiles without `--minify`, so `dist/output.css` is human-readable.
 - After editing, run `npm run build:css` (or keep `watch:css` running).
 - Commit `dist/output.css` alongside your CSS changes.
 
@@ -144,6 +146,8 @@ Open `index.html` directly in a browser, or serve the root directory with any st
 - Vanilla JS for the frontend — no framework, no bundler.
 - All user-facing strings must be HTML-escaped before insertion into the DOM. Use `buildItemRow()` as the reference pattern, not `innerHTML` with raw data.
 - Keep functions focused. Prefer adding a new function over extending an existing one beyond its original purpose.
+- **Client-only state** (user preferences, UI settings) belongs in `localStorage`. Budget goals (`sw_budget_goals`) are an example — they are not synced to the server.
+- **Edit flows** follow the pattern in `openEditModal` / `saveEditExpense`: pre-populate a modal from the in-memory item, call the API on submit, patch the `expense[]` array in place, then call the relevant render functions for the current view.
 
 ### Server (TypeScript)
 

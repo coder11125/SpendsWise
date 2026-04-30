@@ -10,6 +10,7 @@ SpendsWise/
 ├── auth.js                 # auth page logic
 ├── script.js               # main frontend logic
 ├── styles.css              # base styles
+├── CLAUDE.md               # Claude Code instructions
 ├── src/
 │   └── input.css           # Tailwind source
 ├── dist/
@@ -44,13 +45,22 @@ SpendsWise/
 
 ## Frontend
 
-Static pages using Tailwind CSS (compiled locally), Phosphor icons, and Flatpickr. Supports light and dark mode via a toggle in the Account view — preference is persisted in `localStorage` and applied before first render to prevent flash.
+Static pages using Tailwind CSS (compiled locally), Phosphor icons, and Flatpickr. Key features:
+
+- **Add / edit / delete** income and expense entries across multiple categories
+- **Dashboard** with balance, income, and expense summary cards plus a donut chart breakdown
+- **Monthly budget goals** — set a per-category spending limit in the Account view; progress bars appear on the dashboard showing spend vs. limit (green → amber → red)
+- **Expense history** with search, type/category filter, and sort
+- **CSV import and export** (up to 1000 rows per import)
+- **Family member tracking** — tag entries to a named household member
+- **Multi-currency display** — 150+ currencies selectable; preference persisted in `localStorage`
+- **Light / dark mode** toggle in Account view; preference persisted in `localStorage`
 
 ### Build CSS
 
 ```bash
 npm install
-npm run build:css     # compile once
+npm run build:css     # compile once (human-readable output)
 npm run watch:css     # watch mode
 ```
 
@@ -120,7 +130,7 @@ Session is managed via an HttpOnly cookie (`sw_session`). All state-changing req
 | GET    | `/api/expenses`       | yes  | —                                                                    |
 | POST   | `/api/expenses`       | yes  | `{ amount, category, type, note?, date?, currency?, familyMember? }` |
 | POST   | `/api/expenses/bulk`  | yes  | `{ rows: [...] }` — import up to 1000 rows; returns `{ imported, skipped }` |
-| PUT    | `/api/expenses/:id`   | yes  | any subset of the above fields                                       |
+| PUT    | `/api/expenses/:id`   | yes  | any subset of the above fields — used by the edit modal UI           |
 | DELETE | `/api/expenses/:id`   | yes  | —                                                                    |
 | DELETE | `/api/expenses`       | yes  | `{ confirm: true }` — deletes all expenses for the user              |
 
