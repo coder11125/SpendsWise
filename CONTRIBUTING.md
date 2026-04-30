@@ -47,7 +47,8 @@ SpendsWise/
     │   ├── routes/
     │   │   ├── auth.ts     # Register, login, logout, me, password
     │   │   ├── expenses.ts # CRUD + bulk import for expenses
-    │   │   └── familyMembers.ts # Add / list / delete members
+    │   │   ├── familyMembers.ts # Add / list / delete members
+    │   │   └── ai.ts       # AI chat and natural language parse (Groq)
     │   └── types/
     │       └── express.d.ts  # Request.userId augmentation
     ├── .env.example
@@ -90,7 +91,11 @@ PORT=4000
 MONGODB_URI=mongodb://localhost:27017/spendswise
 JWT_SECRET=<long-random-string>
 CSRF_SECRET=<different-long-random-string>
+GROQ_API_KEY=                          # optional — enables AI features
+GROQ_MODEL=llama-3.3-70b-versatile     # optional — swap to any Groq model
 ```
+
+`GROQ_API_KEY` is optional. Without it the `/api/ai/*` endpoints return 503 and the AI panel shows an error message — all other features work normally. Get a free key at [console.groq.com](https://console.groq.com).
 
 ### 3. Start the server
 
@@ -160,6 +165,13 @@ Open `index.html` directly in a browser, or serve the root directory with any st
 - Use existing utility classes before adding custom CSS.
 - New dark-mode overrides go in the `.dark` block at the bottom of `src/input.css`.
 - Do not add inline `style=""` attributes for colors or spacing — use utilities.
+
+### AI routes
+
+- Both `/api/ai/chat` and `/api/ai/parse` are behind `authRequired` — never expose them unauthenticated.
+- The chat endpoint fetches the user's full expense history from MongoDB and passes it as context to Groq. Keep the system prompt construction in `routes/ai.ts` — do not move it to the frontend.
+- The parse endpoint uses `temperature: 0.1` and a strict JSON-only prompt. If you change the prompt, verify it still returns valid JSON for edge-case inputs (no amount, ambiguous currency, future dates).
+- `GROQ_MODEL` is read from config — do not hardcode a model name in the route file.
 
 ### Security
 

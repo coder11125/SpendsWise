@@ -1,6 +1,6 @@
 # SpendsWise
 
-A budget tracker with a static frontend and a TypeScript + Express + MongoDB backend, deployed on Vercel.
+A budget tracker with a static frontend, a TypeScript + Express + MongoDB backend, and an AI finance assistant powered by Groq. Deployed on Vercel.
 
 ## Project layout
 
@@ -35,7 +35,8 @@ SpendsWise/
     │   ├── routes/
     │   │   ├── auth.ts     # register, login, logout, me, password
     │   │   ├── expenses.ts # CRUD + bulk import for expenses
-    │   │   └── familyMembers.ts # add / list / delete members
+    │   │   ├── familyMembers.ts # add / list / delete members
+    │   │   └── ai.ts       # AI chat and natural language parse (Groq)
     │   └── types/
     │       └── express.d.ts  # Request.userId augmentation
     ├── .env.example
@@ -55,6 +56,8 @@ Static pages using Tailwind CSS (compiled locally), Phosphor icons, and Flatpick
 - **Family member tracking** — tag entries to a named household member
 - **Multi-currency display** — 150+ currencies selectable; preference persisted in `localStorage`
 - **Light / dark mode** toggle in Account view; preference persisted in `localStorage`
+- **AI Finance Assistant** — floating chat panel powered by Groq; sees your full expense and income history to answer questions, spot patterns, and give budget advice
+- **Quick Add with AI** — type a natural language sentence ("spent 450 on lunch today") and the form auto-fills with the parsed amount, category, date, and note
 
 ### Build CSS
 
@@ -133,6 +136,8 @@ Session is managed via an HttpOnly cookie (`sw_session`). All state-changing req
 | PUT    | `/api/expenses/:id`   | yes  | any subset of the above fields — used by the edit modal UI           |
 | DELETE | `/api/expenses/:id`   | yes  | —                                                                    |
 | DELETE | `/api/expenses`       | yes  | `{ confirm: true }` — deletes all expenses for the user              |
+| POST   | `/api/ai/chat`        | yes  | `{ message, history? }` — chat with full expense context; returns `{ reply }` |
+| POST   | `/api/ai/parse`       | yes  | `{ text }` — parse natural language into a structured expense; returns `{ type, amount, category, date, note, currency }` |
 
 ### Data model
 
@@ -170,11 +175,13 @@ The project deploys as a monorepo on Vercel:
 
 ### Required environment variables (set in Vercel dashboard)
 
-| Variable       | Description                                    |
-|----------------|------------------------------------------------|
-| `MONGODB_URI`  | MongoDB Atlas connection string                |
-| `JWT_SECRET`   | Long random string for signing JWTs            |
-| `CSRF_SECRET`  | Long random string for signing CSRF tokens (separate from `JWT_SECRET`) |
+| Variable       | Required | Description                                    |
+|----------------|----------|------------------------------------------------|
+| `MONGODB_URI`  | yes      | MongoDB Atlas connection string                |
+| `JWT_SECRET`   | yes      | Long random string for signing JWTs            |
+| `CSRF_SECRET`  | yes      | Long random string for signing CSRF tokens (separate from `JWT_SECRET`) |
+| `GROQ_API_KEY` | no       | Enables AI features — get one free at [console.groq.com](https://console.groq.com) |
+| `GROQ_MODEL`   | no       | Groq model to use (default: `llama-3.3-70b-versatile`) |
 
 > **MongoDB Atlas note:** add `0.0.0.0/0` to your Atlas Network Access list so Vercel's dynamic IPs can connect.
 
