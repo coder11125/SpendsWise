@@ -2217,6 +2217,31 @@ async function sendAiMessage() {
     }
 }
 
+function fillExpenseForm(data) {
+    if (data.type === 'income') {
+        document.getElementById('typeIncome').checked = true;
+        updateCategoryOptions('income');
+    } else {
+        document.getElementById('typeExpense').checked = true;
+        updateCategoryOptions('expense');
+    }
+    if (data.amount) document.getElementById('amount').value = data.amount;
+    if (data.category) {
+        const select = document.getElementById('category');
+        const option = Array.from(select.options).find(
+            (o) => o.value.toLowerCase() === data.category.toLowerCase()
+        );
+        if (option) select.value = option.value;
+    }
+    if (data.date) {
+        const fp = document.getElementById('date')._flatpickr;
+        if (fp) fp.setDate(data.date);
+        else document.getElementById('date').value = data.date;
+    }
+    if (data.note) document.getElementById('note').value = data.note;
+    document.getElementById('amount').focus();
+}
+
 async function parseAndFillExpense() {
     const input = document.getElementById('aiParseInput');
     const btn = document.getElementById('aiParseBtn');
@@ -2241,28 +2266,8 @@ async function parseAndFillExpense() {
             return;
         }
 
-        if (data.type === 'income') {
-            document.getElementById('typeIncome').checked = true;
-        } else {
-            document.getElementById('typeExpense').checked = true;
-        }
-        if (data.amount) document.getElementById('amount').value = data.amount;
-        if (data.category) {
-            const select = document.getElementById('category');
-            const option = Array.from(select.options).find(
-                (o) => o.value.toLowerCase() === data.category.toLowerCase()
-            );
-            if (option) select.value = option.value;
-        }
-        if (data.date) {
-            const fp = document.getElementById('date')._flatpickr;
-            if (fp) fp.setDate(data.date);
-            else document.getElementById('date').value = data.date;
-        }
-        if (data.note) document.getElementById('note').value = data.note;
-
+        fillExpenseForm(data);
         input.value = '';
-        document.getElementById('amount').focus();
     } catch {
         errorEl.textContent = 'Network error. Please try again.';
         errorEl.classList.remove('hidden');
@@ -2270,6 +2275,61 @@ async function parseAndFillExpense() {
         btn.disabled = false;
         btn.innerHTML = '<i class="ph ph-magic-wand"></i>';
     }
+}
+
+async function parseReceiptImage(fileInput) {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const btn = document.getElementById('receiptUploadBtn');
+    const errorEl = document.getElementById('aiParseError');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-circle-notch animate-spin"></i>';
+    errorEl.classList.add('hidden');
+
+    try {
+        const imageData = await compressImageToDataUrl(file, 1024, 0.82);
+
+        const res = await apiFetch('/ai/parse-receipt', {
+            method: 'POST',
+            body: JSON.stringify({ imageData }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorEl.textContent = data.error ?? 'Could not read receipt. Try a clearer photo.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        fillExpenseForm(data);
+    } catch {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ph ph-receipt"></i>';
+        fileInput.value = '';
+    }
+}
+
+function compressImageToDataUrl(file, maxPx, quality) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = url;
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {

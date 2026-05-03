@@ -18,5 +18,7 @@ export const config = {
     .split(",")
     .map((o) => o.trim()),
   groqApiKey: process.env.GROQ_API_KEY ?? "",
+  groqVisionApiKey: process.env.GROQ_VISION_API_KEY ?? "",
   groqModel: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+  groqVisionModel: process.env.GROQ_VISION_MODEL ?? "meta-llama/llama-4-scout-17b-16e-instruct",
 };

@@ -17,6 +17,16 @@ function groqClient() {
   return new Groq({ apiKey: config.groqApiKey });
 }
 
+function groqVisionClient() {
+  const key = config.groqVisionApiKey || config.groqApiKey;
+  if (!key) {
+    const err = new Error("AI features require GROQ_API_KEY to be set") as Error & { status: number };
+    err.status = 503;
+    throw err;
+  }
+  return new Groq({ apiKey: key });
+}
+
 router.post(
   "/chat",
   asyncHandler(async (req, res) => {
@@ -114,6 +124,63 @@ Example: {"type":"expense","amount":450,"category":"Food & Dining","date":null,"
       return res.json(parsed);
     } catch {
       return res.status(422).json({ error: "Could not parse expense from that text" });
+    }
+  })
+);
+
+router.post(
+  "/parse-receipt",
+  asyncHandler(async (req, res) => {
+    const { imageData } = req.body ?? {};
+    if (typeof imageData !== "string" || !imageData.startsWith("data:image/")) {
+      return res.status(400).json({ error: "imageData must be a base64 data URL" });
+    }
+
+    const today = new Date().toISOString().substring(0, 10);
+    const completion = await groqVisionClient().chat.completions.create({
+      model: config.groqVisionModel,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: imageData },
+            },
+            {
+              type: "text",
+              text: `Extract expense or income details from this receipt or billing statement. Return ONLY a JSON object, no extra text.
+Today: ${today}
+
+JSON fields:
+- type: "expense" or "income"
+- amount: number (required, positive, total/grand total if multiple items)
+- category: one of: Food & Dining, Housing, Transportation, Utilities, Entertainment, Healthcare, Shopping, Salary, Freelance, Investments, Gifts, Other
+- date: "YYYY-MM-DD" if visible on receipt, else null
+- note: merchant name or short description string or ""
+- currency: 3-letter uppercase code if visible, else null
+
+Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"2024-03-15","note":"Starbucks","currency":"USD"}`,
+            },
+          ],
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.1,
+    });
+
+    const content = completion.choices[0]?.message?.content ?? "";
+    const match = content.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(422).json({ error: "Could not extract expense from this receipt" });
+
+    try {
+      const parsed = JSON.parse(match[0]);
+      if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
+        return res.status(422).json({ error: "Could not find a valid amount on the receipt" });
+      }
+      return res.json(parsed);
+    } catch {
+      return res.status(422).json({ error: "Could not extract expense from this receipt" });
     }
   })
 );

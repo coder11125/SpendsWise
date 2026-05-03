@@ -41,6 +41,8 @@ app.use(
 );
 
 app.use(cookieParser());
+// Receipt upload sends base64 image in JSON — needs a higher limit than the global 10kb
+app.use("/api/ai/parse-receipt", express.json({ limit: "2mb" }));
 app.use(express.json({ limit: "10kb" }));
 app.use(mongoSanitize());
 
