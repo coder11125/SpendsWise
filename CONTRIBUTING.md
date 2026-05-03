@@ -91,11 +91,13 @@ PORT=4000
 MONGODB_URI=mongodb://localhost:27017/spendswise
 JWT_SECRET=<long-random-string>
 CSRF_SECRET=<different-long-random-string>
-GROQ_API_KEY=                          # optional — enables AI features
-GROQ_MODEL=llama-3.3-70b-versatile     # optional — swap to any Groq model
+GROQ_API_KEY=                                              # optional — enables AI chat and text parse
+GROQ_MODEL=llama-3.3-70b-versatile                         # optional — swap to any Groq text model
+GROQ_VISION_API_KEY=                                       # optional — separate key for receipt OCR; falls back to GROQ_API_KEY
+GROQ_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct # optional — Groq vision model for receipt OCR
 ```
 
-`GROQ_API_KEY` is optional. Without it the `/api/ai/*` endpoints return 503 and the AI panel shows an error message — all other features work normally. Get a free key at [console.groq.com](https://console.groq.com).
+`GROQ_API_KEY` is optional. Without it the `/api/ai/*` endpoints return 503 and the AI panel shows an error message — all other features work normally. Get a free key at [console.groq.com](https://console.groq.com). `GROQ_VISION_API_KEY` lets you point receipt OCR at a separate Groq key to keep rate limits separate; if unset it reuses `GROQ_API_KEY`.
 
 ### 3. Start the server
 
@@ -168,10 +170,12 @@ Open `index.html` directly in a browser, or serve the root directory with any st
 
 ### AI routes
 
-- Both `/api/ai/chat` and `/api/ai/parse` are behind `authRequired` — never expose them unauthenticated.
+- All `/api/ai/*` routes are behind `authRequired` — never expose them unauthenticated.
 - The chat endpoint fetches the user's full expense history from MongoDB and passes it as context to Groq. Keep the system prompt construction in `routes/ai.ts` — do not move it to the frontend.
-- The parse endpoint uses `temperature: 0.1` and a strict JSON-only prompt. If you change the prompt, verify it still returns valid JSON for edge-case inputs (no amount, ambiguous currency, future dates).
-- `GROQ_MODEL` is read from config — do not hardcode a model name in the route file.
+- The text parse endpoint (`/api/ai/parse`) uses `temperature: 0.1` and a strict JSON-only prompt. If you change the prompt, verify it still returns valid JSON for edge-case inputs (no amount, ambiguous currency, future dates).
+- The receipt OCR endpoint (`/api/ai/parse-receipt`) accepts a base64 `data:image/...` data URL in `{ imageData }`. The image is compressed client-side to max 1024px before upload — do not increase the `2mb` body limit in `app.ts` without a corresponding client-side size guard. It uses `groqVisionClient()` which reads `GROQ_VISION_API_KEY` and falls back to `GROQ_API_KEY`.
+- Both `/api/ai/parse` and `/api/ai/parse-receipt` return the same JSON shape: `{ type, amount, category, date, note, currency }`. The frontend `fillExpenseForm()` helper in `script.js` handles both — keep that contract stable.
+- Model names are read from config (`GROQ_MODEL`, `GROQ_VISION_MODEL`) — do not hardcode model strings in the route file.
 
 ### Security
 
