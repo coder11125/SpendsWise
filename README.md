@@ -19,7 +19,7 @@ SpendsWise/
 │   └── wallet.svg
 ├── package.json            # root — Tailwind build scripts
 ├── vercel.json             # Vercel deployment config
-└── server/                 # Node.js + TypeScript API
+├── server/                 # Node.js + TypeScript API
     ├── src/
     │   ├── app.ts          # Express app (Vercel entry)
     │   ├── index.ts        # local dev entry
@@ -35,6 +35,7 @@ SpendsWise/
     │   ├── routes/
     │   │   ├── auth.ts     # register, login, logout, me, password
     │   │   ├── expenses.ts # CRUD + bulk import for expenses
+    │   │   ├── currency.ts # currency translation layer
     │   │   ├── familyMembers.ts # add / list / delete members
     │   │   └── ai.ts       # AI chat and natural language parse (Groq)
     │   └── types/
@@ -42,6 +43,10 @@ SpendsWise/
     ├── .env.example
     ├── package.json
     └── tsconfig.json
+    └── .github/
+        └── workflows/
+            ├── claude-code-review.yml
+            └── claude.yml
 ```
 
 ## Frontend
@@ -55,6 +60,7 @@ Static pages using Tailwind CSS (compiled locally), Phosphor icons, and Flatpick
 - **CSV import and export** (up to 1000 rows per import)
 - **Family member tracking** — tag entries to a named household member
 - **Multi-currency display** — 150+ currencies selectable; preference persisted in `localStorage`
+- **Automatic currency conversion** — Amounts are automatically converted when switching currencies (e.g., $100 USD → ₹8,350 INR), with original currency shown as reference
 - **Light / dark mode** toggle in Account view; preference persisted in `localStorage`
 - **AI Finance Assistant** — floating chat panel powered by Groq; sees your full expense and income history to answer questions, spot patterns, and give budget advice
 - **Quick Add with AI** — type a natural language sentence ("spent 450 on lunch today") and the form auto-fills with the parsed amount, category, date, and note
@@ -140,12 +146,42 @@ Session is managed via an HttpOnly cookie (`sw_session`). All state-changing req
 | POST   | `/api/ai/chat`          | yes  | `{ message, history? }` — chat with full expense context; returns `{ reply }` |
 | POST   | `/api/ai/parse`         | yes  | `{ text }` — parse natural language into a structured expense; returns `{ type, amount, category, date, note, currency }` |
 | POST   | `/api/ai/parse-receipt` | yes  | `{ imageData }` — base64 data URL of a receipt image; uses Groq Vision to extract expense fields; returns same shape as `/api/ai/parse` |
+| GET    | `/api/currency/rates`  | yes  | `?base={currency}` — returns conversion rates from base currency     |
+| GET    | `/api/currency/convert`| yes  | `?from={currency}&to={currency}&amount={number}` — converts amount between currencies |
 
 ### Data model
 
 **User**: `email` (unique), `passwordHash`, `familyMembers[]`, `tokenVersion`, timestamps.
 
 **Expense**: `userId` (ref User), `type` (`income` | `expense`), `amount` (>= 0), `category`, `note`, `date`, `currency`, `familyMember`, timestamps.
+
+### Currency Conversion
+
+The application supports automatic currency conversion using the [exchangerate-api.com](https://www.exchangerate-api.com/) service:
+
+- **Free Tier**: 1,500 requests/month
+- **Caching**: Rates cached for 1 hour on both client and server
+- **Fallback**: Graceful degradation to 1:1 rates if API fails
+- **Offline Support**: Last known rates persisted in localStorage
+- **Rate Limit Handling**: Automatic cooldown when limits are hit
+
+#### Implementation Details:
+
+1. **Client-side caching**: Currency rates stored in `localStorage` with timestamps
+2. **Server-side caching**: Backend caches rates to reduce API calls
+3. **Multiple fallback levels**:
+   - Try primary API
+   - Use cached rates if available
+   - Fallback to alternative APIs (configurable)
+   - Final fallback to 1:1 conversion
+4. **User notifications**: Toast messages warn when using cached/fallback rates
+
+#### Rate Limit Mitigation:
+
+- 5-minute cooldown after rate limit detection
+- 30-second retry delay for failed requests
+- Cached rates used during cooldown periods
+- Warning notifications at 1,000 requests (before hitting 1,500 limit)
 
 ### Auth flow
 
@@ -186,6 +222,7 @@ The project deploys as a monorepo on Vercel:
 | `GROQ_MODEL`          | no  | Groq text model (default: `llama-3.3-70b-versatile`) |
 | `GROQ_VISION_API_KEY` | no  | Separate Groq key for receipt OCR — falls back to `GROQ_API_KEY` if not set; useful for splitting rate limits |
 | `GROQ_VISION_MODEL`   | no  | Groq vision model for receipt OCR (default: `meta-llama/llama-4-scout-17b-16e-instruct`) |
+| `CURRENCY_API_KEY`    | no  | Currency conversion API key for [exchangerate-api.com](https://www.exchangerate-api.com/) — uses demo key if not provided |
 
 > **MongoDB Atlas note:** add `0.0.0.0/0` to your Atlas Network Access list so Vercel's dynamic IPs can connect.
 

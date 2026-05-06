@@ -35,12 +35,12 @@ async function loadExpenses() {
         if (!res.ok) return;
         const data = await res.json();
         expense = data.map(mapServerExpense);
-        updateSummary();
-        renderExpenses();
-        updateExpenseChart();
-        if (currentFilter === 'income') renderIncomeView();
-        else if (currentFilter === 'expense') renderExpenseView();
-        else if (currentFilter === 'history') renderHistoryView();
+        await updateSummary();
+        await renderExpenses();
+        await updateExpenseChart();
+        if (currentFilter === 'income') await renderIncomeView();
+        else if (currentFilter === 'expense') await renderExpenseView();
+        else if (currentFilter === 'history') await renderHistoryView();
     } catch (err) {
         console.error('Failed to load expense:', err);
     }
@@ -55,6 +55,30 @@ let currentFilter = 'all'; // Current sidebar filter view
 let dashboardTrendRange = 'month';
 let expenseTrendRange = 'month';
 let budgetGoals = JSON.parse(localStorage.getItem('sw_budget_goals') || '{}');
+
+// Currency conversion cache with localStorage persistence
+let currencyRates = JSON.parse(localStorage.getItem('sw_currency_rates') || '{}');
+let lastRateFetch = parseInt(localStorage.getItem('sw_last_rate_fetch') || '0', 10);
+let lastRateFetchAttempt = parseInt(localStorage.getItem('sw_last_rate_fetch_attempt') || '0', 10);
+const RATE_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+const RATE_FETCH_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown if API fails
+
+// Track if we've hit rate limits
+let rateLimitHit = localStorage.getItem('sw_rate_limit_hit') === 'true';
+let rateLimitHitTime = parseInt(localStorage.getItem('sw_rate_limit_hit_time') || '0', 10);
+
+// Save currency rates to localStorage periodically
+setInterval(() => {
+    try {
+        localStorage.setItem('sw_currency_rates', JSON.stringify(currencyRates));
+        localStorage.setItem('sw_last_rate_fetch', lastRateFetch.toString());
+        localStorage.setItem('sw_last_rate_fetch_attempt', lastRateFetchAttempt.toString());
+        localStorage.setItem('sw_rate_limit_hit', rateLimitHit.toString());
+        localStorage.setItem('sw_rate_limit_hit_time', rateLimitHitTime.toString());
+    } catch (e) {
+        console.warn('Could not save currency rates to localStorage:', e);
+    }
+}, 30000); // Save every 30 seconds
 
 function setFamilyMembers(members) {
     familyMembers = Array.isArray(members) ? [...members] : [];
@@ -96,6 +120,140 @@ const categoryIcons = {
 
 // Popular currencies for quick access
 const popularCurrencies = ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "CNY", "INR", "MXN", "BRL", "RUB"];
+
+// Simple toast notification function for currency warnings
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-white text-sm z-50 animate-fade-in`;
+    
+    if (type === 'warning') {
+        toast.className += ' bg-amber-600';
+    } else if (type === 'error') {
+        toast.className += ' bg-rose-600';
+    } else {
+        toast.className += ' bg-blue-600';
+    }
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('animate-fade-out');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+}
+
+// --- CURRENCY CONVERSION ---
+
+/**
+ * Fetch currency conversion rates from the backend
+ */
+async function fetchCurrencyRates(baseCurrency = 'USD') {
+    // If we recently hit rate limits, don't try again too soon
+    if (rateLimitHit && Date.now() - rateLimitHitTime < RATE_FETCH_COOLDOWN) {
+        console.warn(`[CURRENCY] Rate limit cooldown active, waiting until ${new Date(rateLimitHitTime + RATE_FETCH_COOLDOWN).toLocaleTimeString()}`);
+        // Show cached rates if available
+        if (currencyRates[baseCurrency]) {
+            console.log('[CURRENCY] Using cached rates during cooldown');
+            return currencyRates[baseCurrency];
+        }
+        return null;
+    }
+    
+    // If we recently tried to fetch and failed, don't retry immediately
+    if (Date.now() - lastRateFetchAttempt < 30000) { // 30 second retry delay
+        return null;
+    }
+    
+    lastRateFetchAttempt = Date.now();
+    
+    // Try to use cached rates if available
+    if (currencyRates[baseCurrency] && Date.now() - lastRateFetch < RATE_CACHE_DURATION) {
+        console.log('[CURRENCY] Using cached rates to avoid unnecessary API call');
+        return currencyRates[baseCurrency];
+    }
+    
+    try {
+        const res = await apiFetch(`/currency/rates?base=${baseCurrency}`);
+        
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            if (res.status === 429 || errorData.error?.includes('rate limit') || errorData.error?.includes('quota')) {
+                console.error('[CURRENCY] Rate limit hit, activating cooldown');
+                rateLimitHit = true;
+                rateLimitHitTime = Date.now();
+                // Show user notification
+                if (typeof showToast === 'function') {
+                    showToast('Currency conversion rate limit reached. Using cached rates.', 'warning');
+                }
+                return null;
+            }
+            console.warn('Failed to fetch currency rates, using fallback');
+            return null;
+        }
+        
+        const data = await res.json();
+        rateLimitHit = false; // Reset rate limit flag on successful fetch
+        return data.rates;
+    } catch (err) {
+        console.error('Currency rate fetch error:', err);
+        return null;
+    }
+}
+
+/**
+ * Convert amount from one currency to another
+ */
+async function convertCurrency(amount, fromCurrency, toCurrency) {
+    // Same currency, no conversion needed
+    if (fromCurrency === toCurrency) {
+        return amount;
+    }
+
+    // Check if we have cached rates for this base currency
+    const cacheKey = fromCurrency;
+    if (currencyRates[cacheKey] && Date.now() - lastRateFetch < RATE_CACHE_DURATION) {
+        const rate = currencyRates[cacheKey][toCurrency];
+        if (rate) {
+            return amount * rate;
+        }
+    }
+
+    // Fetch fresh rates if cache is empty or expired
+    const rates = await fetchCurrencyRates(fromCurrency);
+    if (rates) {
+        currencyRates[cacheKey] = rates;
+        lastRateFetch = Date.now();
+        rateLimitHit = false;
+        rateLimitHitTime = 0;
+        const rate = rates[toCurrency];
+        if (rate) {
+            return amount * rate;
+        }
+    }
+
+    // Fallback: return original amount if conversion fails
+    console.warn(`No conversion rate available from ${fromCurrency} to ${toCurrency}`);
+    return amount;
+}
+
+/**
+ * Convert amount to display currency with proper formatting
+ */
+async function convertToDisplayCurrency(amount, originalCurrency, displayCurrency) {
+    const convertedAmount = await convertCurrency(amount, originalCurrency, displayCurrency);
+    return {
+        amount: convertedAmount,
+        currency: displayCurrency
+    };
+}
+
+/**
+ * Format amount with currency symbol
+ */
+function formatAmountWithSymbol(amount, currency) {
+    return `${getCurrencySymbol(currency)}${amount.toFixed(2)}`;
+}
 
 // --- DOM ELEMENTS ---
 const currencyButton = document.getElementById('currencyButton');
@@ -476,7 +634,7 @@ function selectCurrency(currency) {
     currentCurrencyEl.textContent = currency;
     currencySymbolSpan.textContent = getCurrencySymbol(currency);
     
-    // Update all currency displays
+    // Update all currency displays with conversion
     updateSummary();
     renderExpenses();
     renderIncomeView();
@@ -814,12 +972,12 @@ async function saveEditExpense(e) {
         const updated = mapServerExpense(await res.json());
         expense = expense.map(item => item.id === editingExpenseId ? updated : item);
 
-        updateSummary();
-        renderExpenses();
-        updateExpenseChart();
-        if (currentFilter === 'income') renderIncomeView();
-        else if (currentFilter === 'expense') renderExpenseView();
-        else if (currentFilter === 'history') renderHistoryView();
+        await updateSummary();
+        await renderExpenses();
+        await updateExpenseChart();
+        if (currentFilter === 'income') await renderIncomeView();
+        else if (currentFilter === 'expense') await renderExpenseView();
+        else if (currentFilter === 'history') await renderHistoryView();
 
         closeEditModal();
     } catch (err) {
@@ -843,82 +1001,76 @@ function saveBudgetGoals() {
     localStorage.setItem('sw_budget_goals', JSON.stringify(budgetGoals));
 }
 
-function getCurrentMonthExpenseByCategory() {
+async function getCurrentMonthExpenseByCategory() {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
     const totals = {};
-    expense.forEach(item => {
-        if (item.type !== 'expense') return;
+    
+    for (const item of expense) {
+        if (item.type !== 'expense') continue;
         const [y, m] = item.date.split('-').map(Number);
         if (y === year && m - 1 === month) {
-            totals[item.category] = (totals[item.category] || 0) + item.amount;
+            const converted = await convertToDisplayCurrency(item.amount, item.currency, currentCurrency);
+            totals[item.category] = (totals[item.category] || 0) + converted.amount;
         }
-    });
+    }
     return totals;
 }
 
-function renderBudgetOverview() {
+async function renderBudgetOverview() {
     const card = document.getElementById('budgetOverviewCard');
     const list = document.getElementById('budgetOverviewList');
     const goals = Object.keys(budgetGoals);
-
+    
     if (goals.length === 0) {
         card.classList.add('hidden');
         return;
     }
-
+    
     card.classList.remove('hidden');
     list.innerHTML = '';
-
-    const monthlySpend = getCurrentMonthExpenseByCategory();
+    
+    const monthlySpend = await getCurrentMonthExpenseByCategory();
     const symbol = getCurrencySymbol(currentCurrency);
-
+    
     goals.forEach(category => {
         const limit = budgetGoals[category];
         const spent = monthlySpend[category] || 0;
         const pct = Math.min((spent / limit) * 100, 100);
         const over = spent > limit;
-
+        
         let barColor, textColor;
         if (over || pct >= 90) { barColor = 'bg-rose-500'; textColor = 'text-rose-600'; }
         else if (pct >= 70)    { barColor = 'bg-amber-500'; textColor = 'text-amber-600'; }
         else                   { barColor = 'bg-emerald-500'; textColor = 'text-emerald-600'; }
-
+        
         const div = document.createElement('div');
         div.className = 'bg-slate-50 rounded-xl p-4';
-
-        const headerRow = document.createElement('div');
-        headerRow.className = 'flex items-center justify-between mb-2';
-
-        const leftSpan = document.createElement('div');
-        leftSpan.className = 'flex items-center gap-2';
-        const iconEl = document.createElement('i');
-        iconEl.className = `ph ${categoryIcons[category] || categoryIcons['Other']} text-slate-500`;
-        const catSpan = document.createElement('span');
-        catSpan.className = 'text-sm font-medium text-slate-700';
-        catSpan.textContent = category;
-        leftSpan.appendChild(iconEl);
-        leftSpan.appendChild(catSpan);
-
-        const rightSpan = document.createElement('span');
-        rightSpan.className = `text-xs font-semibold ${textColor}`;
-        rightSpan.textContent = over
-            ? `${symbol}${spent.toFixed(2)} / ${symbol}${limit.toFixed(2)} — over!`
-            : `${symbol}${spent.toFixed(2)} / ${symbol}${limit.toFixed(2)}`;
-
-        headerRow.appendChild(leftSpan);
-        headerRow.appendChild(rightSpan);
-
+        
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between mb-2';
+        
+        const categoryEl = document.createElement('p');
+        categoryEl.className = 'font-medium text-slate-800';
+        categoryEl.textContent = category;
+        header.appendChild(categoryEl);
+        
+        const amountEl = document.createElement('p');
+        amountEl.className = `font-semibold ${textColor}`;
+        amountEl.textContent = `${symbol}${spent.toFixed(2)} / ${symbol}${limit.toFixed(2)}`;
+        header.appendChild(amountEl);
+        
+        div.appendChild(header);
+        
         const barBg = document.createElement('div');
-        barBg.className = 'w-full bg-slate-200 rounded-full h-1.5';
-        const barFill = document.createElement('div');
-        barFill.className = `${barColor} h-1.5 rounded-full transition-all duration-500`;
-        barFill.style.width = `${pct}%`;
-        barBg.appendChild(barFill);
-
-        div.appendChild(headerRow);
+        barBg.className = 'w-full bg-slate-200 rounded-full h-2 overflow-hidden';
+        const barFg = document.createElement('div');
+        barFg.className = `${barColor} h-full transition-all duration-500`;
+        barFg.style.width = `${pct}%`;
+        barBg.appendChild(barFg);
         div.appendChild(barBg);
+        
         list.appendChild(div);
     });
 }
@@ -973,55 +1125,65 @@ function renderBudgetGoalsList() {
 }
 
 // --- CALCULATIONS ---
-function calculateSummary() {
+async function calculateSummary() {
     let income = 0;
     let expenses = 0;
     
-    expense.forEach(item => {
+    for (const item of expense) {
+        const converted = await convertToDisplayCurrency(item.amount, item.currency, currentCurrency);
         if (item.type === 'income') {
-            income += item.amount;
+            income += converted.amount;
         } else {
-            expenses += item.amount;
+            expenses += converted.amount;
         }
-    });
+    }
     
     return {
         income,
         expenses,
-        balance: income - expenses
+        balance: income - expenses,
     };
 }
 
-function calculateIncomeSummary() {
+async function calculateIncomeSummary() {
     const incomeItems = expense.filter(t => t.type === 'income');
     
-    const total = incomeItems.reduce((sum, t) => sum + t.amount, 0);
+    let total = 0;
+    for (const item of incomeItems) {
+        const converted = await convertToDisplayCurrency(item.amount, item.currency, currentCurrency);
+        total += converted.amount;
+    }
     const count = incomeItems.length;
     const average = count > 0 ? total / count : 0;
     
     return { total, count, average };
 }
 
-function calculateExpenseSummary() {
+async function calculateExpenseSummary() {
     const expenseItems = expense.filter(t => t.type === 'expense');
     
-    const total = expenseItems.reduce((sum, t) => sum + t.amount, 0);
+    let total = 0;
+    for (const item of expenseItems) {
+        const converted = await convertToDisplayCurrency(item.amount, item.currency, currentCurrency);
+        total += converted.amount;
+    }
     const count = expenseItems.length;
     const average = count > 0 ? total / count : 0;
     
     return { total, count, average };
 }
 
-function calculateExpenseByCategory() {
+async function calculateExpenseByCategory() {
     const expenseItems = expense.filter(t => t.type === 'expense');
     const categoryTotals = {};
     
-    expenseItems.forEach(item => {
+    for (const item of expenseItems) {
+        const converted = await convertToDisplayCurrency(item.amount, item.currency, currentCurrency);
         if (!categoryTotals[item.category]) {
             categoryTotals[item.category] = 0;
         }
-        categoryTotals[item.category] += item.amount;
-    });
+        categoryTotals[item.category] += converted.amount;
+    }
     
     const total = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0);
     
@@ -1031,9 +1193,6 @@ function calculateExpenseByCategory() {
         amount,
         percentage: total > 0 ? (amount / total) * 100 : 0
     }));
-    
-    // Sort by amount (descending)
-    data.sort((a, b) => b.amount - a.amount);
     
     return { data, total };
 }
@@ -1081,27 +1240,27 @@ function getTrendPeriodLabel(range) {
     }
 }
 
-function calculateExpenseTrendData(range) {
+async function calculateExpenseTrendData(range) {
     const today = startOfDay(new Date());
     const expenseItems = expense
         .filter(item => item.type === 'expense')
         .map(item => ({ ...item, parsedDate: parseLocalExpenseDate(item.date) }))
         .filter(item => item.parsedDate);
-
+    
     const buckets = [];
     const bucketTotals = {};
-
+    
     if (range === 'all') {
         if (expenseItems.length === 0) {
             return { points: [], total: 0, average: 0, periodLabel: getTrendPeriodLabel(range) };
         }
-
+        
         const dates = expenseItems.map(item => item.parsedDate);
         let cursor = new Date(Math.min(...dates));
         const last = new Date(Math.max(...dates));
         cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
         const end = new Date(last.getFullYear(), last.getMonth(), 1);
-
+        
         while (cursor <= end) {
             const key = formatMonthKey(cursor);
             buckets.push({
@@ -1111,15 +1270,16 @@ function calculateExpenseTrendData(range) {
             bucketTotals[key] = 0;
             cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
         }
-
-        expenseItems.forEach(item => {
+        
+        for (const item of expenseItems) {
+            const converted = await convertToDisplayCurrency(item.amount, item.currency, currentCurrency);
             const key = formatMonthKey(item.parsedDate);
-            bucketTotals[key] = (bucketTotals[key] || 0) + item.amount;
-        });
+            bucketTotals[key] = (bucketTotals[key] || 0) + converted.amount;
+        }
     } else {
         let start;
         let end;
-
+        
         if (range === 'week') {
             start = addDays(today, -6);
             end = today;
@@ -1130,7 +1290,7 @@ function calculateExpenseTrendData(range) {
             start = new Date(today.getFullYear(), today.getMonth(), 1);
             end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         }
-
+        
         for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
             const key = formatDateKey(cursor);
             buckets.push({
@@ -1141,21 +1301,22 @@ function calculateExpenseTrendData(range) {
             });
             bucketTotals[key] = 0;
         }
-
-        expenseItems.forEach(item => {
+        
+        for (const item of expenseItems) {
             if (item.parsedDate < start || item.parsedDate > end) return;
+            const converted = await convertToDisplayCurrency(item.amount, item.currency, currentCurrency);
             const key = formatDateKey(item.parsedDate);
-            bucketTotals[key] = (bucketTotals[key] || 0) + item.amount;
-        });
+            bucketTotals[key] = (bucketTotals[key] || 0) + converted.amount;
+        }
     }
-
+    
     const points = buckets.map(bucket => ({
         ...bucket,
         amount: bucketTotals[bucket.key] || 0,
     }));
     const total = points.reduce((sum, point) => sum + point.amount, 0);
     const activeBuckets = points.filter(point => point.amount > 0).length;
-
+    
     return {
         points,
         total,
@@ -1168,14 +1329,14 @@ function calculateExpenseTrendData(range) {
 
 // Builds a safe expense/income list row using DOM methods (no innerHTML for user data).
 // Eliminates XSS via category, note, familyMember, and currency fields.
-function buildItemRow(item, { useTypeIcon, showTypeBadge, iconBgClass, iconColorClass, amountColorClass, amountPrefix }) {
+async function buildItemRow(item, { useTypeIcon, showTypeBadge, iconBgClass, iconColorClass, amountColorClass, amountPrefix }) {
     const li = document.createElement('li');
     li.className = 'bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors animate-fade-in';
-
+    
     // Left
     const left = document.createElement('div');
     left.className = 'flex items-center gap-3 flex-1 min-w-0';
-
+    
     const iconWrap = document.createElement('div');
     iconWrap.className = `${iconBgClass} p-2 rounded-lg flex-shrink-0`;
     const iconEl = document.createElement('i');
@@ -1184,39 +1345,39 @@ function buildItemRow(item, { useTypeIcon, showTypeBadge, iconBgClass, iconColor
         : (categoryIcons[item.category] || categoryIcons['Other']);
     iconEl.className = `ph ${iconName} ${iconColorClass}`;
     iconWrap.appendChild(iconEl);
-
+    
     const textWrap = document.createElement('div');
     textWrap.className = 'flex-1 min-w-0';
-
+    
     const titleRow = document.createElement('div');
     titleRow.className = 'flex items-center gap-2';
-
+    
     const categoryEl = document.createElement('p');
     categoryEl.className = 'font-medium text-slate-800 truncate';
     categoryEl.textContent = item.category;
     titleRow.appendChild(categoryEl);
-
+    
     if (showTypeBadge) {
         const typeBadge = document.createElement('span');
         typeBadge.className = `text-xs ${item.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} px-1.5 py-0.5 rounded-full`;
         typeBadge.textContent = item.type;
         titleRow.appendChild(typeBadge);
     }
-
+    
     if (item.familyMember) {
         const memberBadge = document.createElement('span');
         memberBadge.className = 'text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full';
         memberBadge.textContent = item.familyMember;
         titleRow.appendChild(memberBadge);
     }
-
+    
     const metaRow = document.createElement('div');
     metaRow.className = 'flex items-center gap-2 text-xs text-slate-500';
-
+    
     const dateEl = document.createElement('span');
     dateEl.textContent = formatDate(item.date);
     metaRow.appendChild(dateEl);
-
+    
     if (item.note) {
         const dot = document.createElement('span');
         dot.textContent = '•';
@@ -1226,27 +1387,35 @@ function buildItemRow(item, { useTypeIcon, showTypeBadge, iconBgClass, iconColor
         metaRow.appendChild(dot);
         metaRow.appendChild(noteEl);
     }
-
+    
     textWrap.appendChild(titleRow);
     textWrap.appendChild(metaRow);
     left.appendChild(iconWrap);
     left.appendChild(textWrap);
-
+    
     // Right
     const right = document.createElement('div');
     right.className = 'flex items-center gap-3';
-
+    
     const amountWrap = document.createElement('div');
     amountWrap.className = 'text-right';
-
+    
+    // Convert amount to display currency
+    const converted = await convertToDisplayCurrency(item.amount, item.currency, currentCurrency);
+    
     const amountEl = document.createElement('p');
     amountEl.className = `${amountColorClass} font-semibold`;
-    amountEl.textContent = `${amountPrefix}${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)}`;
-
+    amountEl.textContent = `${amountPrefix}${formatAmountWithSymbol(converted.amount, converted.currency)}`;
+    
+    // Show original currency if different from display currency
     const currencyEl = document.createElement('p');
     currencyEl.className = 'text-xs text-slate-400';
-    currencyEl.textContent = item.currency;
-
+    if (item.currency !== currentCurrency) {
+        currencyEl.textContent = `${getCurrencySymbol(item.currency)}${item.amount.toFixed(2)} → ${converted.currency}`;
+    } else {
+        currencyEl.textContent = item.currency;
+    }
+    
     amountWrap.appendChild(amountEl);
     amountWrap.appendChild(currencyEl);
 
@@ -1273,8 +1442,8 @@ function buildItemRow(item, { useTypeIcon, showTypeBadge, iconBgClass, iconColor
     return li;
 }
 
-function updateSummary() {
-    const summary = calculateSummary();
+async function updateSummary() {
+    const summary = await calculateSummary();
     const symbol = getCurrencySymbol(currentCurrency);
     
     totalBalanceEl.textContent = `${symbol}${summary.balance.toFixed(2)}`;
@@ -1282,13 +1451,13 @@ function updateSummary() {
     totalExpenseEl.textContent = `-${symbol}${summary.expenses.toFixed(2)}`;
 }
 
-function renderExpenses() {
+async function renderExpenses() {
     if (expense.length === 0) {
-        emptyState.style.display = 'flex';
-        expenseList.innerHTML = '';
-        expenseCount.textContent = '0 items';
-        renderDashboardExpenseTrend();
-        renderBudgetOverview();
+    emptyState.style.display = 'flex';
+    expenseList.innerHTML = '';
+    expenseCount.textContent = '0 items';
+    await renderDashboardExpenseTrend();
+    await renderBudgetOverview();
         return;
     }
     
@@ -1297,10 +1466,10 @@ function renderExpenses() {
     
     // Show only the most recent 10 expense on dashboard
     const recentItems = expense.slice(0, 10);
-
-    recentItems.forEach(item => {
+    
+    for (const item of recentItems) {
         const isIncome = item.type === 'income';
-        const li = buildItemRow(item, {
+        const li = await buildItemRow(item, {
             useTypeIcon: true,
             showTypeBadge: false,
             iconBgClass: isIncome ? 'bg-emerald-100' : 'bg-rose-100',
@@ -1309,15 +1478,17 @@ function renderExpenses() {
             amountPrefix: isIncome ? '+' : '-',
         });
         expenseList.appendChild(li);
-    });
+    }
     
     expenseCount.textContent = `${expense.length} item${expense.length !== 1 ? 's' : ''}`;
+    
+    await renderBudgetOverview();
     renderBudgetOverview();
     renderDashboardExpenseTrend();
 }
 
-function renderIncomeView() {
-    const { total, count, average } = calculateIncomeSummary();
+async function renderIncomeView() {
+    const { total, count, average } = await calculateIncomeSummary();
     const symbol = getCurrencySymbol(currentCurrency);
     
     incomeViewTotal.textContent = `${symbol}${total.toFixed(2)}`;
@@ -1336,8 +1507,8 @@ function renderIncomeView() {
     incomeEmptyState.style.display = 'none';
     incomeExpenseList.innerHTML = '';
     
-    incomeItems.forEach(item => {
-        const li = buildItemRow(item, {
+    for (const item of incomeItems) {
+        const li = await buildItemRow(item, {
             useTypeIcon: false,
             showTypeBadge: false,
             iconBgClass: 'bg-emerald-100',
@@ -1346,13 +1517,13 @@ function renderIncomeView() {
             amountPrefix: '+',
         });
         incomeExpenseList.appendChild(li);
-    });
+    }
     
     incomeExpenseCount.textContent = `${incomeItems.length} item${incomeItems.length !== 1 ? 's' : ''}`;
 }
 
-function renderExpenseView() {
-    const { total, count, average } = calculateExpenseSummary();
+async function renderExpenseView() {
+    const { total, count, average } = await calculateExpenseSummary();
     const symbol = getCurrencySymbol(currentCurrency);
     
     expenseViewTotal.textContent = `${symbol}${total.toFixed(2)}`;
@@ -1362,20 +1533,20 @@ function renderExpenseView() {
     const expenseItems = expense.filter(t => t.type === 'expense');
     
     if (expenseItems.length === 0) {
-        expenseEmptyState.style.display = 'flex';
-        expenseEntryList.innerHTML = '';
-        expenseEntryCount.textContent = '0 items';
-        topExpenseCategories.innerHTML = '<p class="text-center text-slate-500 text-sm">No expenses to analyze yet.</p>';
-        renderExpenseChart([], 0);
-        renderExpenseTrend();
+    expenseEmptyState.style.display = 'flex';
+    expenseEntryList.innerHTML = '';
+    expenseEntryCount.textContent = '0 items';
+    topExpenseCategories.innerHTML = '<p class="text-center text-slate-500 text-sm">No expenses to analyze yet.</p>';
+    renderExpenseChart([], 0);
+    await renderExpenseTrend();
         return;
     }
     
     expenseEmptyState.style.display = 'none';
     expenseEntryList.innerHTML = '';
     
-    expenseItems.forEach(item => {
-        const li = buildItemRow(item, {
+    for (const item of expenseItems) {
+        const li = await buildItemRow(item, {
             useTypeIcon: false,
             showTypeBadge: false,
             iconBgClass: 'bg-rose-100',
@@ -1384,12 +1555,12 @@ function renderExpenseView() {
             amountPrefix: '-',
         });
         expenseEntryList.appendChild(li);
-    });
+    }
     
     expenseEntryCount.textContent = `${expenseItems.length} item${expenseItems.length !== 1 ? 's' : ''}`;
     
     // Update expense breakdown and chart
-    const { data: categoryData, total: expenseTotal } = calculateExpenseByCategory();
+    const { data: categoryData, total: expenseTotal } = await calculateExpenseByCategory();
     renderTopExpenseCategories(categoryData, expenseTotal);
     renderExpenseChart(categoryData, expenseTotal);
     renderExpenseTrend();
@@ -1448,8 +1619,8 @@ function renderTopExpenseCategories(categoryData, total) {
     });
 }
 
-function updateExpenseChart() {
-    const { data, total } = calculateExpenseByCategory();
+async function updateExpenseChart() {
+    const { data, total } = await calculateExpenseByCategory();
     renderExpenseChart(data, total);
     renderDashboardExpenseTrend();
     renderExpenseTrend();
@@ -1537,8 +1708,8 @@ function updateTrendControlStyles() {
     });
 }
 
-function renderDashboardExpenseTrend() {
-    renderExpenseTrendChart({
+async function renderDashboardExpenseTrend() {
+    await renderExpenseTrendChart({
         canvas: dashboardTrendCanvas,
         ctx: dashboardTrendCtx,
         range: dashboardTrendRange,
@@ -1549,8 +1720,8 @@ function renderDashboardExpenseTrend() {
     });
 }
 
-function renderExpenseTrend() {
-    renderExpenseTrendChart({
+async function renderExpenseTrend() {
+    await renderExpenseTrendChart({
         canvas: expenseTrendCanvas,
         ctx: expenseTrendCtx,
         range: expenseTrendRange,
@@ -1561,10 +1732,10 @@ function renderExpenseTrend() {
     });
 }
 
-function renderExpenseTrendChart({ canvas, ctx, range, labelEl, totalEl, averageEl, emptyEl }) {
-    const { points, total, average, periodLabel } = calculateExpenseTrendData(range);
+async function renderExpenseTrendChart({ canvas, ctx, range, labelEl, totalEl, averageEl, emptyEl }) {
+    const { points, total, average, periodLabel } = await calculateExpenseTrendData(range);
     const symbol = getCurrencySymbol(currentCurrency);
-
+    
     labelEl.textContent = periodLabel;
     totalEl.textContent = `${symbol}${total.toFixed(2)}`;
     averageEl.textContent = `Avg ${symbol}${average.toFixed(2)}`;
@@ -1718,7 +1889,7 @@ function compactCurrencyValue(value, symbol) {
     return `${symbol}${value.toFixed(0)}`;
 }
 
-function renderHistoryView(filteredExpenses = null) {
+async function renderHistoryView(filteredExpenses = null) {
     const expenseToRender = filteredExpenses || expense;
     
     // Update category filter options
@@ -1734,9 +1905,9 @@ function renderHistoryView(filteredExpenses = null) {
     historyEmptyState.style.display = 'none';
     historyExpenseList.innerHTML = '';
     
-    expenseToRender.forEach(item => {
+    for (const item of expenseToRender) {
         const isIncome = item.type === 'income';
-        const li = buildItemRow(item, {
+        const li = await buildItemRow(item, {
             useTypeIcon: true,
             showTypeBadge: true,
             iconBgClass: isIncome ? 'bg-emerald-100' : 'bg-rose-100',
@@ -1745,7 +1916,7 @@ function renderHistoryView(filteredExpenses = null) {
             amountPrefix: isIncome ? '+' : '-',
         });
         historyExpenseList.appendChild(li);
-    });
+    }
     
     historyExpenseCount.textContent = `${expenseToRender.length} item${expenseToRender.length !== 1 ? 's' : ''}`;
 }
@@ -1866,7 +2037,7 @@ function formatDate(dateString) {
 async function renderAccountView() {
     // Update stats from in-memory expense
     const symbol = getCurrencySymbol(currentCurrency);
-    const { income, expenses, balance } = calculateSummary();
+    const { income, expenses, balance } = await calculateSummary();
     accountTotalTx.textContent = expense.length;
     accountTotalIncome.textContent = `${symbol}${income.toFixed(2)}`;
     accountTotalExpense.textContent = `${symbol}${expenses.toFixed(2)}`;

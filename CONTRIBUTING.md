@@ -31,7 +31,7 @@ SpendsWise/
 │   └── wallet.svg
 ├── package.json            # Root — Tailwind build scripts
 ├── vercel.json             # Vercel deployment config
-└── server/                 # Express + TypeScript API
+├── server/                 # Express + TypeScript API
     ├── src/
     │   ├── app.ts          # Express app (Vercel entry)
     │   ├── index.ts        # Local dev entry
@@ -48,12 +48,17 @@ SpendsWise/
     │   │   ├── auth.ts     # Register, login, logout, me, password
     │   │   ├── expenses.ts # CRUD + bulk import for expenses
     │   │   ├── familyMembers.ts # Add / list / delete members
+    │   │   ├── currency.ts # Currency translation layer
     │   │   └── ai.ts       # AI chat and natural language parse (Groq)
     │   └── types/
     │       └── express.d.ts  # Request.userId augmentation
     ├── .env.example
     ├── package.json
     └── tsconfig.json
+└── .github/
+    └── workflows/
+    ├── claude-code-review.yml
+        └── claude.yml
 ```
 
 ---
@@ -68,7 +73,7 @@ SpendsWise/
 ### 1. Clone and install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/coder11125/SpendsWise.git
 cd SpendsWise
 
 # Root (Tailwind tooling)

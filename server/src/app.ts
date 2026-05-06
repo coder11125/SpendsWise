@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth";
 import expenseRoutes from "./routes/expenses";
 import familyMemberRoutes from "./routes/familyMembers";
 import aiRoutes from "./routes/ai";
+import currencyRoutes from "./routes/currency";
 import { config } from "./config";
 import { doubleCsrfProtection, invalidCsrfTokenError } from "./middleware/csrf";
 
@@ -100,6 +101,7 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/expenses", expenseLimiter, expenseRoutes);
 app.use("/api/family-members", expenseLimiter, familyMemberRoutes);
 app.use("/api/ai", expenseLimiter, aiRoutes);
+app.use("/api/currency", expenseLimiter, currencyRoutes);
 
 // C1: Handle CSRF validation failures with a clear 403 before the generic handler
 app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
