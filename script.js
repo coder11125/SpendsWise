@@ -59,7 +59,7 @@ let budgetGoals = JSON.parse(localStorage.getItem('sw_budget_goals') || '{}');
 // Currency conversion cache with localStorage persistence
 let currencyRates = JSON.parse(localStorage.getItem('sw_currency_rates') || '{}');
 let lastRateFetch = parseInt(localStorage.getItem('sw_last_rate_fetch') || '0', 10);
-let lastRateFetchAttempt = parseInt(localStorage.getItem('sw_last_rate_fetch_attempt') || '0', 10);
+const rateFetchAttempts = {}; // per-currency throttle timestamps
 const RATE_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 const RATE_FETCH_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown if API fails
 
@@ -72,7 +72,7 @@ setInterval(() => {
     try {
         localStorage.setItem('sw_currency_rates', JSON.stringify(currencyRates));
         localStorage.setItem('sw_last_rate_fetch', lastRateFetch.toString());
-        localStorage.setItem('sw_last_rate_fetch_attempt', lastRateFetchAttempt.toString());
+
         localStorage.setItem('sw_rate_limit_hit', rateLimitHit.toString());
         localStorage.setItem('sw_rate_limit_hit_time', rateLimitHitTime.toString());
     } catch (e) {
@@ -160,12 +160,12 @@ async function fetchCurrencyRates(baseCurrency = 'USD') {
         return null;
     }
     
-    // If we recently tried to fetch and failed, don't retry immediately
-    if (Date.now() - lastRateFetchAttempt < 30000) { // 30 second retry delay
+    // If we recently tried to fetch this specific currency, don't retry immediately
+    if (Date.now() - (rateFetchAttempts[baseCurrency] || 0) < 30000) {
         return null;
     }
-    
-    lastRateFetchAttempt = Date.now();
+
+    rateFetchAttempts[baseCurrency] = Date.now();
     
     // Try to use cached rates if available
     if (currencyRates[baseCurrency] && Date.now() - lastRateFetch < RATE_CACHE_DURATION) {
