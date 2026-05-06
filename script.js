@@ -862,17 +862,17 @@ async function deleteExpense(id) {
     }
 
     expense = expense.filter(item => item.id !== id);
-    updateSummary();
-    renderExpenses();
-    updateExpenseChart();
+    await updateSummary();
+    await renderExpenses();
+    await updateExpenseChart();
 
     // Update current view if needed
     if (currentFilter === 'income') {
-        renderIncomeView();
+        await renderIncomeView();
     } else if (currentFilter === 'expense') {
-        renderExpenseView();
+        await renderExpenseView();
     } else if (currentFilter === 'history') {
-        renderHistoryView();
+        await renderHistoryView();
     }
 }
 
