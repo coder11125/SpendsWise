@@ -364,6 +364,16 @@ const managedMembersList = document.getElementById('managedMembersList');
 const noMembersState = document.getElementById('noMembersState');
 const familyMemberSelect = document.getElementById('familyMember');
 
+// Mobile quick add elements
+const mobileQuickAddBtn = document.getElementById('mobileQuickAddBtn');
+const mobileQuickAddModal = document.getElementById('mobileQuickAddModal');
+const closeMobileQuickAddBtn = document.getElementById('closeMobileQuickAddBtn');
+const mobileQuickAddForm = document.getElementById('mobileQuickAddForm');
+const mobileQuickCurrencySymbol = document.getElementById('mobileQuickCurrencySymbol');
+const mobileQuickExpenseCategories = document.getElementById('mobileQuickExpenseCategories');
+const mobileQuickIncomeCategories = document.getElementById('mobileQuickIncomeCategories');
+const mobileQuickFamilyMemberSelect = document.getElementById('mobileQuickFamilyMember');
+
 // --- INITIALIZATION ---
 function init() {
     // Initialize Currency Selector
@@ -375,6 +385,12 @@ function init() {
         dateFormat: "Y-m-d",
         disableMobile: true // Ensures the custom modern UI shows on mobile devices instead of native pickers
     });
+    window.mobileQuickDatePicker = flatpickr("#mobileQuickDate", {
+        defaultDate: "today",
+        dateFormat: "Y-m-d",
+        disableMobile: true
+    });
+    updateMobileQuickCategoryOptions('expense');
 
     // Event Listeners
     currencyButton.addEventListener('click', () => {
@@ -382,6 +398,17 @@ function init() {
     });
 
     form.addEventListener('submit', addExpense);
+    mobileQuickAddForm.addEventListener('submit', addMobileQuickEntry);
+    mobileQuickAddBtn.addEventListener('click', openMobileQuickAdd);
+    closeMobileQuickAddBtn.addEventListener('click', closeMobileQuickAdd);
+    mobileQuickAddModal.addEventListener('click', (e) => {
+        if (e.target === mobileQuickAddModal) {
+            closeMobileQuickAdd();
+        }
+    });
+    document.querySelectorAll('input[name="mobileQuickType"]').forEach(radio => {
+        radio.addEventListener('change', () => updateMobileQuickCategoryOptions(radio.value));
+    });
 
     updateDarkModeToggle(document.documentElement.classList.contains('dark'));
 
@@ -593,6 +620,7 @@ function initializeCurrencySelector() {
     // Initialize with default currency
     currentCurrencyEl.textContent = currentCurrency;
     currencySymbolSpan.textContent = getCurrencySymbol(currentCurrency);
+    mobileQuickCurrencySymbol.textContent = getCurrencySymbol(currentCurrency);
     
     // Render the initial currency options
     renderCurrencyOptions('');
@@ -633,6 +661,7 @@ function selectCurrency(currency) {
     localStorage.setItem('sw_currency', currency);
     currentCurrencyEl.textContent = currency;
     currencySymbolSpan.textContent = getCurrencySymbol(currency);
+    mobileQuickCurrencySymbol.textContent = getCurrencySymbol(currency);
     
     // Update all currency displays with conversion
     updateSummary();
@@ -758,30 +787,23 @@ async function removeMember(name) {
 }
 
 function updateFamilyMemberSelect() {
-    familyMemberSelect.innerHTML = '<option value="" selected>None / Myself</option>';
-    
-    familyMembers.forEach(member => {
-        const option = document.createElement('option');
-        option.value = member;
-        option.textContent = member;
-        familyMemberSelect.appendChild(option);
+    const selects = [familyMemberSelect, mobileQuickFamilyMemberSelect].filter(Boolean);
+
+    selects.forEach(select => {
+        select.innerHTML = '<option value="" selected>None / Myself</option>';
+
+        familyMembers.forEach(member => {
+            const option = document.createElement('option');
+            option.value = member;
+            option.textContent = member;
+            select.appendChild(option);
+        });
     });
 }
 
 // --- EXPENSE HANDLING ---
-async function addExpense(e) {
-    e.preventDefault();
-
-    const type = form.type.value;
-    const amount = parseFloat(form.amount.value);
-    const category = form.category.value;
-    const date = form.date.value;
-    const familyMember = form.familyMember.value || '';
-    const note = form.note.value || '';
-
-    if (!type || Number.isNaN(amount) || !category || !date) return;
-
-    let newEntry;
+async function saveTransaction({ type, amount, category, date, familyMember = '', note = '' }) {
+    if (!type || Number.isNaN(amount) || !category || !date) return null;
 
     if (isLoggedIn) {
         try {
@@ -792,18 +814,50 @@ async function addExpense(e) {
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
                 console.error('Failed to save expense:', err.error ?? res.status);
-                return;
+                return null;
             }
-            newEntry = mapServerExpense(await res.json());
+            return mapServerExpense(await res.json());
         } catch (err) {
             console.error('Network error saving expense:', err);
-            return;
+            return null;
         }
-    } else {
-        newEntry = { id: String(Date.now()), type, amount, category, date, familyMember, note, currency: currentCurrency };
     }
 
+    return { id: String(Date.now()), type, amount, category, date, familyMember, note, currency: currentCurrency };
+}
+
+async function refreshAfterTransactionAdded(newEntry) {
+    if (!newEntry) return;
+
     expense.unshift(newEntry);
+
+    await updateSummary();
+    await renderExpenses();
+    await updateExpenseChart();
+
+    if (currentFilter === 'income') {
+        await renderIncomeView();
+    } else if (currentFilter === 'expense') {
+        await renderExpenseView();
+    } else if (currentFilter === 'history') {
+        await renderHistoryView();
+    }
+}
+
+async function addExpense(e) {
+    e.preventDefault();
+
+    const type = form.type.value;
+    const newEntry = await saveTransaction({
+        type,
+        amount: parseFloat(form.amount.value),
+        category: form.category.value,
+        date: form.date.value,
+        familyMember: form.familyMember.value || '',
+        note: form.note.value || '',
+    });
+
+    if (!newEntry) return;
 
     // Reset form
     if (type === 'expense') {
@@ -822,19 +876,26 @@ async function addExpense(e) {
     // Reset date picker to today
     window.datePicker.setDate("today");
 
-    // Update UI
-    updateSummary();
-    renderExpenses();
-    updateExpenseChart();
+    await refreshAfterTransactionAdded(newEntry);
+}
 
-    // Update current view if needed
-    if (currentFilter === 'income') {
-        renderIncomeView();
-    } else if (currentFilter === 'expense') {
-        renderExpenseView();
-    } else if (currentFilter === 'history') {
-        renderHistoryView();
-    }
+async function addMobileQuickEntry(e) {
+    e.preventDefault();
+
+    const newEntry = await saveTransaction({
+        type: mobileQuickAddForm.mobileQuickType.value,
+        amount: parseFloat(document.getElementById('mobileQuickAmount').value),
+        category: document.getElementById('mobileQuickCategory').value,
+        date: document.getElementById('mobileQuickDate').value,
+        familyMember: mobileQuickFamilyMemberSelect.value || '',
+        note: document.getElementById('mobileQuickNote').value || '',
+    });
+
+    if (!newEntry) return;
+
+    resetMobileQuickAddForm();
+    closeMobileQuickAdd();
+    await refreshAfterTransactionAdded(newEntry);
 }
 
 function updateCategoryOptions(type) {
@@ -845,6 +906,35 @@ function updateCategoryOptions(type) {
         expenseCategories.style.display = 'none';
         incomeCategories.style.display = '';
     }
+}
+
+function updateMobileQuickCategoryOptions(type) {
+    if (type === 'expense') {
+        mobileQuickExpenseCategories.style.display = '';
+        mobileQuickIncomeCategories.style.display = 'none';
+    } else {
+        mobileQuickExpenseCategories.style.display = 'none';
+        mobileQuickIncomeCategories.style.display = '';
+    }
+
+    document.getElementById('mobileQuickCategory').value = '';
+}
+
+function openMobileQuickAdd() {
+    mobileQuickAddModal.classList.remove('hidden');
+    mobileQuickAddModal.classList.add('flex');
+    document.getElementById('mobileQuickAmount').focus();
+}
+
+function closeMobileQuickAdd() {
+    mobileQuickAddModal.classList.add('hidden');
+    mobileQuickAddModal.classList.remove('flex');
+}
+
+function resetMobileQuickAddForm() {
+    mobileQuickAddForm.reset();
+    updateMobileQuickCategoryOptions('expense');
+    window.mobileQuickDatePicker.setDate("today");
 }
 
 async function deleteExpense(id) {
