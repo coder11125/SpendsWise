@@ -121,18 +121,19 @@ export function stopPolling() {
 
 function pathToView(path) {
   const route = path.replace(/^\//, '') || 'dashboard';
-  return ['dashboard', 'income', 'expense', 'history', 'account'].includes(route) ? route : 'dashboard';
+  return ['dashboard', 'income', 'expense', 'account'].includes(route) ? route : 'dashboard';
 }
 
 export function initRouter() {
   let p = window.location.pathname.replace(/\/+$/, '') || '/';
-  if (p === '/') {
+  if (p === '/' || p === '') {
     history.replaceState({}, '', '/dashboard');
+    p = '/dashboard';
   }
-  _currentView = pathToView(p === '/dashboard' ? '/' : p);
+  _currentView = pathToView(p);
   window.addEventListener('popstate', () => {
     let p = window.location.pathname.replace(/\/+$/, '') || '/';
-    _currentView = pathToView(p === '/dashboard' ? '/' : p);
+    _currentView = pathToView(p);
   });
 }
 

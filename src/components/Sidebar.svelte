@@ -11,7 +11,6 @@
     { filter: 'dashboard', icon: 'ph-chart-pie-slice', label: 'Dashboard' },
     { filter: 'income', icon: 'ph-trend-up', label: 'Income' },
     { filter: 'expense', icon: 'ph-trend-down', label: 'Expense' },
-    { filter: 'history', icon: 'ph-clock-counter-clockwise', label: 'Expense History' },
     { filter: 'account', icon: 'ph-user-circle', label: 'My Account' },
   ];
 

@@ -8,7 +8,6 @@
   import Dashboard from './views/Dashboard.svelte';
   import IncomeView from './views/IncomeView.svelte';
   import ExpenseView from './views/ExpenseView.svelte';
-  import HistoryView from './views/HistoryView.svelte';
   import AccountView from './views/AccountView.svelte';
   import AuthModal from './components/AuthModal.svelte';
   import EditModal from './components/EditModal.svelte';
@@ -85,8 +84,6 @@
         <IncomeView />
       {:else if view === 'expense'}
         <ExpenseView />
-      {:else if view === 'history'}
-        <HistoryView />
       {:else if view === 'account'}
         <AccountView />
       {/if}
