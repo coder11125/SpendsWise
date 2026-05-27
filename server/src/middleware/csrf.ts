@@ -15,5 +15,4 @@ export const { invalidCsrfTokenError, generateCsrfToken, doubleCsrfProtection } 
   },
   size: 64,
   getCsrfTokenFromRequest: (req) => req.headers["x-csrf-token"],
-  excludedPaths: ["/api/auth/logout"],
 });
