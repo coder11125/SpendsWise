@@ -61,6 +61,24 @@ export async function loadExpenses(): Promise<void> {
   }
 }
 
+async function handleJsonResponse(res: Response, fallbackError: string): Promise<any> {
+  const contentType = res.headers.get('content-type');
+  const isJson = contentType?.includes('application/json');
+  
+  if (!res.ok) {
+    if (isJson) {
+      const data = await res.json();
+      throw new Error(data.error ?? fallbackError);
+    }
+    throw new Error(`Server error: ${res.status}`);
+  }
+  
+  if (isJson) {
+    return res.json();
+  }
+  return null;
+}
+
 export async function login(email: string, password: string): Promise<any> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
@@ -68,9 +86,7 @@ export async function login(email: string, password: string): Promise<any> {
     headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() ?? '' },
     body: JSON.stringify({ email, password }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Login failed');
-  return data;
+  return handleJsonResponse(res, 'Login failed');
 }
 
 export async function register(email: string, password: string): Promise<any> {
@@ -80,9 +96,7 @@ export async function register(email: string, password: string): Promise<any> {
     headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() ?? '' },
     body: JSON.stringify({ email, password }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Registration failed');
-  return data;
+  return handleJsonResponse(res, 'Registration failed');
 }
 
 export async function logout(): Promise<void> {
@@ -173,11 +187,7 @@ export async function updateExpenseOnServer(id: string, data: Partial<Expense>):
       method: 'PUT',
       body: JSON.stringify(data),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error ?? 'Failed to save changes.');
-    }
-    return mapServerExpense(await res.json());
+    return mapServerExpense(await handleJsonResponse(res, 'Failed to save changes.'));
   } catch (err) {
     console.error('Network error editing expense:', err);
     throw err;
@@ -303,7 +313,7 @@ export async function uploadBulkExpenses(rows: any[]): Promise<any> {
     method: 'POST',
     body: JSON.stringify({ rows }),
   });
-  return await res.json();
+  return handleJsonResponse(res, 'Bulk upload failed');
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<any> {
@@ -311,9 +321,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
     method: 'PUT',
     body: JSON.stringify({ currentPassword, newPassword }),
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error ?? 'Failed to update password.');
-  return data;
+  return handleJsonResponse(res, 'Failed to update password.');
 }
 
 export async function deleteAllExpenses(): Promise<void> {
@@ -326,9 +334,7 @@ export async function sendAiMessage(message: string, history: any[]): Promise<an
     method: 'POST',
     body: JSON.stringify({ message, history }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'AI request failed');
-  return data;
+  return handleJsonResponse(res, 'AI request failed');
 }
 
 export async function parseWithAI(text: string): Promise<any> {
@@ -336,9 +342,7 @@ export async function parseWithAI(text: string): Promise<any> {
     method: 'POST',
     body: JSON.stringify({ text }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'AI request failed');
-  return data;
+  return handleJsonResponse(res, 'AI request failed');
 }
 
 export async function parseReceipt(imageData: string): Promise<any> {
@@ -346,13 +350,10 @@ export async function parseReceipt(imageData: string): Promise<any> {
     method: 'POST',
     body: JSON.stringify({ imageData }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'AI request failed');
-  return data;
+  return handleJsonResponse(res, 'AI request failed');
 }
 
 export async function getProfile(): Promise<Profile> {
   const res = await apiFetch('/auth/me');
-  if (!res.ok) throw new Error('Failed to load profile');
-  return await res.json();
+  return handleJsonResponse(res, 'Failed to load profile');
 }
