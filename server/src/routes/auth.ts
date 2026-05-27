@@ -93,7 +93,12 @@ router.post(
 );
 
 router.post("/logout", (_req, res) => {
-  res.clearCookie("sw_session", { path: "/" });
+  res.clearCookie("sw_session", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV !== "development",
+    sameSite: "strict",
+    path: "/",
+  });
   res.json({ message: "Logged out" });
 });
 

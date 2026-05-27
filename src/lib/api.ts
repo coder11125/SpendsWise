@@ -103,6 +103,7 @@ export async function logout(): Promise<void> {
   stopPolling();
   setIsLoggedIn(false);
   setExpense([]);
+  setEmail('');
   try {
     await fetch(`${API_BASE}/auth/logout`, {
       method: 'POST',
@@ -111,9 +112,11 @@ export async function logout(): Promise<void> {
     });
   } catch {}
   setFamilyMembers([]);
+  sessionStorage.setItem('sw_logged_out', 'true');
 }
 
 export async function checkSession(): Promise<boolean> {
+  if (sessionStorage.getItem('sw_logged_out') === 'true') return false;
   try {
     const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
     if (res.ok) {
@@ -130,6 +133,7 @@ export async function checkSession(): Promise<boolean> {
 }
 
 export function showApp(email: string, members: string[] | null = null): void {
+  sessionStorage.removeItem('sw_logged_out');
   setIsLoggedIn(true);
   setEmail(email);
   if (Array.isArray(members)) {
