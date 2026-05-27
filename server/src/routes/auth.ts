@@ -61,7 +61,7 @@ router.post(
     const existing = await UserModel.findOne({ email: normalizedEmail });
     if (existing) return res.status(409).json({ error: "Email already registered" });
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(password, 10);
     try {
       const user = await UserModel.create({ email: normalizedEmail, passwordHash, familyMembers: [] });
       signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
@@ -106,7 +106,7 @@ router.get(
   "/me",
   authRequired,
   asyncHandler(async (req, res) => {
-    const user = await UserModel.findById(req.userId).select("-passwordHash -tokenVersion");
+    const user = (req as any).user;
     if (!user) return res.status(404).json({ error: "User not found" });
     return res.json({
       id: user._id,
@@ -137,7 +137,7 @@ router.put(
     // C4: Increment tokenVersion to invalidate all existing sessions (including
     // any stolen cookies), then re-issue a fresh cookie for the current request.
     user.tokenVersion = (user.tokenVersion ?? 0) + 1;
-    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();
 
     signAndSetCookie(res, user._id.toString(), user.tokenVersion);
