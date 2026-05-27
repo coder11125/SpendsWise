@@ -64,63 +64,52 @@ async function checkAiUsage(userId: string | undefined): Promise<{
     return { allowed: false, dailyRemaining: 0, monthlyRemaining: 0 };
   }
 
-  const result = await UserModel.findOneAndUpdate(
-    { _id: userId },
-    [
-      {
-        $set: {
-          "aiUsage.count": { $add: [{ $ifNull: ["$aiUsage.count", 0] }, 1] },
-          "aiUsage.dailyCount": {
-            $cond: {
-              if: { $eq: ["$aiUsage.dailyDate", todayStr] },
-              then: { $add: [{ $ifNull: ["$aiUsage.dailyCount", 0] }, 1] },
-              else: 1,
-            },
-          },
-          "aiUsage.dailyDate": todayStr,
-          "aiUsage.monthlyCount": {
-            $cond: {
-              if: { $eq: ["$aiUsage.monthlyDate", monthStr] },
-              then: { $add: [{ $ifNull: ["$aiUsage.monthlyCount", 0] }, 1] },
-              else: 1,
-            },
-          },
-          "aiUsage.monthlyDate": monthStr,
-        },
-      },
-      {
-        $match: {
-          $expr: {
-            $and: [
-              { $lte: ["$aiUsage.dailyCount", config.aiDailyLimit] },
-              { $lte: ["$aiUsage.monthlyCount", config.aiMonthlyLimit] },
-            ],
-          },
-        },
-      },
-    ],
-    { new: true, projection: { aiUsage: 1, _id: 0 } }
-  );
+  const user = await UserModel.findById(userId).select("aiUsage").lean();
+  const u = (user?.aiUsage ?? {}) as {
+    dailyCount?: number;
+    monthlyCount?: number;
+    dailyDate?: string;
+    monthlyDate?: string;
+  };
 
-  if (!result) {
-    const user = await UserModel.findById(userId).select("aiUsage").lean();
-    const u = (user?.aiUsage ?? {}) as { dailyCount?: number; monthlyCount?: number; dailyDate?: string; monthlyDate?: string };
-    const dc = u.dailyCount ?? 0;
-    const mc = u.monthlyCount ?? 0;
-    const onDaily = u.dailyDate === todayStr && dc >= config.aiDailyLimit;
-    const onMonthly = u.monthlyDate === monthStr && mc >= config.aiMonthlyLimit;
+  const currentDaily = u.dailyDate === todayStr ? (u.dailyCount ?? 0) : 0;
+  const currentMonthly = u.monthlyDate === monthStr ? (u.monthlyCount ?? 0) : 0;
+
+  if (currentDaily >= config.aiDailyLimit || currentMonthly >= config.aiMonthlyLimit) {
     return {
       allowed: false,
-      dailyRemaining: onDaily ? 0 : Math.max(0, config.aiDailyLimit - dc),
-      monthlyRemaining: onMonthly ? 0 : Math.max(0, config.aiMonthlyLimit - mc),
+      dailyRemaining: Math.max(0, config.aiDailyLimit - currentDaily),
+      monthlyRemaining: Math.max(0, config.aiMonthlyLimit - currentMonthly),
     };
   }
 
-  const updated = (result as any).aiUsage ?? {};
+  const update: Record<string, any> = { $inc: { "aiUsage.count": 1 } };
+  const $set: Record<string, any> = {};
+
+  if (u.dailyDate === todayStr) {
+    update.$inc["aiUsage.dailyCount"] = 1;
+  } else {
+    $set["aiUsage.dailyCount"] = currentDaily + 1;
+    $set["aiUsage.dailyDate"] = todayStr;
+  }
+
+  if (u.monthlyDate === monthStr) {
+    update.$inc["aiUsage.monthlyCount"] = 1;
+  } else {
+    $set["aiUsage.monthlyCount"] = currentMonthly + 1;
+    $set["aiUsage.monthlyDate"] = monthStr;
+  }
+
+  if (Object.keys($set).length) {
+    update.$set = $set;
+  }
+
+  await UserModel.updateOne({ _id: userId }, update);
+
   return {
     allowed: true,
-    dailyRemaining: Math.max(0, config.aiDailyLimit - (updated.dailyCount ?? 0)),
-    monthlyRemaining: Math.max(0, config.aiMonthlyLimit - (updated.monthlyCount ?? 0)),
+    dailyRemaining: Math.max(0, config.aiDailyLimit - currentDaily - 1),
+    monthlyRemaining: Math.max(0, config.aiMonthlyLimit - currentMonthly - 1),
   };
 }
 
