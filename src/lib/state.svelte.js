@@ -126,6 +126,9 @@ function pathToView(path) {
 
 export function initRouter() {
   let p = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (p === '/') {
+    history.replaceState({}, '', '/dashboard');
+  }
   _currentView = pathToView(p === '/dashboard' ? '/' : p);
   window.addEventListener('popstate', () => {
     let p = window.location.pathname.replace(/\/+$/, '') || '/';
