@@ -2,7 +2,7 @@ import { API_BASE, RATE_CACHE_DURATION, RATE_FETCH_COOLDOWN } from './constants.
 import {
   getCsrfToken, setCsrfToken, getIsLoggedIn,
   setExpense, getFamilyMembers, setFamilyMembers,
-  setEmail, setIsLoggedIn, startPolling, stopPolling,
+  setEmail, setUserId, setIsLoggedIn, startPolling, stopPolling, initPusher,
   getCurrentCurrency, setCurrentCurrency,
   getCurrencyRates, setCurrencyRates,
   getLastRateFetch, setLastRateFetch,
@@ -123,7 +123,9 @@ export async function checkSession(): Promise<boolean> {
       const data = await res.json();
       setIsLoggedIn(true);
       setEmail(data.email);
+      setUserId(data.id);
       setFamilyMembers(data.familyMembers);
+      initPusher(data.id);
       startPolling();
       loadExpenses();
       return true;
@@ -132,10 +134,14 @@ export async function checkSession(): Promise<boolean> {
   return false;
 }
 
-export function showApp(email: string, members: string[] | null = null): void {
+export function showApp(email: string, members: string[] | null = null, userId?: string): void {
   sessionStorage.removeItem('sw_logged_out');
   setIsLoggedIn(true);
   setEmail(email);
+  if (userId) {
+    setUserId(userId);
+    initPusher(userId);
+  }
   if (Array.isArray(members)) {
     setFamilyMembers(members);
   } else {

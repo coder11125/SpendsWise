@@ -18,7 +18,7 @@
     loading = true;
     try {
       const data = tab === 'login' ? await login(email, password) : await register(email, password);
-      showApp(data.email, data.familyMembers);
+      showApp(data.user.email, data.user.familyMembers, data.user.id);
     } catch (err) {
       error = err.message;
     } finally {

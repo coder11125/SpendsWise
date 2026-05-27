@@ -22,7 +22,8 @@
     "groq-sdk": "^1.1.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.5.0"
+    "mongoose": "^8.5.0",
+    "pusher": "^5.3.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

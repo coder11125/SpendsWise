@@ -1,84 +1,123 @@
-import express from "express";
+import { Router } from "express";
+import { authRequired } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { ExpenseModel } from "../models/Expense.js";
+import { notifyDataChanged } from "../lib/pusher.js";
 
-const router = express.Router();
-
-const rateCache: {
-  [key: string]: {
-    rates: Record<string, number>;
-    timestamp: number;
-  };
-} = {};
-
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
-
-async function fetchCurrencyRates(baseCurrency: string = "USD"): Promise<Record<string, number>> {
-  const cacheKey = baseCurrency;
-
-  if (rateCache[cacheKey] && Date.now() - rateCache[cacheKey].timestamp < CACHE_DURATION) {
-    return rateCache[cacheKey].rates;
-  }
-
-  try {
-    const response = await fetch(`https://open.er-api.com/v6/latest/${baseCurrency}`);
-
-    if (!response.ok) {
-      throw new Error(`Currency API returned status ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data.result !== "success") {
-      throw new Error(data["error-type"] || "Currency API returned non-success result");
-    }
-
-    rateCache[cacheKey] = {
-      rates: data.rates,
-      timestamp: Date.now(),
-    };
-
-    console.log(`[CURRENCY] Fetched rates for ${baseCurrency}`);
-    return data.rates;
-  } catch (error) {
-    console.error("[CURRENCY] Failed to fetch rates:", error);
-
-    // Return 1:1 fallback so the app doesn't crash
-    const fallback: Record<string, number> = {};
-    ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "CNY", "INR", "MXN", "BRL", "RUB"].forEach(
-      (c) => { fallback[c] = 1; }
-    );
-    return fallback;
-  }
-}
+const router = Router();
+router.use(authRequired);
 
 router.get(
-  "/rates",
+  "/",
   asyncHandler(async (req, res) => {
-    const baseCurrency = (req.query.base as string) || "USD";
-    const rates = await fetchCurrencyRates(baseCurrency);
-    res.json({ base: baseCurrency, rates, cached: !!rateCache[baseCurrency] });
+    const expenses = await ExpenseModel.find({ userId: req.userId }).sort({ date: -1 }).lean();
+    return res.json(expenses);
   })
 );
 
-router.get(
-  "/convert",
+router.post(
+  "/",
   asyncHandler(async (req, res) => {
-    const fromCurrency = (req.query.from as string) || "USD";
-    const toCurrency = (req.query.to as string) || "USD";
-    const amount = parseFloat(req.query.amount as string) || 0;
+    const { type, amount, category, date, familyMember = "", note = "", currency = "USD" } = req.body ?? {};
 
-    if (fromCurrency === toCurrency) {
-      return res.json({ from: fromCurrency, to: toCurrency, amount, convertedAmount: amount, rate: 1 });
+    if (!type || !["income", "expense"].includes(type)) {
+      return res.status(400).json({ error: "type must be 'income' or 'expense'" });
+    }
+    if (typeof amount !== "number" || amount <= 0) {
+      return res.status(400).json({ error: "amount must be a positive number" });
+    }
+    if (!category || typeof category !== "string") {
+      return res.status(400).json({ error: "category is required" });
+    }
+    if (!date) {
+      return res.status(400).json({ error: "date is required" });
     }
 
-    const rates = await fetchCurrencyRates(fromCurrency);
-    const rate = rates[toCurrency];
+    const expense = await ExpenseModel.create({
+      userId: req.userId,
+      type,
+      amount,
+      category,
+      date,
+      familyMember,
+      note,
+      currency,
+    });
 
-    if (rate === undefined) {
-      return res.status(400).json({ error: `Cannot convert from ${fromCurrency} to ${toCurrency}` });
+    notifyDataChanged(req.userId!);
+    return res.status(201).json(expense);
+  })
+);
+
+router.put(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const allowed = ["type", "amount", "category", "date", "familyMember", "note", "currency"];
+    const updates: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (req.body?.[key] !== undefined) updates[key] = req.body[key];
     }
 
-    res.json({ from: fromCurrency, to: toCurrency, amount, convertedAmount: amount * rate, rate });
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: "No valid fields to update" });
+    }
+
+    const expense = await ExpenseModel.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      { $set: updates },
+      { new: true }
+    );
+
+    if (!expense) return res.status(404).json({ error: "Expense not found" });
+    notifyDataChanged(req.userId!);
+    return res.json(expense);
+  })
+);
+
+router.delete(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const expense = await ExpenseModel.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    if (!expense) return res.status(404).json({ error: "Expense not found" });
+    notifyDataChanged(req.userId!);
+    return res.json({ message: "Deleted" });
+  })
+);
+
+router.delete(
+  "/",
+  asyncHandler(async (req, res) => {
+    if (req.body?.confirm !== true) {
+      return res.status(400).json({ error: "Confirmation required" });
+    }
+    await ExpenseModel.deleteMany({ userId: req.userId });
+    notifyDataChanged(req.userId!);
+    return res.json({ message: "All expenses deleted" });
+  })
+);
+
+router.post(
+  "/bulk",
+  asyncHandler(async (req, res) => {
+    const { rows } = req.body ?? {};
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: "rows must be a non-empty array" });
+    }
+
+    const docs = rows.map((row: any) => ({
+      userId: req.userId,
+      type: row.type,
+      amount: row.amount,
+      category: row.category,
+      date: row.date,
+      familyMember: row.familyMember ?? "",
+      note: row.note ?? "",
+      currency: row.currency ?? "USD",
+    }));
+
+    const result = await ExpenseModel.insertMany(docs);
+    notifyDataChanged(req.userId!);
+    return res.status(201).json({ count: result.length });
   })
 );
 

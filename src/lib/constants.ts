@@ -1,5 +1,5 @@
 export const API_BASE = '/api';
-export const POLL_INTERVAL_MS = 30000;
+export const POLL_INTERVAL_MS = 300000; // 5 min fallback — Pusher handles real-time
 export const RATE_CACHE_DURATION = 60 * 60 * 1000;
 export const RATE_FETCH_COOLDOWN = 5 * 60 * 1000;
 

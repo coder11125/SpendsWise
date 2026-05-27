@@ -3,6 +3,7 @@ import type { Expense, CurrencyRates, CategoryData } from '../types.js';
 
 let _csrfToken = $state<string | null>(null);
 let _isLoggedIn = $state<boolean>(false);
+let _userId = $state<string | null>(null);
 let _expense = $state<Expense[]>([]);
 let _currentCurrency = $state<string>(localStorage.getItem('sw_currency') || 'USD');
 let _familyMembers = $state<any[]>([]);
@@ -22,12 +23,16 @@ let _rateFetchAttempts: Record<string, number> = {};
 
 let _currentView = $state<string>('dashboard');
 let _pollInterval: any = null;
+let _pusher: any = null;
 
 export function getCsrfToken() { return _csrfToken; }
 export function setCsrfToken(v: string | null) { _csrfToken = v; }
 
 export function getIsLoggedIn() { return _isLoggedIn; }
 export function setIsLoggedIn(v: boolean) { _isLoggedIn = v; }
+
+export function getUserId() { return _userId; }
+export function setUserId(v: string | null) { _userId = v; }
 
 export function getExpense() { return _expense; }
 export function setExpense(v: Expense[]) { _expense = v; }
@@ -104,6 +109,27 @@ function persistCurrencyState() {
 
 setInterval(persistCurrencyState, 30000);
 
+export function initPusher(userId: string): void {
+  destroyPusher();
+  const key = import.meta.env.VITE_PUSHER_KEY;
+  const cluster = import.meta.env.VITE_PUSHER_CLUSTER || 'ap1';
+  if (!key) return;
+  import('pusher-js').then(({ default: Pusher }) => {
+    _pusher = new Pusher(key, { cluster });
+    const channel = _pusher.subscribe(`user-${userId}`);
+    channel.bind('data-changed', () => {
+      import('./api.js').then(m => m.loadExpenses());
+    });
+  });
+}
+
+function destroyPusher(): void {
+  if (_pusher) {
+    _pusher.disconnect();
+    _pusher = null;
+  }
+}
+
 export function startPolling() {
   stopPolling();
   _pollInterval = setInterval(() => {
@@ -114,6 +140,7 @@ export function startPolling() {
 }
 
 export function stopPolling() {
+  destroyPusher();
   if (_pollInterval) {
     clearInterval(_pollInterval);
     _pollInterval = null;
