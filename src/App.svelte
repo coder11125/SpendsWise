@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { fetchCsrfToken, checkSession } from './lib/api.js';
-  import { getIsLoggedIn, getCurrentCurrency, initRouter, viewFromRoute, navigate } from './lib/state.svelte.js';
+  import { getIsLoggedIn, getCurrentCurrency, initRouter, getCurrentView, navigate } from './lib/state.svelte.js';
   import { getCurrencySymbol } from './lib/currency.js';
   import Sidebar from './components/Sidebar.svelte';
   import Header from './components/Header.svelte';
@@ -60,7 +60,7 @@
     await checkSession();
   });
 
-  let view = $derived(viewFromRoute());
+  let view = $derived(getCurrentView());
 </script>
 
 <div class="h-screen flex overflow-hidden bg-slate-50 dark:bg-slate-900">

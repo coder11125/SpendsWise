@@ -19,7 +19,7 @@ let _expenseChartData = $state([]);
 let _expenseChartTotal = $state(0);
 let _rateFetchAttempts = {};
 
-let _currentRoute = $state('/');
+let _currentView = $state('dashboard');
 let _pollInterval = null;
 
 export function getCsrfToken() { return _csrfToken; }
@@ -119,27 +119,25 @@ export function stopPolling() {
   }
 }
 
-function routeFromPath() {
-  let p = window.location.pathname.replace(/\/+$/, '') || '/';
-  return p === '/dashboard' ? '/' : p;
+function pathToView(path) {
+  const route = path.replace(/^\//, '') || 'dashboard';
+  return ['dashboard', 'income', 'expense', 'history', 'account'].includes(route) ? route : 'dashboard';
 }
 
 export function initRouter() {
-  _currentRoute = routeFromPath();
-  window.addEventListener('popstate', () => { _currentRoute = routeFromPath(); });
+  let p = window.location.pathname.replace(/\/+$/, '') || '/';
+  _currentView = pathToView(p === '/dashboard' ? '/' : p);
+  window.addEventListener('popstate', () => {
+    let p = window.location.pathname.replace(/\/+$/, '') || '/';
+    _currentView = pathToView(p === '/dashboard' ? '/' : p);
+  });
 }
 
 export function navigate(path) {
   history.pushState({}, '', path);
-  _currentRoute = path;
+  _currentView = pathToView(path);
 }
 
-export function getRoute() {
-  return _currentRoute;
-}
-
-export function viewFromRoute() {
-  const route = _currentRoute.replace(/^\//, '') || 'dashboard';
-  const valid = ['dashboard', 'income', 'expense', 'history', 'account'];
-  return valid.includes(route) ? route : 'dashboard';
+export function getCurrentView() {
+  return _currentView;
 }
