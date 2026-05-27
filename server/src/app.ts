@@ -4,14 +4,14 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import mongoSanitize from "express-mongo-sanitize";
-import { getDB } from "./db";
-import authRoutes from "./routes/auth";
-import expenseRoutes from "./routes/expenses";
-import familyMemberRoutes from "./routes/familyMembers";
-import aiRoutes from "./routes/ai";
-import currencyRoutes from "./routes/currency";
-import { config } from "./config";
-import { doubleCsrfProtection, invalidCsrfTokenError } from "./middleware/csrf";
+import { getDB } from "./db.js";
+import authRoutes from "./routes/auth.js";
+import expenseRoutes from "./routes/expenses.js";
+import familyMemberRoutes from "./routes/familyMembers.js";
+import aiRoutes from "./routes/ai.js";
+import currencyRoutes from "./routes/currency.js";
+import { config } from "./config.js";
+import { doubleCsrfProtection, invalidCsrfTokenError } from "./middleware/csrf.js";
 
 const app = express();
 
@@ -113,8 +113,12 @@ app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
 });
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err.stack ?? err);
-  res.status(500).json({ error: "Internal server error" });
+  console.error("Express Error Handler:", err);
+  res.status(500).json({ 
+    error: "Internal server error", 
+    message: err.message,
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined
+  });
 });
 
 export default app;

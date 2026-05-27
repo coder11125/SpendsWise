@@ -1,5 +1,5 @@
 import { doubleCsrf } from "csrf-csrf";
-import { config } from "../config";
+import { config } from "../config.js";
 
 export const { invalidCsrfTokenError, generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
   getSecret: () => config.csrfSecret,

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt, { SignOptions } from "jsonwebtoken";
-import { config } from "../config";
-import { UserModel } from "../models/User";
+import { config } from "../config.js";
+import { UserModel } from "../models/User.js";
 
 interface JwtPayload {
   userId: string;

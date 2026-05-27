@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { authRequired } from "../middleware/auth";
-import { asyncHandler } from "../middleware/asyncHandler";
-import { UserModel } from "../models/User";
+import { authRequired } from "../middleware/auth.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import { UserModel } from "../models/User.js";
 
 const router = Router();
 

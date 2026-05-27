@@ -1,6 +1,6 @@
 import express from "express";
-import { asyncHandler } from "../middleware/asyncHandler";
-import { authRequired } from "../middleware/auth";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import { authRequired } from "../middleware/auth.js";
 
 const router = express.Router();
 

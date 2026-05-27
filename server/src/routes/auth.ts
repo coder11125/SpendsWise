@@ -1,11 +1,11 @@
 import { Router, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt, { SignOptions } from "jsonwebtoken";
-import { UserModel } from "../models/User";
-import { config } from "../config";
-import { asyncHandler } from "../middleware/asyncHandler";
-import { authRequired } from "../middleware/auth";
-import { generateCsrfToken } from "../middleware/csrf";
+import { UserModel } from "../models/User.js";
+import { config } from "../config.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import { authRequired } from "../middleware/auth.js";
+import { generateCsrfToken } from "../middleware/csrf.js";
 
 const router = Router();
 

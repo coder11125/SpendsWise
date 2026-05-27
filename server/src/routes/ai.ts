@@ -1,10 +1,10 @@
 import { Router } from "express";
 import Groq from "groq-sdk";
-import { ExpenseModel } from "../models/Expense";
-import { UserModel } from "../models/User";
-import { authRequired } from "../middleware/auth";
-import { asyncHandler } from "../middleware/asyncHandler";
-import { config } from "../config";
+import { ExpenseModel } from "../models/Expense.js";
+import { UserModel } from "../models/User.js";
+import { authRequired } from "../middleware/auth.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import { config } from "../config.js";
 
 const router = Router();
 router.use(authRequired);
