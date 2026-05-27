@@ -5,9 +5,32 @@ import { UserModel } from "../models/User.js";
 import { authRequired } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { config } from "../config.js";
+import {
+  userBurstLimiter,
+  groqSlidingLimiter,
+  acquireGroqSlot,
+  releaseGroqSlot,
+  getActiveGroqCount,
+  MAX_CONCURRENT_GROQ,
+} from "../middleware/groqRateLimiter.js";
 
 const router = Router();
 router.use(authRequired);
+
+router.use((req, res, next) => {
+  if (!userBurstLimiter.allow(String(req.userId ?? req.ip), 10)) {
+    res.status(429).json({
+      error: "Too many AI requests. Please slow down and wait a moment.",
+      retryAfter: 60,
+    });
+    return;
+  }
+  next();
+});
+
+function logAiEvent(event: Record<string, unknown>): void {
+  console.log(JSON.stringify({ event: "ai_request", timestamp: new Date().toISOString(), ...event }));
+}
 
 function groqClient() {
   if (!config.groqApiKey) {
@@ -37,52 +60,124 @@ async function checkAiUsage(userId: string | undefined): Promise<{
   const todayStr = now.toISOString().substring(0, 10);
   const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  if (!userId) return { allowed: false, dailyRemaining: 0, monthlyRemaining: 0 };
-  const user = await UserModel.findById(userId).select("aiUsage").lean();
-  if (!user) return { allowed: false, dailyRemaining: 0, monthlyRemaining: 0 };
-
-  const usage = (user.aiUsage ?? {}) as {
-    count?: number;
-    dailyCount?: number;
-    dailyDate?: string;
-    monthlyCount?: number;
-    monthlyDate?: string;
-  };
-
-  let dailyCount = usage.dailyDate === todayStr ? (usage.dailyCount ?? 0) : 0;
-  let monthlyCount = usage.monthlyDate === monthStr ? (usage.monthlyCount ?? 0) : 0;
-
-  const dailyRemaining = Math.max(0, config.aiDailyLimit - (dailyCount + 1));
-  const monthlyRemaining = Math.max(0, config.aiMonthlyLimit - (monthlyCount + 1));
-
-  if (dailyCount >= config.aiDailyLimit) {
-    return { allowed: false, dailyRemaining: 0, monthlyRemaining };
-  }
-  if (monthlyCount >= config.aiMonthlyLimit) {
-    return { allowed: false, dailyRemaining, monthlyRemaining: 0 };
+  if (!userId) {
+    return { allowed: false, dailyRemaining: 0, monthlyRemaining: 0 };
   }
 
-  await UserModel.updateOne(
+  const result = await UserModel.findOneAndUpdate(
     { _id: userId },
-    {
-      $set: {
-        aiUsage: {
-          count: (usage.count ?? 0) + 1,
-          dailyCount: dailyCount + 1,
-          dailyDate: todayStr,
-          monthlyCount: monthlyCount + 1,
-          monthlyDate: monthStr,
+    [
+      {
+        $set: {
+          "aiUsage.count": { $add: [{ $ifNull: ["$aiUsage.count", 0] }, 1] },
+          "aiUsage.dailyCount": {
+            $cond: {
+              if: { $eq: ["$aiUsage.dailyDate", todayStr] },
+              then: { $add: [{ $ifNull: ["$aiUsage.dailyCount", 0] }, 1] },
+              else: 1,
+            },
+          },
+          "aiUsage.dailyDate": todayStr,
+          "aiUsage.monthlyCount": {
+            $cond: {
+              if: { $eq: ["$aiUsage.monthlyDate", monthStr] },
+              then: { $add: [{ $ifNull: ["$aiUsage.monthlyCount", 0] }, 1] },
+              else: 1,
+            },
+          },
+          "aiUsage.monthlyDate": monthStr,
         },
       },
-    }
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $lte: ["$aiUsage.dailyCount", config.aiDailyLimit] },
+              { $lte: ["$aiUsage.monthlyCount", config.aiMonthlyLimit] },
+            ],
+          },
+        },
+      },
+    ],
+    { new: true, projection: { aiUsage: 1, _id: 0 } }
   );
 
-  return { allowed: true, dailyRemaining, monthlyRemaining };
+  if (!result) {
+    const user = await UserModel.findById(userId).select("aiUsage").lean();
+    const u = (user?.aiUsage ?? {}) as { dailyCount?: number; monthlyCount?: number; dailyDate?: string; monthlyDate?: string };
+    const dc = u.dailyCount ?? 0;
+    const mc = u.monthlyCount ?? 0;
+    const onDaily = u.dailyDate === todayStr && dc >= config.aiDailyLimit;
+    const onMonthly = u.monthlyDate === monthStr && mc >= config.aiMonthlyLimit;
+    return {
+      allowed: false,
+      dailyRemaining: onDaily ? 0 : Math.max(0, config.aiDailyLimit - dc),
+      monthlyRemaining: onMonthly ? 0 : Math.max(0, config.aiMonthlyLimit - mc),
+    };
+  }
+
+  const updated = (result as any).aiUsage ?? {};
+  return {
+    allowed: true,
+    dailyRemaining: Math.max(0, config.aiDailyLimit - (updated.dailyCount ?? 0)),
+    monthlyRemaining: Math.max(0, config.aiMonthlyLimit - (updated.monthlyCount ?? 0)),
+  };
+}
+
+function rejectIfUnavailable(res: any, req: any, endpoint: string, start: number): boolean {
+  if (!groqSlidingLimiter.allow(config.groqApiKey, 25)) {
+    logAiEvent({
+      userId: req.userId, endpoint, duration: Date.now() - start,
+      status: "rate_limited", error: "groq_rate_limit",
+    });
+    res.status(429).json({
+      error: "AI service is temporarily busy. Please try again shortly.",
+      retryAfter: 60,
+    });
+    return true;
+  }
+  if (!acquireGroqSlot()) {
+    logAiEvent({
+      userId: req.userId, endpoint, duration: Date.now() - start,
+      status: "rate_limited", error: "concurrency_limit",
+      activeRequests: getActiveGroqCount(),
+    });
+    res.status(503).json({
+      error: "AI service is at capacity. Please try again shortly.",
+    });
+    return true;
+  }
+  return false;
+}
+
+function rejectQuotaExceeded(
+  res: any, usage: { allowed: boolean; dailyRemaining: number; monthlyRemaining: number },
+  req: any, endpoint: string, start: number
+): boolean {
+  if (!usage.allowed) {
+    const isDaily = usage.dailyRemaining === 0;
+    logAiEvent({
+      userId: req.userId, endpoint, duration: Date.now() - start,
+      status: "rate_limited", error: isDaily ? "daily_quota" : "monthly_quota",
+      dailyRemaining: usage.dailyRemaining,
+      monthlyRemaining: usage.monthlyRemaining,
+    });
+    res.status(429).json({
+      error: isDaily
+        ? "Daily AI request limit reached. Try again tomorrow."
+        : "Monthly AI request limit reached. Try again next month.",
+      dailyRemaining: usage.dailyRemaining,
+      monthlyRemaining: usage.monthlyRemaining,
+    });
+    return true;
+  }
+  return false;
 }
 
 router.post(
   "/chat",
   asyncHandler(async (req, res) => {
+    const start = Date.now();
     const { message, history = [] } = req.body ?? {};
     if (typeof message !== "string" || !message.trim()) {
       return res.status(400).json({ error: "message is required" });
@@ -92,29 +187,22 @@ router.post(
     }
 
     const usage = await checkAiUsage(req.userId);
-    if (!usage.allowed) {
-      return res.status(429).json({
-        error: usage.dailyRemaining === 0
-          ? "Daily AI request limit reached. Try again tomorrow."
-          : "Monthly AI request limit reached. Try again next month.",
-        dailyRemaining: usage.dailyRemaining,
-        monthlyRemaining: usage.monthlyRemaining,
+    if (rejectQuotaExceeded(res, usage, req, "/chat", start)) return;
+    if (rejectIfUnavailable(res, req, "/chat", start)) return;
+
+    try {
+      const expenses = await ExpenseModel.find({ userId: req.userId }).sort({ date: -1 }).lean();
+      const totalIncome = expenses.filter((e) => e.type === "income").reduce((s, e) => s + e.amount, 0);
+      const totalExpense = expenses.filter((e) => e.type === "expense").reduce((s, e) => s + e.amount, 0);
+
+      const lines = expenses.map((e) => {
+        const d = new Date(e.date).toISOString().substring(0, 10);
+        const note = e.note ? ` | ${e.note}` : "";
+        const member = e.familyMember ? ` (${e.familyMember})` : "";
+        return `${d} | ${e.type} | ${e.currency} ${e.amount} | ${e.category}${note}${member}`;
       });
-    }
 
-    const expenses = await ExpenseModel.find({ userId: req.userId }).sort({ date: -1 }).lean();
-
-    const totalIncome = expenses.filter((e) => e.type === "income").reduce((s, e) => s + e.amount, 0);
-    const totalExpense = expenses.filter((e) => e.type === "expense").reduce((s, e) => s + e.amount, 0);
-
-    const lines = expenses.map((e) => {
-      const d = new Date(e.date).toISOString().substring(0, 10);
-      const note = e.note ? ` | ${e.note}` : "";
-      const member = e.familyMember ? ` (${e.familyMember})` : "";
-      return `${d} | ${e.type} | ${e.currency} ${e.amount} | ${e.category}${note}${member}`;
-    });
-
-    const systemPrompt = `You are a personal finance assistant for SpendsWise.
+      const systemPrompt = `You are a personal finance assistant for SpendsWise.
 Today: ${new Date().toISOString().substring(0, 10)}
 Total Income: ${totalIncome} | Total Expenses: ${totalExpense} | Balance: ${totalIncome - totalExpense}
 
@@ -123,56 +211,67 @@ ${lines.length ? lines.join("\n") : "No transactions yet."}
 
 Be concise, specific to the user's actual data, and actionable.`;
 
-    const safeHistory = history
-      .slice(-10)
-      .filter(
-        (m: unknown): m is { role: string; content: string } =>
-          !!m &&
-          typeof (m as Record<string, unknown>).role === "string" &&
-          typeof (m as Record<string, unknown>).content === "string"
-      )
-      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+      const safeHistory = history
+        .slice(-10)
+        .filter(
+          (m: unknown): m is { role: string; content: string } =>
+            !!m &&
+            typeof (m as Record<string, unknown>).role === "string" &&
+            typeof (m as Record<string, unknown>).content === "string"
+        )
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
-    const completion = await groqClient().chat.completions.create({
-      model: config.groqModel,
-      messages: [{ role: "system", content: systemPrompt }, ...safeHistory, { role: "user", content: message.trim() }],
-      max_tokens: 1024,
-    });
+      const completion = await groqClient().chat.completions.create({
+        model: config.groqModel,
+        messages: [{ role: "system", content: systemPrompt }, ...safeHistory, { role: "user", content: message.trim() }],
+        max_tokens: 1024,
+      });
 
-    return res.json({
-      reply: completion.choices[0]?.message?.content ?? "Sorry, I could not generate a response.",
-      dailyRemaining: usage.dailyRemaining,
-      monthlyRemaining: usage.monthlyRemaining,
-    });
+      logAiEvent({
+        userId: req.userId, endpoint: "/chat", duration: Date.now() - start,
+        status: "success", dailyRemaining: usage.dailyRemaining,
+        monthlyRemaining: usage.monthlyRemaining, groqModel: config.groqModel,
+        groqTokens: completion.usage?.total_tokens ?? null,
+      });
+
+      return res.json({
+        reply: completion.choices[0]?.message?.content ?? "Sorry, I could not generate a response.",
+        dailyRemaining: usage.dailyRemaining,
+        monthlyRemaining: usage.monthlyRemaining,
+      });
+    } catch (err) {
+      logAiEvent({
+        userId: req.userId, endpoint: "/chat", duration: Date.now() - start,
+        status: "error", error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    } finally {
+      releaseGroqSlot();
+    }
   })
 );
 
 router.post(
   "/parse",
   asyncHandler(async (req, res) => {
+    const start = Date.now();
     const { text } = req.body ?? {};
     if (typeof text !== "string" || !text.trim()) {
       return res.status(400).json({ error: "text is required" });
     }
 
     const usage = await checkAiUsage(req.userId);
-    if (!usage.allowed) {
-      return res.status(429).json({
-        error: usage.dailyRemaining === 0
-          ? "Daily AI request limit reached. Try again tomorrow."
-          : "Monthly AI request limit reached. Try again next month.",
-        dailyRemaining: usage.dailyRemaining,
-        monthlyRemaining: usage.monthlyRemaining,
-      });
-    }
+    if (rejectQuotaExceeded(res, usage, req, "/parse", start)) return;
+    if (rejectIfUnavailable(res, req, "/parse", start)) return;
 
-    const today = new Date().toISOString().substring(0, 10);
-    const completion = await groqClient().chat.completions.create({
-      model: config.groqModel,
-      messages: [
-        {
-          role: "user",
-          content: `Extract expense or income details from the text below. Return ONLY a JSON object, no extra text.
+    try {
+      const today = new Date().toISOString().substring(0, 10);
+      const completion = await groqClient().chat.completions.create({
+        model: config.groqModel,
+        messages: [
+          {
+            role: "user",
+            content: `Extract expense or income details from the text below. Return ONLY a JSON object, no extra text.
 Text: "${text.trim().replace(/"/g, "'")}"
 Today: ${today}
 
@@ -185,24 +284,40 @@ JSON fields:
 - currency: 3-letter uppercase code if mentioned, else null
 
 Example: {"type":"expense","amount":450,"category":"Food & Dining","date":null,"note":"lunch","currency":null}`,
-        },
-      ],
-      max_tokens: 200,
-      temperature: 0.1,
-    });
+          },
+        ],
+        max_tokens: 200,
+        temperature: 0.1,
+      });
 
-    const content = completion.choices[0]?.message?.content ?? "";
-    const match = content.match(/\{[\s\S]*\}/);
-    if (!match) return res.status(422).json({ error: "Could not parse expense from that text" });
+      logAiEvent({
+        userId: req.userId, endpoint: "/parse", duration: Date.now() - start,
+        status: "success", dailyRemaining: usage.dailyRemaining,
+        monthlyRemaining: usage.monthlyRemaining, groqModel: config.groqModel,
+        groqTokens: completion.usage?.total_tokens ?? null,
+      });
 
-    try {
-      const parsed = JSON.parse(match[0]);
-      if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
-        return res.status(422).json({ error: "Could not find a valid amount" });
+      const content = completion.choices[0]?.message?.content ?? "";
+      const match = content.match(/\{[\s\S]*\}/);
+      if (!match) return res.status(422).json({ error: "Could not parse expense from that text" });
+
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
+          return res.status(422).json({ error: "Could not find a valid amount" });
+        }
+        return res.json({ ...parsed, dailyRemaining: usage.dailyRemaining, monthlyRemaining: usage.monthlyRemaining });
+      } catch {
+        return res.status(422).json({ error: "Could not parse expense from that text" });
       }
-      return res.json({ ...parsed, dailyRemaining: usage.dailyRemaining, monthlyRemaining: usage.monthlyRemaining });
-    } catch {
-      return res.status(422).json({ error: "Could not parse expense from that text" });
+    } catch (err) {
+      logAiEvent({
+        userId: req.userId, endpoint: "/parse", duration: Date.now() - start,
+        status: "error", error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    } finally {
+      releaseGroqSlot();
     }
   })
 );
@@ -210,36 +325,52 @@ Example: {"type":"expense","amount":450,"category":"Food & Dining","date":null,"
 router.post(
   "/parse-receipt",
   asyncHandler(async (req, res) => {
+    const start = Date.now();
     const { imageData } = req.body ?? {};
     if (typeof imageData !== "string" || !imageData.startsWith("data:image/")) {
       return res.status(400).json({ error: "imageData must be a base64 data URL" });
     }
 
     const usage = await checkAiUsage(req.userId);
-    if (!usage.allowed) {
+    if (rejectQuotaExceeded(res, usage, req, "/parse-receipt", start)) return;
+
+    const visionKey = config.groqVisionApiKey || config.groqApiKey;
+    if (!groqSlidingLimiter.allow(visionKey, 25)) {
+      logAiEvent({
+        userId: req.userId, endpoint: "/parse-receipt", duration: Date.now() - start,
+        status: "rate_limited", error: "groq_rate_limit",
+      });
       return res.status(429).json({
-        error: usage.dailyRemaining === 0
-          ? "Daily AI request limit reached. Try again tomorrow."
-          : "Monthly AI request limit reached. Try again next month.",
-        dailyRemaining: usage.dailyRemaining,
-        monthlyRemaining: usage.monthlyRemaining,
+        error: "AI service is temporarily busy. Please try again shortly.",
+        retryAfter: 60,
+      });
+    }
+    if (!acquireGroqSlot()) {
+      logAiEvent({
+        userId: req.userId, endpoint: "/parse-receipt", duration: Date.now() - start,
+        status: "rate_limited", error: "concurrency_limit",
+        activeRequests: getActiveGroqCount(),
+      });
+      return res.status(503).json({
+        error: "AI service is at capacity. Please try again shortly.",
       });
     }
 
-    const today = new Date().toISOString().substring(0, 10);
-    const completion = await groqVisionClient().chat.completions.create({
-      model: config.groqVisionModel,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: { url: imageData },
-            },
-            {
-              type: "text",
-              text: `Extract expense or income details from this receipt or billing statement. Return ONLY a JSON object, no extra text.
+    try {
+      const today = new Date().toISOString().substring(0, 10);
+      const completion = await groqVisionClient().chat.completions.create({
+        model: config.groqVisionModel,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: { url: imageData },
+              },
+              {
+                type: "text",
+                text: `Extract expense or income details from this receipt or billing statement. Return ONLY a JSON object, no extra text.
 Today: ${today}
 
 JSON fields:
@@ -251,26 +382,42 @@ JSON fields:
 - currency: 3-letter uppercase code if visible, else null
 
 Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"2024-03-15","note":"Starbucks","currency":"USD"}`,
-            },
-          ],
-        },
-      ],
-      max_tokens: 200,
-      temperature: 0.1,
-    });
+              },
+            ],
+          },
+        ],
+        max_tokens: 200,
+        temperature: 0.1,
+      });
 
-    const content = completion.choices[0]?.message?.content ?? "";
-    const match = content.match(/\{[\s\S]*\}/);
-    if (!match) return res.status(422).json({ error: "Could not extract expense from this receipt" });
+      logAiEvent({
+        userId: req.userId, endpoint: "/parse-receipt", duration: Date.now() - start,
+        status: "success", dailyRemaining: usage.dailyRemaining,
+        monthlyRemaining: usage.monthlyRemaining, groqModel: config.groqVisionModel,
+        groqTokens: completion.usage?.total_tokens ?? null,
+      });
 
-    try {
-      const parsed = JSON.parse(match[0]);
-      if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
-        return res.status(422).json({ error: "Could not find a valid amount on the receipt" });
+      const content = completion.choices[0]?.message?.content ?? "";
+      const match = content.match(/\{[\s\S]*\}/);
+      if (!match) return res.status(422).json({ error: "Could not extract expense from this receipt" });
+
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
+          return res.status(422).json({ error: "Could not find a valid amount on the receipt" });
+        }
+        return res.json({ ...parsed, dailyRemaining: usage.dailyRemaining, monthlyRemaining: usage.monthlyRemaining });
+      } catch {
+        return res.status(422).json({ error: "Could not extract expense from this receipt" });
       }
-      return res.json({ ...parsed, dailyRemaining: usage.dailyRemaining, monthlyRemaining: usage.monthlyRemaining });
-    } catch {
-      return res.status(422).json({ error: "Could not extract expense from this receipt" });
+    } catch (err) {
+      logAiEvent({
+        userId: req.userId, endpoint: "/parse-receipt", duration: Date.now() - start,
+        status: "error", error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    } finally {
+      releaseGroqSlot();
     }
   })
 );

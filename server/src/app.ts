@@ -100,7 +100,7 @@ app.use(doubleCsrfProtection);
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/expenses", expenseLimiter, expenseRoutes);
 app.use("/api/family-members", expenseLimiter, familyMemberRoutes);
-app.use("/api/ai", expenseLimiter, aiRoutes);
+app.use("/api/ai", aiRoutes);
 app.use("/api/currency", expenseLimiter, currencyRoutes);
 
 // C1: Handle CSRF validation failures with a clear 403 before the generic handler
