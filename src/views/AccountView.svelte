@@ -176,7 +176,7 @@
   let goals = $derived(Object.entries(getBudgetGoals()));
 </script>
 
-<div class="space-y-4 max-w-3xl mx-auto">
+<div class="space-y-4">
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex items-center gap-4">
       <div class="w-16 h-16 rounded-full bg-rose-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
