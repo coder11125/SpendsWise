@@ -1,28 +1,24 @@
+import Pusher from "pusher";
 import { config } from "../config.js";
 
-let client: any = null;
+let client: Pusher | null = null;
 
-async function getClient(): Promise<any> {
+function getClient(): Pusher | null {
   if (!config.pusherAppId || !config.pusherKey || !config.pusherSecret) return null;
   if (!client) {
-    try {
-      const { default: Pusher } = await import("pusher");
-      client = new Pusher({
-        appId: config.pusherAppId,
-        key: config.pusherKey,
-        secret: config.pusherSecret,
-        cluster: config.pusherCluster,
-        useTLS: true,
-      });
-    } catch {
-      return null;
-    }
+    client = new Pusher({
+      appId: config.pusherAppId,
+      key: config.pusherKey,
+      secret: config.pusherSecret,
+      cluster: config.pusherCluster,
+      useTLS: true,
+    });
   }
   return client;
 }
 
 export async function notifyDataChanged(userId: string): Promise<void> {
-  const p = await getClient();
+  const p = getClient();
   if (!p) return;
   try {
     await p.trigger(`user-${userId}`, "data-changed", {});
