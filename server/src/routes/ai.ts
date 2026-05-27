@@ -1,6 +1,7 @@
 import { Router } from "express";
 import Groq from "groq-sdk";
 import { ExpenseModel } from "../models/Expense";
+import { UserModel } from "../models/User";
 import { authRequired } from "../middleware/auth";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { config } from "../config";
@@ -27,6 +28,53 @@ function groqVisionClient() {
   return new Groq({ apiKey: key });
 }
 
+async function checkAiUsage(userId: string | undefined): Promise<{
+  allowed: boolean;
+  dailyRemaining: number;
+  monthlyRemaining: number;
+}> {
+  const now = new Date();
+  const todayStr = now.toISOString().substring(0, 10);
+  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  if (!userId) return { allowed: false, dailyRemaining: 0, monthlyRemaining: 0 };
+  const user = await UserModel.findById(userId).select("aiUsage").lean();
+  if (!user) return { allowed: false, dailyRemaining: 0, monthlyRemaining: 0 };
+
+  const usage = (user.aiUsage ?? {}) as {
+    count?: number;
+    dailyCount?: number;
+    dailyDate?: string;
+    monthlyCount?: number;
+    monthlyDate?: string;
+  };
+
+  let dailyCount = usage.dailyDate === todayStr ? (usage.dailyCount ?? 0) : 0;
+  let monthlyCount = usage.monthlyDate === monthStr ? (usage.monthlyCount ?? 0) : 0;
+
+  const dailyRemaining = Math.max(0, config.aiDailyLimit - (dailyCount + 1));
+  const monthlyRemaining = Math.max(0, config.aiMonthlyLimit - (monthlyCount + 1));
+
+  if (dailyCount >= config.aiDailyLimit) {
+    return { allowed: false, dailyRemaining: 0, monthlyRemaining };
+  }
+  if (monthlyCount >= config.aiMonthlyLimit) {
+    return { allowed: false, dailyRemaining, monthlyRemaining: 0 };
+  }
+
+  const setFields: Record<string, unknown> = {
+    "aiUsage.count": (usage.count ?? 0) + 1,
+    "aiUsage.dailyCount": dailyCount + 1,
+    "aiUsage.dailyDate": todayStr,
+    "aiUsage.monthlyCount": monthlyCount + 1,
+    "aiUsage.monthlyDate": monthStr,
+  };
+
+  await UserModel.updateOne({ _id: userId }, { $set: setFields });
+
+  return { allowed: true, dailyRemaining, monthlyRemaining };
+}
+
 router.post(
   "/chat",
   asyncHandler(async (req, res) => {
@@ -36,6 +84,17 @@ router.post(
     }
     if (!Array.isArray(history)) {
       return res.status(400).json({ error: "history must be an array" });
+    }
+
+    const usage = await checkAiUsage(req.userId);
+    if (!usage.allowed) {
+      return res.status(429).json({
+        error: usage.dailyRemaining === 0
+          ? "Daily AI request limit reached. Try again tomorrow."
+          : "Monthly AI request limit reached. Try again next month.",
+        dailyRemaining: usage.dailyRemaining,
+        monthlyRemaining: usage.monthlyRemaining,
+      });
     }
 
     const expenses = await ExpenseModel.find({ userId: req.userId }).sort({ date: -1 }).lean();
@@ -75,7 +134,11 @@ Be concise, specific to the user's actual data, and actionable.`;
       max_tokens: 1024,
     });
 
-    return res.json({ reply: completion.choices[0]?.message?.content ?? "Sorry, I could not generate a response." });
+    return res.json({
+      reply: completion.choices[0]?.message?.content ?? "Sorry, I could not generate a response.",
+      dailyRemaining: usage.dailyRemaining,
+      monthlyRemaining: usage.monthlyRemaining,
+    });
   })
 );
 
@@ -85,6 +148,17 @@ router.post(
     const { text } = req.body ?? {};
     if (typeof text !== "string" || !text.trim()) {
       return res.status(400).json({ error: "text is required" });
+    }
+
+    const usage = await checkAiUsage(req.userId);
+    if (!usage.allowed) {
+      return res.status(429).json({
+        error: usage.dailyRemaining === 0
+          ? "Daily AI request limit reached. Try again tomorrow."
+          : "Monthly AI request limit reached. Try again next month.",
+        dailyRemaining: usage.dailyRemaining,
+        monthlyRemaining: usage.monthlyRemaining,
+      });
     }
 
     const today = new Date().toISOString().substring(0, 10);
@@ -121,7 +195,7 @@ Example: {"type":"expense","amount":450,"category":"Food & Dining","date":null,"
       if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
         return res.status(422).json({ error: "Could not find a valid amount" });
       }
-      return res.json(parsed);
+      return res.json({ ...parsed, dailyRemaining: usage.dailyRemaining, monthlyRemaining: usage.monthlyRemaining });
     } catch {
       return res.status(422).json({ error: "Could not parse expense from that text" });
     }
@@ -134,6 +208,17 @@ router.post(
     const { imageData } = req.body ?? {};
     if (typeof imageData !== "string" || !imageData.startsWith("data:image/")) {
       return res.status(400).json({ error: "imageData must be a base64 data URL" });
+    }
+
+    const usage = await checkAiUsage(req.userId);
+    if (!usage.allowed) {
+      return res.status(429).json({
+        error: usage.dailyRemaining === 0
+          ? "Daily AI request limit reached. Try again tomorrow."
+          : "Monthly AI request limit reached. Try again next month.",
+        dailyRemaining: usage.dailyRemaining,
+        monthlyRemaining: usage.monthlyRemaining,
+      });
     }
 
     const today = new Date().toISOString().substring(0, 10);
@@ -178,7 +263,7 @@ Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"202
       if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
         return res.status(422).json({ error: "Could not find a valid amount on the receipt" });
       }
-      return res.json(parsed);
+      return res.json({ ...parsed, dailyRemaining: usage.dailyRemaining, monthlyRemaining: usage.monthlyRemaining });
     } catch {
       return res.status(422).json({ error: "Could not extract expense from this receipt" });
     }

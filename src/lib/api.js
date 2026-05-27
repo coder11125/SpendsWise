@@ -325,7 +325,9 @@ export async function sendAiMessage(message, history) {
     method: 'POST',
     body: JSON.stringify({ message, history }),
   });
-  return await res.json();
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'AI request failed');
+  return data;
 }
 
 export async function parseWithAI(text) {
@@ -333,7 +335,9 @@ export async function parseWithAI(text) {
     method: 'POST',
     body: JSON.stringify({ text }),
   });
-  return await res.json();
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'AI request failed');
+  return data;
 }
 
 export async function parseReceipt(imageData) {
@@ -341,7 +345,9 @@ export async function parseReceipt(imageData) {
     method: 'POST',
     body: JSON.stringify({ imageData }),
   });
-  return await res.json();
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'AI request failed');
+  return data;
 }
 
 export async function getProfile() {

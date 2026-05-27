@@ -11,6 +11,16 @@ const userSchema = new Schema(
     // C4: Incrementing this field invalidates all existing JWTs for this user.
     // Bump on password change so stolen tokens cannot be reused after a reset.
     tokenVersion: { type: Number, default: 0, required: true },
+    aiUsage: {
+      type: {
+        count: { type: Number, default: 0 },
+        dailyCount: { type: Number, default: 0 },
+        dailyDate: { type: String, default: "" },
+        monthlyCount: { type: Number, default: 0 },
+        monthlyDate: { type: String, default: "" },
+      },
+      default: { count: 0, dailyCount: 0, dailyDate: "", monthlyCount: 0, monthlyDate: "" },
+    },
   },
   { timestamps: true }
 );

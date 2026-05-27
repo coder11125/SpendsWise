@@ -7,6 +7,8 @@
   let messages = $state([]);
   let input = $state('');
   let sending = $state(false);
+  let dailyRemaining = $state(50);
+  let monthlyRemaining = $state(500);
 
   let messagesEl;
   let inputEl;
@@ -45,12 +47,15 @@
     try {
       const history = getAiChatHistory();
       const res = await sendAiMessage(text, history);
+      if (res.dailyRemaining !== undefined) dailyRemaining = res.dailyRemaining;
+      if (res.monthlyRemaining !== undefined) monthlyRemaining = res.monthlyRemaining;
       const reply = res.reply || 'Sorry, I could not process that.';
       const newHistory = [...history, { role: 'user', content: text }, { role: 'assistant', content: reply }];
       setAiChatHistory(newHistory);
       messages = [...messages.slice(0, typingIdx), { role: 'assistant', content: reply }];
-    } catch {
-      messages = [...messages.slice(0, typingIdx), { role: 'assistant', content: 'Network error. Please try again.' }];
+    } catch (err) {
+      const msg = err?.message || 'Network error. Please try again.';
+      messages = [...messages.slice(0, typingIdx), { role: 'assistant', content: msg }];
     } finally {
       sending = false;
     }
@@ -104,7 +109,11 @@
       {/each}
     </div>
 
-    <div class="border-t border-slate-200 p-4">
+    <div class="border-t border-slate-200 px-4 py-2">
+      <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+        <span>Today: {dailyRemaining} left</span>
+        <span>Month: {monthlyRemaining} left</span>
+      </div>
       <div class="flex gap-2">
         <input
           bind:this={inputEl}

@@ -32,4 +32,6 @@ export const config = {
   groqVisionApiKey: process.env.GROQ_VISION_API_KEY ?? "",
   groqModel: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
   groqVisionModel: process.env.GROQ_VISION_MODEL ?? "meta-llama/llama-4-scout-17b-16e-instruct",
+  aiDailyLimit: Number(process.env.AI_DAILY_LIMIT ?? 50),
+  aiMonthlyLimit: Number(process.env.AI_MONTHLY_LIMIT ?? 500),
 };
