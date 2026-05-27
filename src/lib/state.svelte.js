@@ -19,6 +19,7 @@ let _expenseChartData = $state([]);
 let _expenseChartTotal = $state(0);
 let _rateFetchAttempts = {};
 
+let _currentRoute = $state('/');
 let _pollInterval = null;
 
 export function getCsrfToken() { return _csrfToken; }
@@ -116,4 +117,29 @@ export function stopPolling() {
     clearInterval(_pollInterval);
     _pollInterval = null;
   }
+}
+
+function routeFromPath() {
+  let p = window.location.pathname.replace(/\/+$/, '') || '/';
+  return p === '/dashboard' ? '/' : p;
+}
+
+export function initRouter() {
+  _currentRoute = routeFromPath();
+  window.addEventListener('popstate', () => { _currentRoute = routeFromPath(); });
+}
+
+export function navigate(path) {
+  history.pushState({}, '', path);
+  _currentRoute = path;
+}
+
+export function getRoute() {
+  return _currentRoute;
+}
+
+export function viewFromRoute() {
+  const route = _currentRoute.replace(/^\//, '') || 'dashboard';
+  const valid = ['dashboard', 'income', 'expense', 'history', 'account'];
+  return valid.includes(route) ? route : 'dashboard';
 }

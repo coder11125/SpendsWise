@@ -1,9 +1,8 @@
 <script>
   import { onMount } from 'svelte';
   import { fetchCsrfToken, checkSession } from './lib/api.js';
-  import { getIsLoggedIn, getCurrentCurrency } from './lib/state.svelte.js';
+  import { getIsLoggedIn, getCurrentCurrency, initRouter, viewFromRoute, navigate } from './lib/state.svelte.js';
   import { getCurrencySymbol } from './lib/currency.js';
-  import { initRouter, getRoute, viewFromRoute, navigate } from './lib/router.js';
   import Sidebar from './components/Sidebar.svelte';
   import Header from './components/Header.svelte';
   import Dashboard from './views/Dashboard.svelte';
