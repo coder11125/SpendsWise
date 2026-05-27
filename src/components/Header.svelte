@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getCurrentCurrency, getIsLoggedIn } from '../lib/state.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
 

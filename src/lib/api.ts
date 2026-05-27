@@ -10,8 +10,9 @@ import {
   getRateLimitHitTime, setRateLimitHitTime,
   getRateFetchAttempts,
 } from './state.svelte.js';
+import type { Expense, Profile } from '../types.js';
 
-export async function apiFetch(path, options = {}) {
+export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   return fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: 'include',
@@ -23,10 +24,10 @@ export async function apiFetch(path, options = {}) {
   });
 }
 
-export function mapServerExpense(exp) {
+export function mapServerExpense(exp: any): Expense {
   return {
     id: exp._id,
-    type: exp.type,
+    type: exp.type as 'income' | 'expense',
     amount: exp.amount,
     category: exp.category,
     date: (exp.date ?? '').substring(0, 10),
@@ -36,7 +37,7 @@ export function mapServerExpense(exp) {
   };
 }
 
-export async function fetchCsrfToken() {
+export async function fetchCsrfToken(): Promise<void> {
   try {
     const res = await fetch(`${API_BASE}/auth/csrf`, { credentials: 'include' });
     if (res.ok) {
@@ -48,7 +49,7 @@ export async function fetchCsrfToken() {
   }
 }
 
-export async function loadExpenses() {
+export async function loadExpenses(): Promise<void> {
   if (!getIsLoggedIn()) return;
   try {
     const res = await apiFetch('/expenses');
@@ -60,7 +61,7 @@ export async function loadExpenses() {
   }
 }
 
-export async function login(email, password) {
+export async function login(email: string, password: string): Promise<any> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     credentials: 'include',
@@ -72,7 +73,7 @@ export async function login(email, password) {
   return data;
 }
 
-export async function register(email, password) {
+export async function register(email: string, password: string): Promise<any> {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     credentials: 'include',
@@ -84,7 +85,7 @@ export async function register(email, password) {
   return data;
 }
 
-export async function logout() {
+export async function logout(): Promise<void> {
   stopPolling();
   setIsLoggedIn(false);
   setExpense([]);
@@ -98,7 +99,7 @@ export async function logout() {
   setFamilyMembers([]);
 }
 
-export async function checkSession() {
+export async function checkSession(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
     if (res.ok) {
@@ -114,7 +115,7 @@ export async function checkSession() {
   return false;
 }
 
-export function showApp(email, members = null) {
+export function showApp(email: string, members: string[] | null = null): void {
   setIsLoggedIn(true);
   setEmail(email);
   if (Array.isArray(members)) {
@@ -126,8 +127,8 @@ export function showApp(email, members = null) {
   startPolling();
 }
 
-export async function saveTransaction({ type, amount, category, date, familyMember = '', note = '' }) {
-  if (!type || Number.isNaN(amount) || !category || !date) return null;
+export async function saveTransaction({ type, amount, category, date, familyMember = '', note = '' }: Partial<Expense>): Promise<Expense | null> {
+  if (!type || amount === undefined || Number.isNaN(amount) || !category || !date) return null;
 
   if (getIsLoggedIn()) {
     try {
@@ -147,10 +148,10 @@ export async function saveTransaction({ type, amount, category, date, familyMemb
     }
   }
 
-  return { id: String(Date.now()), type, amount, category, date, familyMember, note, currency: getCurrentCurrency() };
+  return { id: String(Date.now()), type: type as 'income' | 'expense', amount, category, date, familyMember, note, currency: getCurrentCurrency() };
 }
 
-export async function deleteExpenseOnServer(id) {
+export async function deleteExpenseOnServer(id: string): Promise<boolean> {
   if (getIsLoggedIn()) {
     try {
       const res = await apiFetch(`/expenses/${id}`, { method: 'DELETE' });
@@ -166,7 +167,7 @@ export async function deleteExpenseOnServer(id) {
   return true;
 }
 
-export async function updateExpenseOnServer(id, data) {
+export async function updateExpenseOnServer(id: string, data: Partial<Expense>): Promise<Expense> {
   try {
     const res = await apiFetch(`/expenses/${id}`, {
       method: 'PUT',
@@ -183,7 +184,7 @@ export async function updateExpenseOnServer(id, data) {
   }
 }
 
-export async function loadFamilyMembers() {
+export async function loadFamilyMembers(): Promise<void> {
   if (!getIsLoggedIn()) return;
   try {
     const res = await apiFetch('/family-members');
@@ -195,7 +196,7 @@ export async function loadFamilyMembers() {
   }
 }
 
-export async function addFamilyMemberOnServer(name) {
+export async function addFamilyMemberOnServer(name: string): Promise<boolean> {
   if (!getIsLoggedIn()) return false;
   try {
     const res = await apiFetch('/family-members', {
@@ -216,7 +217,7 @@ export async function addFamilyMemberOnServer(name) {
   }
 }
 
-export async function removeFamilyMemberOnServer(name) {
+export async function removeFamilyMemberOnServer(name: string): Promise<boolean> {
   if (getIsLoggedIn()) {
     try {
       const res = await apiFetch('/family-members', {
@@ -239,7 +240,7 @@ export async function removeFamilyMemberOnServer(name) {
   return false;
 }
 
-export async function fetchCurrencyRates(baseCurrency = 'USD') {
+export async function fetchCurrencyRates(baseCurrency: string = 'USD'): Promise<any> {
   if (getRateLimitHit() && Date.now() - getRateLimitHitTime() < RATE_FETCH_COOLDOWN) {
     if (getCurrencyRates()[baseCurrency]) {
       return getCurrencyRates()[baseCurrency];
@@ -275,7 +276,7 @@ export async function fetchCurrencyRates(baseCurrency = 'USD') {
   }
 }
 
-export async function convertCurrency(amount, fromCurrency, toCurrency) {
+export async function convertCurrency(amount: number, fromCurrency: string, toCurrency: string): Promise<number> {
   if (fromCurrency === toCurrency) return amount;
 
   const cacheKey = fromCurrency;
@@ -297,7 +298,7 @@ export async function convertCurrency(amount, fromCurrency, toCurrency) {
   return amount;
 }
 
-export async function uploadBulkExpenses(rows) {
+export async function uploadBulkExpenses(rows: any[]): Promise<any> {
   const res = await apiFetch('/expenses/bulk', {
     method: 'POST',
     body: JSON.stringify({ rows }),
@@ -305,7 +306,7 @@ export async function uploadBulkExpenses(rows) {
   return await res.json();
 }
 
-export async function changePassword(currentPassword, newPassword) {
+export async function changePassword(currentPassword: string, newPassword: string): Promise<any> {
   const res = await apiFetch('/auth/password', {
     method: 'PUT',
     body: JSON.stringify({ currentPassword, newPassword }),
@@ -315,12 +316,12 @@ export async function changePassword(currentPassword, newPassword) {
   return data;
 }
 
-export async function deleteAllExpenses() {
+export async function deleteAllExpenses(): Promise<void> {
   const res = await apiFetch('/expenses', { method: 'DELETE', body: JSON.stringify({ confirm: true }) });
   if (!res.ok) throw new Error('Server error');
 }
 
-export async function sendAiMessage(message, history) {
+export async function sendAiMessage(message: string, history: any[]): Promise<any> {
   const res = await apiFetch('/ai/chat', {
     method: 'POST',
     body: JSON.stringify({ message, history }),
@@ -330,7 +331,7 @@ export async function sendAiMessage(message, history) {
   return data;
 }
 
-export async function parseWithAI(text) {
+export async function parseWithAI(text: string): Promise<any> {
   const res = await apiFetch('/ai/parse', {
     method: 'POST',
     body: JSON.stringify({ text }),
@@ -340,7 +341,7 @@ export async function parseWithAI(text) {
   return data;
 }
 
-export async function parseReceipt(imageData) {
+export async function parseReceipt(imageData: string): Promise<any> {
   const res = await apiFetch('/ai/parse-receipt', {
     method: 'POST',
     body: JSON.stringify({ imageData }),
@@ -350,7 +351,7 @@ export async function parseReceipt(imageData) {
   return data;
 }
 
-export async function getProfile() {
+export async function getProfile(): Promise<Profile> {
   const res = await apiFetch('/auth/me');
   if (!res.ok) throw new Error('Failed to load profile');
   return await res.json();

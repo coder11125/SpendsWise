@@ -1,91 +1,92 @@
 import { API_BASE, POLL_INTERVAL_MS } from './constants.js';
+import type { Expense, CurrencyRates, CategoryData } from '../types.js';
 
-let _csrfToken = $state(null);
-let _isLoggedIn = $state(false);
-let _expense = $state([]);
-let _currentCurrency = $state(localStorage.getItem('sw_currency') || 'USD');
-let _familyMembers = $state([]);
-let _currentFilter = $state('all');
-let _dashboardTrendRange = $state('month');
-let _expenseTrendRange = $state('month');
-let _budgetGoals = $state(JSON.parse(localStorage.getItem('sw_budget_goals') || '{}'));
-let _currencyRates = $state(JSON.parse(localStorage.getItem('sw_currency_rates') || '{}'));
-let _lastRateFetch = $state(parseInt(localStorage.getItem('sw_last_rate_fetch') || '0', 10));
-let _rateLimitHit = $state(localStorage.getItem('sw_rate_limit_hit') === 'true');
-let _rateLimitHitTime = $state(parseInt(localStorage.getItem('sw_rate_limit_hit_time') || '0', 10));
-let _aiChatHistory = $state([]);
-let _email = $state(localStorage.getItem('sw_email') || '');
-let _expenseChartData = $state([]);
-let _expenseChartTotal = $state(0);
-let _rateFetchAttempts = {};
+let _csrfToken = $state<string | null>(null);
+let _isLoggedIn = $state<boolean>(false);
+let _expense = $state<Expense[]>([]);
+let _currentCurrency = $state<string>(localStorage.getItem('sw_currency') || 'USD');
+let _familyMembers = $state<any[]>([]);
+let _currentFilter = $state<string>('all');
+let _dashboardTrendRange = $state<string>('month');
+let _expenseTrendRange = $state<string>('month');
+let _budgetGoals = $state<Record<string, number>>(JSON.parse(localStorage.getItem('sw_budget_goals') || '{}'));
+let _currencyRates = $state<CurrencyRates>(JSON.parse(localStorage.getItem('sw_currency_rates') || '{}'));
+let _lastRateFetch = $state<number>(parseInt(localStorage.getItem('sw_last_rate_fetch') || '0', 10));
+let _rateLimitHit = $state<boolean>(localStorage.getItem('sw_rate_limit_hit') === 'true');
+let _rateLimitHitTime = $state<number>(parseInt(localStorage.getItem('sw_rate_limit_hit_time') || '0', 10));
+let _aiChatHistory = $state<any[]>([]);
+let _email = $state<string>(localStorage.getItem('sw_email') || '');
+let _expenseChartData = $state<CategoryData[]>([]);
+let _expenseChartTotal = $state<number>(0);
+let _rateFetchAttempts: Record<string, number> = {};
 
-let _currentView = $state('dashboard');
-let _pollInterval = null;
+let _currentView = $state<string>('dashboard');
+let _pollInterval: any = null;
 
 export function getCsrfToken() { return _csrfToken; }
-export function setCsrfToken(v) { _csrfToken = v; }
+export function setCsrfToken(v: string | null) { _csrfToken = v; }
 
 export function getIsLoggedIn() { return _isLoggedIn; }
-export function setIsLoggedIn(v) { _isLoggedIn = v; }
+export function setIsLoggedIn(v: boolean) { _isLoggedIn = v; }
 
 export function getExpense() { return _expense; }
-export function setExpense(v) { _expense = v; }
-export function addExpenseItem(item) { _expense = [item, ..._expense]; }
-export function removeExpenseItem(id) { _expense = _expense.filter(e => e.id !== id); }
-export function updateExpenseItem(updated) {
+export function setExpense(v: Expense[]) { _expense = v; }
+export function addExpenseItem(item: Expense) { _expense = [item, ..._expense]; }
+export function removeExpenseItem(id: string) { _expense = _expense.filter(e => e.id !== id); }
+export function updateExpenseItem(updated: Expense) {
   _expense = _expense.map(e => e.id === updated.id ? updated : e);
 }
 
 export function getCurrentCurrency() { return _currentCurrency; }
-export function setCurrentCurrency(v) {
+export function setCurrentCurrency(v: string) {
   _currentCurrency = v;
   localStorage.setItem('sw_currency', v);
 }
 
 export function getFamilyMembers() { return _familyMembers; }
-export function setFamilyMembers(v) { _familyMembers = Array.isArray(v) ? [...v] : []; }
+export function setFamilyMembers(v: any[]) { _familyMembers = Array.isArray(v) ? [...v] : []; }
 
 export function getCurrentFilter() { return _currentFilter; }
-export function setCurrentFilter(v) { _currentFilter = v; }
+export function setCurrentFilter(v: string) { _currentFilter = v; }
 
 export function getDashboardTrendRange() { return _dashboardTrendRange; }
-export function setDashboardTrendRange(v) { _dashboardTrendRange = v; }
+export function setDashboardTrendRange(v: string) { _dashboardTrendRange = v; }
 
 export function getExpenseTrendRange() { return _expenseTrendRange; }
-export function setExpenseTrendRange(v) { _expenseTrendRange = v; }
+export function setExpenseTrendRange(v: string) { _expenseTrendRange = v; }
 
 export function getBudgetGoals() { return _budgetGoals; }
-export function setBudgetGoals(v) {
+export function setBudgetGoals(v: Record<string, number>) {
   _budgetGoals = v;
   localStorage.setItem('sw_budget_goals', JSON.stringify(v));
 }
 
 export function getCurrencyRates() { return _currencyRates; }
-export function setCurrencyRates(v) {
+export function setCurrencyRates(v: CurrencyRates) {
   _currencyRates = v;
   persistCurrencyState();
 }
 
 export function getLastRateFetch() { return _lastRateFetch; }
-export function setLastRateFetch(v) { _lastRateFetch = v; }
+export function setLastRateFetch(v: number) { _lastRateFetch = v; }
 
 export function getRateLimitHit() { return _rateLimitHit; }
-export function setRateLimitHit(v) { _rateLimitHit = v; }
+export function setRateLimitHit(v: boolean) { _rateLimitHit = v; }
 
 export function getRateLimitHitTime() { return _rateLimitHitTime; }
-export function setRateLimitHitTime(v) { _rateLimitHitTime = v; }
+export function setRateLimitHitTime(v: number) { _rateLimitHitTime = v; }
 
 export function getAiChatHistory() { return _aiChatHistory; }
-export function setAiChatHistory(v) { _aiChatHistory = v; }
+export function setAiChatHistory(v: any[]) { _aiChatHistory = v; }
 
 export function getEmail() { return _email; }
-export function setEmail(v) {
+export function setEmail(v: string) {
   _email = v;
   localStorage.setItem('sw_email', v);
 }
 
 export function getExpenseChartData() { return _expenseChartData; }
-export function setExpenseChartData(d, t) { _expenseChartData = d; _expenseChartTotal = t; }
+export function setExpenseChartData(d: CategoryData[], t: number) { _expenseChartData = d; _expenseChartTotal = t; }
 export function getExpenseChartTotal() { return _expenseChartTotal; }
 
 export function getRateFetchAttempts() { return _rateFetchAttempts; }
@@ -119,7 +120,7 @@ export function stopPolling() {
   }
 }
 
-function pathToView(path) {
+function pathToView(path: string) {
   const route = path.replace(/^\//, '') || 'dashboard';
   return ['dashboard', 'income', 'expense', 'account'].includes(route) ? route : 'dashboard';
 }
@@ -137,7 +138,7 @@ export function initRouter() {
   });
 }
 
-export function navigate(path) {
+export function navigate(path: string) {
   history.pushState({}, '', path);
   _currentView = pathToView(path);
 }

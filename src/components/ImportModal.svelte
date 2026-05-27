@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   let { result, onclose } = $props();
 </script>
 

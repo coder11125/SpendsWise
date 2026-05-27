@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { deleteAllExpenses } from '../lib/api.js';
   import { setExpense } from '../lib/state.svelte.js';
 

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getFamilyMembers } from '../lib/state.svelte.js';
   import { addFamilyMemberOnServer, removeFamilyMemberOnServer } from '../lib/api.js';
 

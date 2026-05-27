@@ -1,38 +1,40 @@
-export function formatDate(dateString) {
+import type { Expense, TrendData, TrendPoint } from '../types.js';
+
+export function formatDate(dateString: string): string {
   const [year, month, day] = dateString.split('-').map(Number);
   return new Date(year, month - 1, day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export function parseLocalExpenseDate(dateString) {
+export function parseLocalExpenseDate(dateString: string): Date | null {
   const [year, month, day] = String(dateString).split('-').map(Number);
   if (!year || !month || !day) return null;
   return new Date(year, month - 1, day);
 }
 
-export function startOfDay(date) {
+export function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-export function addDays(date, days) {
+export function addDays(date: Date, days: number): Date {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
 }
 
-export function formatDateKey(date) {
+export function formatDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
-export function formatMonthKey(date) {
+export function formatMonthKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${year}-${month}`;
 }
 
-export function getTrendPeriodLabel(range) {
+export function getTrendPeriodLabel(range: string): string {
   switch (range) {
     case 'all': return 'All Time';
     case 'week': return 'Last 7 Days';
@@ -41,22 +43,22 @@ export function getTrendPeriodLabel(range) {
   }
 }
 
-export async function calculateExpenseTrendData(expenseItems, range, currentCurrency) {
+export async function calculateExpenseTrendData(expenseItems: Expense[], range: string, currentCurrency: string): Promise<TrendData> {
   const { convertToDisplayCurrency } = await import('./currency.js');
   const today = startOfDay(new Date());
 
   const items = expenseItems
     .filter(item => item.type === 'expense')
     .map(item => ({ ...item, parsedDate: parseLocalExpenseDate(item.date) }))
-    .filter(item => item.parsedDate);
+    .filter((item): item is typeof item & { parsedDate: Date } => item.parsedDate !== null);
 
-  const buckets = [];
-  const bucketTotals = {};
+  const buckets: { key: string; label: string }[] = [];
+  const bucketTotals: Record<string, number> = {};
 
   if (range === 'all') {
     if (items.length === 0) return { points: [], total: 0, average: 0, periodLabel: getTrendPeriodLabel(range) };
 
-    const dates = items.map(item => item.parsedDate);
+    const dates = items.map(item => item.parsedDate.getTime());
     let cursor = new Date(Math.min(...dates));
     const last = new Date(Math.max(...dates));
     cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
@@ -75,7 +77,7 @@ export async function calculateExpenseTrendData(expenseItems, range, currentCurr
       bucketTotals[key] = (bucketTotals[key] || 0) + converted.amount;
     }
   } else {
-    let start, end;
+    let start: Date, end: Date;
     if (range === 'week') { start = addDays(today, -6); end = today; }
     else if (range === 'day') { start = today; end = today; }
     else { start = new Date(today.getFullYear(), today.getMonth(), 1); end = new Date(today.getFullYear(), today.getMonth() + 1, 0); }
@@ -94,14 +96,14 @@ export async function calculateExpenseTrendData(expenseItems, range, currentCurr
     }
   }
 
-  const points = buckets.map(bucket => ({ ...bucket, amount: bucketTotals[bucket.key] || 0 }));
+  const points: TrendPoint[] = buckets.map(bucket => ({ ...bucket, amount: bucketTotals[bucket.key] || 0 }));
   const total = points.reduce((sum, p) => sum + p.amount, 0);
   const activeBuckets = points.filter(p => p.amount > 0).length;
 
   return { points, total, average: activeBuckets > 0 ? total / activeBuckets : 0, periodLabel: getTrendPeriodLabel(range) };
 }
 
-export function compressImageToDataUrl(file, maxPx, quality) {
+export function compressImageToDataUrl(file: File, maxPx: number, quality: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = reject;
@@ -113,10 +115,17 @@ export function compressImageToDataUrl(file, maxPx, quality) {
         const canvas = document.createElement('canvas');
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          reject(new Error('Could not get canvas context'));
+        }
       };
-      img.src = e.target.result;
+      if (e.target?.result) {
+        img.src = e.target.result as string;
+      }
     };
     reader.readAsDataURL(file);
   });

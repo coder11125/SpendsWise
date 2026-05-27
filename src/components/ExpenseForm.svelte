@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import flatpickr from 'flatpickr';
   import { saveTransaction, parseWithAI, parseReceipt } from '../lib/api.js';

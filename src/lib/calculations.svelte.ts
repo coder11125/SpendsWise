@@ -1,6 +1,7 @@
 import { convertToDisplayCurrency } from './currency.js';
+import type { Expense, Summary, IncomeSummary, ExpenseSummary, CategoryData } from '../types.js';
 
-export async function calculateSummary(expense, currency) {
+export async function calculateSummary(expense: Expense[], currency: string): Promise<Summary> {
   let income = 0;
   let expenses = 0;
   for (const item of expense) {
@@ -11,7 +12,7 @@ export async function calculateSummary(expense, currency) {
   return { income, expenses, balance: income - expenses };
 }
 
-export async function calculateIncomeSummary(expense, currency) {
+export async function calculateIncomeSummary(expense: Expense[], currency: string): Promise<IncomeSummary> {
   const incomeItems = expense.filter(t => t.type === 'income');
   let total = 0;
   for (const item of incomeItems) {
@@ -22,7 +23,7 @@ export async function calculateIncomeSummary(expense, currency) {
   return { total, count, average: count > 0 ? total / count : 0 };
 }
 
-export async function calculateExpenseSummary(expense, currency) {
+export async function calculateExpenseSummary(expense: Expense[], currency: string): Promise<ExpenseSummary> {
   const expenseItems = expense.filter(t => t.type === 'expense');
   let total = 0;
   for (const item of expenseItems) {
@@ -33,26 +34,26 @@ export async function calculateExpenseSummary(expense, currency) {
   return { total, count, average: count > 0 ? total / count : 0 };
 }
 
-export async function calculateExpenseByCategory(expense, currency) {
+export async function calculateExpenseByCategory(expense: Expense[], currency: string): Promise<{ data: CategoryData[]; total: number }> {
   const expenseItems = expense.filter(t => t.type === 'expense');
-  const categoryTotals = {};
+  const categoryTotals: Record<string, number> = {};
   for (const item of expenseItems) {
     const converted = await convertToDisplayCurrency(item.amount, item.currency, currency);
     if (!categoryTotals[item.category]) categoryTotals[item.category] = 0;
     categoryTotals[item.category] += converted.amount;
   }
   const total = Object.values(categoryTotals).reduce((sum, amt) => sum + amt, 0);
-  const data = Object.entries(categoryTotals).map(([category, amount]) => ({
+  const data: CategoryData[] = Object.entries(categoryTotals).map(([category, amount]) => ({
     category, amount, percentage: total > 0 ? (amount / total) * 100 : 0
   }));
   return { data, total };
 }
 
-export async function getCurrentMonthExpenseByCategory(expense, currency) {
+export async function getCurrentMonthExpenseByCategory(expense: Expense[], currency: string): Promise<Record<string, number>> {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
-  const totals = {};
+  const totals: Record<string, number> = {};
   for (const item of expense) {
     if (item.type !== 'expense') continue;
     const [y, m] = item.date.split('-').map(Number);

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getExpense, getCurrentCurrency, removeExpenseItem } from '../lib/state.svelte.js';
   import { calculateIncomeSummary } from '../lib/calculations.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';

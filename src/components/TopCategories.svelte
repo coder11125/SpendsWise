@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { chartColors, categoryIcons } from '../lib/constants.js';
   import { getCurrencySymbol } from '../lib/currency.js';
 

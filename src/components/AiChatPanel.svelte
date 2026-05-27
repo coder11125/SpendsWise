@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { sendAiMessage } from '../lib/api.js';
   import { getAiChatHistory, setAiChatHistory } from '../lib/state.svelte.js';
 

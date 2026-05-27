@@ -1,17 +1,19 @@
 import { chartColors } from './constants.js';
-import { getCurrencySymbol } from './currency.js';
-import { compactCurrencyValue } from './currency.js';
+import { getCurrencySymbol, compactCurrencyValue } from './currency.js';
+import type { CategoryData, TrendPoint } from '../types.js';
 
-export function renderPieChart(canvas, categoryData, total, currentCurrency) {
+export function renderPieChart(canvas: HTMLCanvasElement, categoryData: CategoryData[], total: number, currentCurrency: string): { legendHtml: string; centerText: string } {
   const dpr = window.devicePixelRatio || 1;
   const LOGICAL = 250;
   canvas.width = LOGICAL * dpr;
   canvas.height = LOGICAL * dpr;
   const ctx = canvas.getContext('2d');
+  if (!ctx) return { legendHtml: '', centerText: '$0.00' };
+  
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, LOGICAL, LOGICAL);
 
-  if (categoryData.length === 0) return { legendHtml: '', centerText: '$0.00' };
+  if (categoryData.length === 0) return { legendHtml: '', centerText: `${getCurrencySymbol(currentCurrency)}0.00` };
 
   const centerX = LOGICAL / 2;
   const centerY = LOGICAL / 2;
@@ -43,12 +45,14 @@ export function renderPieChart(canvas, categoryData, total, currentCurrency) {
   return { legendHtml, centerText: `${symbol}${total.toFixed(2)}` };
 }
 
-export function renderTrendChart(canvas, points, total, average, periodLabel, currentCurrency) {
+export function renderTrendChart(canvas: HTMLCanvasElement, points: TrendPoint[], total: number, average: number, periodLabel: string, currentCurrency: string): { label: string; totalText: string; avgText: string; isEmpty: boolean } {
   const ctx = canvas.getContext('2d');
+  if (!ctx) return { label: periodLabel, totalText: '$0.00', avgText: 'Avg $0.00', isEmpty: true };
+  
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
-  const logicalWidth = Math.max(Math.round(rect.width || canvas.parentElement.clientWidth || 640), 320);
-  const logicalHeight = Math.max(Math.round(rect.height || canvas.parentElement.clientHeight || 260), 220);
+  const logicalWidth = Math.max(Math.round(rect.width || (canvas.parentElement?.clientWidth ?? 640)), 320);
+  const logicalHeight = Math.max(Math.round(rect.height || (canvas.parentElement?.clientHeight ?? 260)), 220);
   canvas.width = logicalWidth * dpr;
   canvas.height = logicalHeight * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -89,8 +93,8 @@ export function renderTrendChart(canvas, points, total, average, periodLabel, cu
     ctx.fillText(compactCurrencyValue(value, symbol), axisLeft - 8, y);
   }
 
-  const xForIndex = (index) => points.length === 1 ? axisLeft + chartWidth / 2 : axisLeft + (chartWidth / (points.length - 1)) * index;
-  const yForAmount = (amt) => axisTop + chartHeight - (amt / yMax) * chartHeight;
+  const xForIndex = (index: number) => points.length === 1 ? axisLeft + chartWidth / 2 : axisLeft + (chartWidth / (points.length - 1)) * index;
+  const yForAmount = (amt: number) => axisTop + chartHeight - (amt / yMax) * chartHeight;
 
   const coordinates = points.map((point, index) => ({ x: xForIndex(index), y: yForAmount(point.amount), ...point }));
 
@@ -141,9 +145,9 @@ export function renderTrendChart(canvas, points, total, average, periodLabel, cu
   return { label: periodLabel, totalText: `${symbol}${total.toFixed(2)}`, avgText: `Avg ${symbol}${average.toFixed(2)}`, isEmpty: false };
 }
 
-function drawTrendXAxisLabels(ctx, points, width, height, axisLeft, axisRight, labelColor) {
+function drawTrendXAxisLabels(ctx: CanvasRenderingContext2D, points: any[], width: number, height: number, axisLeft: number, axisRight: number, labelColor: string) {
   const maxLabels = Math.min(6, points.length);
-  const labelIndexes = new Set();
+  const labelIndexes = new Set<number>();
   if (points.length === 1) {
     labelIndexes.add(0);
   } else {
@@ -164,7 +168,7 @@ function drawTrendXAxisLabels(ctx, points, width, height, axisLeft, axisRight, l
   });
 }
 
-function drawTrendEmptyState(ctx, width, height) {
+function drawTrendEmptyState(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const isDark = document.documentElement.classList.contains('dark');
   const gridColor = isDark ? '#334155' : '#e2e8f0';
   ctx.strokeStyle = gridColor;

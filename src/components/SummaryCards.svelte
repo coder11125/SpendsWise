@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getCurrencySymbol } from '../lib/currency.js';
 
   let { summary = { income: 0, expenses: 0, balance: 0 }, currency = 'USD' } = $props();

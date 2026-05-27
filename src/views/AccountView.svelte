@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getExpense, getCurrentCurrency, setExpense, getBudgetGoals, setBudgetGoals } from '../lib/state.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
   import { changePassword, deleteAllExpenses, getProfile, uploadBulkExpenses, loadExpenses } from '../lib/api.js';

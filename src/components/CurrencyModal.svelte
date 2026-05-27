@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { currencies, popularCurrencies } from '../lib/constants.js';
   import { getCurrentCurrency, setCurrentCurrency } from '../lib/state.svelte.js';
 

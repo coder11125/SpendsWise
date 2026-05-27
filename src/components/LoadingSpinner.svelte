@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   let { size = 'sm' } = $props();
 
   let iconSize = $derived(size === 'sm' ? 'text-base' : 'text-2xl');

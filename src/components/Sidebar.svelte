@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getEmail, getIsLoggedIn } from '../lib/state.svelte.js';
   import { logout } from '../lib/api.js';
 

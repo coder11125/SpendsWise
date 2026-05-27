@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import { fetchCsrfToken, checkSession } from './lib/api.js';
   import { getIsLoggedIn, getCurrentCurrency, initRouter, getCurrentView, navigate } from './lib/state.svelte.js';

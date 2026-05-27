@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import { updateExpenseOnServer } from '../lib/api.js';
   import { updateExpenseItem, getFamilyMembers, getCurrentCurrency } from '../lib/state.svelte.js';

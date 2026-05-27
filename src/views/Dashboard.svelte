@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getExpense, getCurrentCurrency, addExpenseItem, removeExpenseItem, getDashboardTrendRange, setDashboardTrendRange } from '../lib/state.svelte.js';
   import { calculateSummary, calculateExpenseByCategory } from '../lib/calculations.svelte.js';
   import { calculateExpenseTrendData } from '../lib/utils.js';

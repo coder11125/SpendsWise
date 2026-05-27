@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { categoryIcons } from '../lib/constants.js';
   import { getCurrentCurrency } from '../lib/state.svelte.js';
   import { formatDate } from '../lib/utils.js';

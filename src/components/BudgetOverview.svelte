@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { getBudgetGoals, getExpense, getCurrentCurrency } from '../lib/state.svelte.js';
   import { getCurrentMonthExpenseByCategory } from '../lib/calculations.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';

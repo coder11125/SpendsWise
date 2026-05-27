@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { login, register, showApp } from '../lib/api.js';
   import { getIsLoggedIn } from '../lib/state.svelte.js';
 
