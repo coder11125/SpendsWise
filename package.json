@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "mkdir -p dist",
     "build": "vite build",
+    "postbuild": "echo 'Build completed at: ' $(date) > dist/build-timestamp.txt",
     "preview": "vite preview",
     "build:css": "tailwindcss -i ./src/app.css -o ./dist/output.css"
   },

@@ -1,9 +1,20 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "installCommand": "npm install",
   "builds": [
-    { "src": "server/src/app.ts", "use": "@vercel/node" }
+    {
+      "src": "server/src/app.ts",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "dist/index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "dist/assets/**",
+      "use": "@vercel/static"
+    }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "server/src/app.ts" },
