@@ -23,10 +23,10 @@
 </script>
 
 {#if hasGoals}
-  <div class="bg-white rounded-xl shadow-sm p-6 animate-fade-in">
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 animate-fade-in">
     <div class="flex items-center gap-2 mb-4">
       <i class="ph ph-target text-blue-600"></i>
-      <h2 class="text-lg font-semibold text-slate-800">Budget Overview</h2>
+      <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Budget Overview</h2>
     </div>
     <div class="space-y-4">
       {#each goalEntries as [category, goal]}
@@ -35,12 +35,12 @@
         {@const isOver = spent > goal}
         <div>
           <div class="flex justify-between items-center mb-1">
-            <span class="text-sm font-medium text-slate-700">{category}</span>
-            <span class="text-xs {isOver ? 'text-rose-600' : 'text-slate-500'}">
+            <span class="text-sm font-medium text-slate-700 dark:text-slate-300">{category}</span>
+            <span class="text-xs {isOver ? 'text-rose-600' : 'text-slate-500 dark:text-slate-400'}">
               {symbol}{spent.toFixed(2)} / {symbol}{goal.toFixed(2)}
             </span>
           </div>
-          <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+          <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
             <div
               class="h-full rounded-full transition-all duration-500"
               class:bg-rose-500={isOver}
@@ -48,7 +48,7 @@
               style="width: {percentage}%"
             ></div>
           </div>
-          <p class="text-xs text-right mt-0.5 {isOver ? 'text-rose-500' : 'text-slate-400'}">
+          <p class="text-xs text-right mt-0.5 {isOver ? 'text-rose-500' : 'text-slate-400 dark:text-slate-500'}">
             {percentage.toFixed(0)}% {isOver ? 'exceeded' : 'used'}
           </p>
         </div>

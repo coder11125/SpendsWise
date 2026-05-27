@@ -25,10 +25,10 @@
   });
 </script>
 
-<div class="bg-white rounded-xl shadow-sm p-6 animate-fade-in">
+<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 animate-fade-in">
   <div class="flex items-center gap-2 mb-4">
     <i class="ph ph-chart-pie-slice text-blue-600"></i>
-    <h2 class="text-lg font-semibold text-slate-800">Expense Breakdown</h2>
+    <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Expense Breakdown</h2>
   </div>
   <div class="flex flex-col items-center">
     <canvas bind:this={canvasEl} class="max-w-full"></canvas>
@@ -37,7 +37,7 @@
         {@html legendHtml}
       </div>
     {:else if categoryData.length === 0}
-      <p class="text-slate-400 text-sm mt-4">No expense data for this period</p>
+      <p class="text-slate-400 dark:text-slate-500 text-sm mt-4">No expense data for this period</p>
     {/if}
   </div>
 </div>

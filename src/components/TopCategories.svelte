@@ -13,10 +13,10 @@
   );
 </script>
 
-<div class="bg-white rounded-xl shadow-sm p-6 animate-fade-in">
+<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 animate-fade-in">
   <div class="flex items-center gap-2 mb-4">
     <i class="ph ph-list-bullets text-blue-600"></i>
-    <h2 class="text-lg font-semibold text-slate-800">Top Categories</h2>
+    <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Top Categories</h2>
   </div>
   <div class="space-y-3">
     {#each topCategories as cat, i}
@@ -29,18 +29,18 @@
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex justify-between items-center mb-1">
-            <span class="text-sm font-medium text-slate-700 truncate">{cat.category}</span>
-            <span class="text-sm font-semibold text-slate-800">{symbol}{cat.amount.toFixed(2)}</span>
+            <span class="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{cat.category}</span>
+            <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{symbol}{cat.amount.toFixed(2)}</span>
           </div>
-          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+          <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
             <div class="h-full rounded-full transition-all duration-500" style="width: {percentage}%; background: {color}"></div>
           </div>
         </div>
-        <span class="text-xs text-slate-400 w-10 text-right">{percentage.toFixed(0)}%</span>
+        <span class="text-xs text-slate-400 dark:text-slate-500 w-10 text-right">{percentage.toFixed(0)}%</span>
       </div>
     {/each}
     {#if topCategories.length === 0}
-      <p class="text-slate-400 text-sm text-center py-4">No category data</p>
+      <p class="text-slate-400 dark:text-slate-500 text-sm text-center py-4">No category data</p>
     {/if}
   </div>
 </div>

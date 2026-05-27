@@ -23,22 +23,22 @@
     : (categoryIcons[item.category] || categoryIcons['Other']);
 </script>
 
-<li class="bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors animate-fade-in">
+<li class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors animate-fade-in">
   <div class="flex items-center gap-3 flex-1 min-w-0">
     <div class="{options.iconBgClass} p-2 rounded-lg flex-shrink-0">
       <i class="ph {iconName} {options.iconColorClass}"></i>
     </div>
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2">
-        <p class="font-medium text-slate-800 truncate">{item.category}</p>
+        <p class="font-medium text-slate-800 dark:text-slate-100 truncate">{item.category}</p>
         {#if options.showTypeBadge}
-          <span class="text-xs {item.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} px-1.5 py-0.5 rounded-full">{item.type}</span>
+          <span class="text-xs {item.type === 'income' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400'} px-1.5 py-0.5 rounded-full">{item.type}</span>
         {/if}
         {#if item.familyMember}
-          <span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">{item.familyMember}</span>
+          <span class="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full">{item.familyMember}</span>
         {/if}
       </div>
-      <div class="flex items-center gap-2 text-xs text-slate-500">
+      <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
         <span>{formatDate(item.date)}</span>
         {#if item.note}
           <span>&bull;</span>
@@ -50,7 +50,7 @@
   <div class="flex items-center gap-3">
     <div class="text-right">
       <p class="{options.amountColorClass} font-semibold">{options.amountPrefix}{getCurrencySymbol(convertedCurrency)}{convertedAmount.toFixed(2)}</p>
-      <p class="text-xs text-slate-400">
+      <p class="text-xs text-slate-400 dark:text-slate-500">
         {#if item.currency !== getCurrentCurrency()}
           {getCurrencySymbol(item.currency)}{item.amount.toFixed(2)} &rarr; {convertedCurrency}
         {:else}
@@ -58,10 +58,10 @@
         {/if}
       </p>
     </div>
-    <button onclick={() => onedit?.(item)} class="text-slate-400 hover:text-blue-600 transition-colors">
+    <button onclick={() => onedit?.(item)} class="text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
       <i class="ph ph-pencil-simple text-sm"></i>
     </button>
-    <button onclick={() => ondelete?.(item.id)} class="text-slate-400 hover:text-rose-600 transition-colors">
+    <button onclick={() => ondelete?.(item.id)} class="text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
       <i class="ph ph-trash text-sm"></i>
     </button>
   </div>
