@@ -1,0 +1,68 @@
+<script>
+  import { categoryIcons } from '../lib/constants.js';
+  import { getCurrentCurrency } from '../lib/state.svelte.js';
+  import { formatDate } from '../lib/utils.js';
+  import { convertToDisplayCurrency, getCurrencySymbol } from '../lib/currency.js';
+
+  let { item, options, onedit, ondelete } = $props();
+
+  let convertedAmount = $state(0);
+  let convertedCurrency = $state(getCurrentCurrency());
+
+  $effect(() => {
+    if (item) {
+      convertToDisplayCurrency(item.amount, item.currency, getCurrentCurrency()).then(r => {
+        convertedAmount = r.amount;
+        convertedCurrency = r.currency;
+      });
+    }
+  });
+
+  const iconName = options.useTypeIcon
+    ? (item.type === 'income' ? 'ph-trend-up' : 'ph-trend-down')
+    : (categoryIcons[item.category] || categoryIcons['Other']);
+</script>
+
+<li class="bg-slate-50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors animate-fade-in">
+  <div class="flex items-center gap-3 flex-1 min-w-0">
+    <div class="{options.iconBgClass} p-2 rounded-lg flex-shrink-0">
+      <i class="ph {iconName} {options.iconColorClass}"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2">
+        <p class="font-medium text-slate-800 truncate">{item.category}</p>
+        {#if options.showTypeBadge}
+          <span class="text-xs {item.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} px-1.5 py-0.5 rounded-full">{item.type}</span>
+        {/if}
+        {#if item.familyMember}
+          <span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">{item.familyMember}</span>
+        {/if}
+      </div>
+      <div class="flex items-center gap-2 text-xs text-slate-500">
+        <span>{formatDate(item.date)}</span>
+        {#if item.note}
+          <span>&bull;</span>
+          <span class="truncate">{item.note}</span>
+        {/if}
+      </div>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <div class="text-right">
+      <p class="{options.amountColorClass} font-semibold">{options.amountPrefix}{getCurrencySymbol(convertedCurrency)}{convertedAmount.toFixed(2)}</p>
+      <p class="text-xs text-slate-400">
+        {#if item.currency !== getCurrentCurrency()}
+          {getCurrencySymbol(item.currency)}{item.amount.toFixed(2)} &rarr; {convertedCurrency}
+        {:else}
+          {item.currency}
+        {/if}
+      </p>
+    </div>
+    <button onclick={() => onedit?.(item)} class="text-slate-400 hover:text-blue-600 transition-colors">
+      <i class="ph ph-pencil-simple text-sm"></i>
+    </button>
+    <button onclick={() => ondelete?.(item.id)} class="text-slate-400 hover:text-rose-600 transition-colors">
+      <i class="ph ph-trash text-sm"></i>
+    </button>
+  </div>
+</li>

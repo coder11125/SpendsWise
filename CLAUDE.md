@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-### Frontend
+### Frontend (Svelte 5 + Vite + Tailwind v4)
 ```bash
-npm run build:css     # compile Tailwind once (no --minify, output is readable)
-npm run watch:css     # watch mode during development
-npx serve .           # serve static frontend locally
+npm run dev           # Vite dev server with HMR (proxies /api → localhost:4000)
+npm run build         # production build → dist/
+npm run preview       # preview production build locally
 ```
 
 ### Backend (`cd server` first)
@@ -29,29 +29,71 @@ Health check: `GET http://localhost:4000/health`
 
 ## Architecture
 
-### Split: static frontend + Express API
-- The frontend is plain HTML/JS with no build step beyond Tailwind CSS. `index.html` loads `auth.js` then `script.js` — order matters, `auth.js` must come first.
-- The backend lives entirely in `server/src/` and compiles to `server/dist/`. On Vercel, `server/src/app.ts` is the serverless entry; `server/src/index.ts` is the local dev entry that calls `app.listen`.
+### Split: Svelte 5 SPA + Express API
+- The frontend is a Svelte 5 SPA built with Vite. Entry point is `index.html` → `src/app.js` → `src/App.svelte`.
+- State is managed with Svelte 5 runes (`$state`, `$derived`) in `src/lib/state.svelte.js` — a shared reactive module.
+- All API calls go through `apiFetch()` in `src/lib/api.js`, which automatically attaches credentials and CSRF header.
+- The backend lives in `server/src/` and compiles to `server/dist/`. On Vercel, `server/src/app.ts` is the serverless entry; `server/src/index.ts` is the local dev entry.
+- Vite dev server proxies `/api` → `localhost:4000` automatically.
 
-### Frontend state model
-`script.js` owns an in-memory array `expense[]` that is the single source of truth for all views. Every add/edit/delete patches this array and re-renders the relevant views — there is no reactive framework. `auth.js` exposes two globals (`isLoggedIn`, `csrfToken`) that `script.js` depends on. `apiFetch()` wraps all API calls, automatically attaching credentials and the CSRF header.
+### Frontend architecture
+```
+src/
+├── lib/
+│   ├── state.svelte.js      # Reactive state (runes-based getters/setters)
+│   ├── api.js               # API wrapper + all endpoint functions
+│   ├── currency.js          # Currency formatting/conversion
+│   ├── calculations.svelte.js  # Async summary calculations
+│   ├── utils.js             # Date helpers, trend data, image compression
+│   ├── charts.js            # Canvas pie chart + trend chart renderers
+│   └── constants.js         # Static data (currencies, colors, icons)
+├── components/
+│   ├── AuthModal.svelte     # Login/register modal
+│   ├── EditModal.svelte     # Edit expense modal (flatpickr)
+│   ├── CurrencyModal.svelte # Currency selector
+│   ├── FamilyModal.svelte   # Manage family members
+│   ├── DeleteAllModal.svelte
+│   ├── ImportModal.svelte
+│   ├── MobileQuickAdd.svelte
+│   ├── AiChatPanel.svelte   # AI assistant slide-in
+│   ├── Sidebar.svelte
+│   ├── Header.svelte
+│   ├── SummaryCards.svelte
+│   ├── BudgetOverview.svelte
+│   ├── ExpenseForm.svelte   # Add transaction form (flatpickr)
+│   ├── ExpenseItem.svelte
+│   ├── PieChart.svelte
+│   ├── TrendChart.svelte
+│   ├── TopCategories.svelte
+│   └── LoadingSpinner.svelte
+└── views/
+    ├── Dashboard.svelte
+    ├── IncomeView.svelte
+    ├── ExpenseView.svelte
+    ├── HistoryView.svelte
+    └── AccountView.svelte
+```
 
-Budget goals are stored in `localStorage` (`sw_budget_goals`) — they are user preferences, not server data.
+### State model
+`src/lib/state.svelte.js` owns all reactive state using Svelte 5 runes. Views and components import getter/setter functions to read/write state. The `expense[]` array is the single source of truth. Budget goals persist to `localStorage` (`sw_budget_goals`). Currency preferences persist to `localStorage` too.
 
 ### Auth & CSRF flow
-1. On load, `auth.js` calls `GET /api/auth/csrf` to get a token and set the `sw_csrf` cookie.
-2. Login/register sets a signed JWT in an HttpOnly `sw_session` cookie (7-day expiry).
-3. Every `POST/PUT/DELETE` must include `x-csrf-token` — `apiFetch` does this automatically.
-4. The JWT contains a `tokenVersion` (`tv`) field that is validated against the User document on every authenticated request. Changing password increments `tokenVersion`, immediately invalidating all live sessions.
+1. On mount, `App.svelte` calls `fetchCsrfToken()` → `GET /api/auth/csrf` → sets `sw_csrf` cookie + in-memory token.
+2. `checkSession()` verifies existing session via `GET /api/auth/me`.
+3. Login/register sets a signed JWT in an HttpOnly `sw_session` cookie (7-day expiry).
+4. Every `POST/PUT/DELETE` includes `x-csrf-token` via `apiFetch()`.
+5. The JWT contains a `tokenVersion` field validated on every request.
 
-### Adding a new API route
-1. Create `server/src/routes/yourRoute.ts`, wrap handlers with `asyncHandler`.
-2. Register in `server/src/app.ts` with `app.use("/api/your-route", expenseLimiter, yourRoutes)`.
-3. Protect with `authRequired` middleware if the route needs authentication.
-4. Call it from the frontend via `apiFetch('/your-route', { method: 'POST', body: JSON.stringify({...}) })`.
+### Adding a new feature
+1. Add state getters/setters in `src/lib/state.svelte.js` if needed.
+2. Add API function in `src/lib/api.js` using `apiFetch()`.
+3. Create a component in `src/components/` or view in `src/views/`.
+4. Import and use it in `src/App.svelte` or the relevant view.
+5. If adding a new API route, create in `server/src/routes/` and register in `server/src/app.ts`.
 
 ### Key constraints
-- All expense queries on the server filter by `req.userId` — never expose cross-user data.
-- State-changing requests that aren't `application/json` are rejected with 415 — always set `Content-Type: application/json` (handled automatically by `apiFetch`).
-- Tailwind's content scan covers `index.html`, `auth.js`, and `script.js` — new classes added in those files are picked up on the next `build:css` run.
-- The frontend uses DOM methods (not `innerHTML`) for user-supplied data to prevent XSS. Follow this pattern in `buildItemRow` and similar rendering functions.
+- All expense queries on the server filter by `req.userId`.
+- State-changing requests must have `Content-Type: application/json`.
+- The frontend uses DOM methods (`textContent`) for user-supplied data to prevent XSS.
+- Tailwind v4 is configured via `@import "tailwindcss"` in `src/app.css` — no config file needed.
+- Flatpickr is used for date inputs and loaded from npm (not CDN at build time).

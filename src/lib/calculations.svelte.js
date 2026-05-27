@@ -1,0 +1,65 @@
+import { convertToDisplayCurrency } from './currency.js';
+
+export async function calculateSummary(expense, currency) {
+  let income = 0;
+  let expenses = 0;
+  for (const item of expense) {
+    const converted = await convertToDisplayCurrency(item.amount, item.currency, currency);
+    if (item.type === 'income') income += converted.amount;
+    else expenses += converted.amount;
+  }
+  return { income, expenses, balance: income - expenses };
+}
+
+export async function calculateIncomeSummary(expense, currency) {
+  const incomeItems = expense.filter(t => t.type === 'income');
+  let total = 0;
+  for (const item of incomeItems) {
+    const converted = await convertToDisplayCurrency(item.amount, item.currency, currency);
+    total += converted.amount;
+  }
+  const count = incomeItems.length;
+  return { total, count, average: count > 0 ? total / count : 0 };
+}
+
+export async function calculateExpenseSummary(expense, currency) {
+  const expenseItems = expense.filter(t => t.type === 'expense');
+  let total = 0;
+  for (const item of expenseItems) {
+    const converted = await convertToDisplayCurrency(item.amount, item.currency, currency);
+    total += converted.amount;
+  }
+  const count = expenseItems.length;
+  return { total, count, average: count > 0 ? total / count : 0 };
+}
+
+export async function calculateExpenseByCategory(expense, currency) {
+  const expenseItems = expense.filter(t => t.type === 'expense');
+  const categoryTotals = {};
+  for (const item of expenseItems) {
+    const converted = await convertToDisplayCurrency(item.amount, item.currency, currency);
+    if (!categoryTotals[item.category]) categoryTotals[item.category] = 0;
+    categoryTotals[item.category] += converted.amount;
+  }
+  const total = Object.values(categoryTotals).reduce((sum, amt) => sum + amt, 0);
+  const data = Object.entries(categoryTotals).map(([category, amount]) => ({
+    category, amount, percentage: total > 0 ? (amount / total) * 100 : 0
+  }));
+  return { data, total };
+}
+
+export async function getCurrentMonthExpenseByCategory(expense, currency) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const totals = {};
+  for (const item of expense) {
+    if (item.type !== 'expense') continue;
+    const [y, m] = item.date.split('-').map(Number);
+    if (y === year && m - 1 === month) {
+      const converted = await convertToDisplayCurrency(item.amount, item.currency, currency);
+      totals[item.category] = (totals[item.category] || 0) + converted.amount;
+    }
+  }
+  return totals;
+}

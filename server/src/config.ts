@@ -8,15 +8,26 @@ function required(name: string): string {
   return value;
 }
 
+function getAllowedOrigins(): string[] {
+  const origins = (process.env.ALLOWED_ORIGINS ?? "https://spends-wise.vercel.app")
+    .split(",")
+    .map((o) => o.trim());
+  if (process.env.VERCEL_URL) {
+    origins.push(`https://${process.env.VERCEL_URL}`);
+  }
+  if (process.env.VERCEL_BRANCH_URL) {
+    origins.push(`https://${process.env.VERCEL_BRANCH_URL}`);
+  }
+  return origins;
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   mongoUri: required("MONGODB_URI"),
   jwtSecret: required("JWT_SECRET"),
   csrfSecret: required("CSRF_SECRET"),
   jwtExpiresIn: "7d" as const,
-  allowedOrigins: (process.env.ALLOWED_ORIGINS ?? "https://spends-wise.vercel.app")
-    .split(",")
-    .map((o) => o.trim()),
+  allowedOrigins: getAllowedOrigins(),
   groqApiKey: process.env.GROQ_API_KEY ?? "",
   groqVisionApiKey: process.env.GROQ_VISION_API_KEY ?? "",
   groqModel: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
