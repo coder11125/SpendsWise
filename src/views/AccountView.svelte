@@ -182,9 +182,9 @@
       <div class="w-16 h-16 rounded-full bg-rose-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
         {profile?.email ? profile.email[0].toUpperCase() : '?'}
       </div>
-      <div>
-        <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100">{profile?.email || 'Loading...'}</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400">
+      <div class="min-w-0 flex-1 overflow-hidden">
+        <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100 truncate" title={profile?.email}>{profile?.email || 'Loading...'}</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 truncate">
           {#if profile?.createdAt}
             Member since {new Date(profile.createdAt).toLocaleDateString()}
           {:else}
@@ -197,7 +197,7 @@
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Account Stats</h3>
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4">
       <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
         <p class="text-xs text-slate-500 dark:text-slate-400">Total Income</p>
         <p class="text-lg font-bold text-emerald-600">{getCurrencySymbol(getCurrentCurrency())}{stats.income.toFixed(2)}</p>
@@ -219,14 +219,14 @@
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Import / Export</h3>
-    <div class="flex flex-wrap gap-3">
+    <div class="grid grid-cols-1 sm:flex sm:flex-wrap gap-3">
       <button onclick={handleExportCsv}
-        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2">
+        class="w-full sm:w-auto px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2">
         <i class="ph ph-download"></i>
         Export CSV
       </button>
       <button onclick={triggerImport}
-        class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm font-medium flex items-center gap-2">
+        class="w-full sm:w-auto px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2">
         <i class="ph ph-upload"></i>
         {isImporting ? 'Importing...' : 'Import CSV'}
       </button>
@@ -285,13 +285,15 @@
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Budget Goals</h3>
-    <div class="flex gap-2 mb-4">
+    <div class="flex flex-col sm:flex-row gap-2 mb-4">
       <input type="text" placeholder="Category" bind:value={newGoalCategory}
         class="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500" />
-      <input type="number" placeholder="Amount" bind:value={newGoalAmount}
-        class="w-32 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500" />
-      <button onclick={handleAddGoal}
-        class="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition-colors text-sm font-medium">Add</button>
+      <div class="flex gap-2">
+        <input type="number" placeholder="Amount" bind:value={newGoalAmount}
+          class="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+        <button onclick={handleAddGoal}
+          class="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition-colors text-sm font-medium">Add</button>
+      </div>
     </div>
     {#if goalMessage}
       <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">{goalMessage}</p>

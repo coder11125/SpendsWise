@@ -77,7 +77,7 @@
       onopencurrency={() => showCurrencyModal = true}
     />
 
-    <main class="flex-1 overflow-y-auto custom-scrollbar p-4 lg:p-6">
+    <main class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 lg:p-6">
       {#if view === 'dashboard'}
         <Dashboard />
       {:else if view === 'income'}
