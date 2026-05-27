@@ -1,8 +1,9 @@
 <script>
   import { onMount } from 'svelte';
   import { fetchCsrfToken, checkSession } from './lib/api.js';
-  import { getIsLoggedIn, getCurrentFilter, setCurrentFilter, getCurrentCurrency } from './lib/state.svelte.js';
+  import { getIsLoggedIn, getCurrentCurrency } from './lib/state.svelte.js';
   import { getCurrencySymbol } from './lib/currency.js';
+  import { initRouter, getRoute, viewFromRoute, navigate } from './lib/router.js';
   import Sidebar from './components/Sidebar.svelte';
   import Header from './components/Header.svelte';
   import Dashboard from './views/Dashboard.svelte';
@@ -20,7 +21,6 @@
   import AiChatPanel from './components/AiChatPanel.svelte';
 
   let sidebarOpen = $state(false);
-  let activeFilter = $state(getCurrentFilter());
   let editingItem = $state(null);
   let showCurrencyModal = $state(false);
   let showFamilyModal = $state(false);
@@ -34,8 +34,7 @@
       showFamilyModal = true;
       return;
     }
-    activeFilter = filter;
-    setCurrentFilter(filter);
+    navigate('/' + filter);
     sidebarOpen = false;
   }
 
@@ -57,19 +56,12 @@
   });
 
   onMount(async () => {
+    initRouter();
     await fetchCsrfToken();
     await checkSession();
   });
 
-  let currentView = $derived(() => {
-    switch (activeFilter) {
-      case 'income': return IncomeView;
-      case 'expense': return ExpenseView;
-      case 'history': return HistoryView;
-      case 'account': return AccountView;
-      default: return Dashboard;
-    }
-  });
+  let view = $derived(viewFromRoute());
 </script>
 
 <div class="h-screen flex overflow-hidden bg-slate-50 dark:bg-slate-900">
@@ -78,7 +70,7 @@
   {/if}
 
   <div class="fixed lg:static inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 lg:translate-x-0 {sidebarOpen ? 'translate-x-0' : '-translate-x-full'}">
-    <Sidebar activeFilter={activeFilter} onnavigate={handleNavigate} />
+    <Sidebar activeFilter={view} onnavigate={handleNavigate} />
   </div>
 
   <div class="flex-1 flex flex-col min-w-0">
@@ -88,15 +80,15 @@
     />
 
     <main class="flex-1 overflow-y-auto custom-scrollbar p-4 lg:p-6">
-      {#if activeFilter === 'all'}
+      {#if view === 'dashboard'}
         <Dashboard />
-      {:else if activeFilter === 'income'}
+      {:else if view === 'income'}
         <IncomeView />
-      {:else if activeFilter === 'expense'}
+      {:else if view === 'expense'}
         <ExpenseView />
-      {:else if activeFilter === 'history'}
+      {:else if view === 'history'}
         <HistoryView />
-      {:else if activeFilter === 'account'}
+      {:else if view === 'account'}
         <AccountView />
       {/if}
     </main>
