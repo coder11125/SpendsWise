@@ -18,10 +18,7 @@
     >
       <i class="ph ph-list text-xl"></i>
     </button>
-    <div class="hidden sm:flex items-center gap-2 text-slate-500 dark:text-slate-400">
-      <i class="ph ph-map-pin text-sm"></i>
-      <span class="text-sm font-medium">{currentCurrency}</span>
-    </div>
+
   </div>
 
   <div class="flex items-center gap-2">
