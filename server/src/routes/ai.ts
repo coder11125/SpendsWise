@@ -62,15 +62,20 @@ async function checkAiUsage(userId: string | undefined): Promise<{
     return { allowed: false, dailyRemaining, monthlyRemaining: 0 };
   }
 
-  const setFields: Record<string, unknown> = {
-    "aiUsage.count": (usage.count ?? 0) + 1,
-    "aiUsage.dailyCount": dailyCount + 1,
-    "aiUsage.dailyDate": todayStr,
-    "aiUsage.monthlyCount": monthlyCount + 1,
-    "aiUsage.monthlyDate": monthStr,
-  };
-
-  await UserModel.updateOne({ _id: userId }, { $set: setFields });
+  await UserModel.updateOne(
+    { _id: userId },
+    {
+      $set: {
+        aiUsage: {
+          count: (usage.count ?? 0) + 1,
+          dailyCount: dailyCount + 1,
+          dailyDate: todayStr,
+          monthlyCount: monthlyCount + 1,
+          monthlyDate: monthStr,
+        },
+      },
+    }
+  );
 
   return { allowed: true, dailyRemaining, monthlyRemaining };
 }
