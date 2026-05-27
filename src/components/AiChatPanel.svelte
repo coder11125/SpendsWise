@@ -64,8 +64,9 @@
   }
 </script>
 
+{#if show}
 <div class="fixed inset-0 z-50 flex justify-end animate-fade-in" onclick={(e) => { if (e.target === e.currentTarget) onclose?.(); }}>
-  <div onclick={(e) => e.stopPropagation()} class="w-full max-w-sm bg-white h-full shadow-2xl flex flex-col translate-x-0 transition-transform duration-300 {show ? '' : 'translate-x-full'}">
+  <div onclick={(e) => e.stopPropagation()} class="w-full max-w-sm bg-white h-full shadow-2xl flex flex-col translate-x-0 transition-transform duration-300">
     <div class="flex items-center justify-between p-4 border-b border-slate-200">
       <div class="flex items-center gap-2">
         <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -129,3 +130,4 @@
     </div>
   </div>
 </div>
+{/if}
