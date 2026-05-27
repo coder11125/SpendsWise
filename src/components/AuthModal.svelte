@@ -32,7 +32,7 @@
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
       <div class="flex items-center justify-between mb-6">
         <h1 class="text-xl font-bold text-slate-800">SpendsWise</h1>
-        <img src="/images/wallet.svg" alt="SpendsWise" class="w-8 h-8" />
+        <i class="ph ph-wallet text-2xl text-blue-600"></i>
       </div>
 
       <div class="flex border border-slate-200 rounded-lg p-1 mb-6">
