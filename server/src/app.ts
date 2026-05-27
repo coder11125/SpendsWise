@@ -22,7 +22,16 @@ app.set("trust proxy", 1);
 // Helmet applies only to Express API responses (/api/*, /health).
 // Static files (index.html, CDN scripts) are served by Vercel, so
 // COOP/CORP headers here do not interfere with CDN-loaded assets.
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        connectSrc: ["'self'", "https://*.pusher.com", "wss://*.pusher.com"],
+      },
+    },
+  })
+);
 
 app.use(
   cors({
