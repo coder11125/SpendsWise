@@ -176,8 +176,8 @@
   let goals = $derived(Object.entries(getBudgetGoals()));
 </script>
 
-<div class="space-y-4">
-  <div class="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+<div class="w-full space-y-4">
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex items-center gap-4">
       <div class="w-16 h-16 rounded-full bg-rose-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
         {profile?.email ? profile.email[0].toUpperCase() : '?'}
@@ -195,7 +195,7 @@
     </div>
   </div>
 
-  <div class="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Account Stats</h3>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
       <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
@@ -217,7 +217,7 @@
     </div>
   </div>
 
-  <div class="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Import / Export</h3>
     <div class="flex flex-wrap gap-3">
       <button onclick={handleExportCsv}
@@ -248,7 +248,7 @@
     </div>
   {/if}
 
-  <div class="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex items-center justify-between">
       <div>
         <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Dark Mode</h3>
@@ -263,7 +263,7 @@
     </div>
   </div>
 
-  <div class="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Change Password</h3>
     <div class="space-y-3">
       <input type="password" placeholder="Current password" bind:value={currentPassword}
@@ -283,7 +283,7 @@
     </div>
   </div>
 
-  <div class="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Budget Goals</h3>
     <div class="flex gap-2 mb-4">
       <input type="text" placeholder="Category" bind:value={newGoalCategory}
@@ -315,7 +315,7 @@
     {/if}
   </div>
 
-  <div class="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-red-200 dark:border-red-800 p-6">
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-red-200 dark:border-red-800 p-6">
     <h3 class="text-lg font-semibold text-red-600 mb-4">Danger Zone</h3>
     <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Permanently delete all your transactions. This cannot be undone.</p>
     <button onclick={handleDeleteAll} disabled={isDeletingAll}
