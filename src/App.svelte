@@ -63,16 +63,16 @@
   let view = $derived(getCurrentView());
 </script>
 
-<div class="h-screen lg:flex overflow-hidden bg-slate-50 dark:bg-slate-900">
+<div class="h-screen flex overflow-hidden bg-slate-50 dark:bg-slate-900">
   {#if sidebarOpen}
     <div role="presentation" onclick={() => sidebarOpen = false} class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
   {/if}
 
-  <div class="fixed lg:static inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 lg:translate-x-0 {sidebarOpen ? 'translate-x-0' : '-translate-x-full'}">
+  <div class="fixed lg:static inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 lg:translate-x-0 {sidebarOpen ? 'translate-x-0' : '-translate-x-full invisible lg:visible'}">
     <Sidebar activeFilter={view} onnavigate={handleNavigate} />
   </div>
 
-  <div class="flex-1 flex flex-col min-w-0 h-full">
+  <div class="flex-1 flex flex-col min-w-0 h-full relative z-0">
     <Header
       ontogglemenu={() => sidebarOpen = !sidebarOpen}
       onopencurrency={() => showCurrencyModal = true}
