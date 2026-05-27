@@ -30,9 +30,9 @@
 {#if !getIsLoggedIn()}
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-      <div class="flex items-center gap-2 mb-6">
-        <img src="/images/wallet.svg" alt="SpendsWise" class="w-8 h-8" />
+      <div class="flex items-center justify-between mb-6">
         <h1 class="text-xl font-bold text-slate-800">SpendsWise</h1>
+        <img src="/images/wallet.svg" alt="SpendsWise" class="w-8 h-8" />
       </div>
 
       <div class="flex border border-slate-200 rounded-lg p-1 mb-6">
