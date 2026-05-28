@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt, { SignOptions } from "jsonwebtoken";
+import passport from "../middleware/passport.js";
 import { UserModel } from "../models/User.js";
 import { config } from "../config.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
@@ -39,6 +40,25 @@ function signAndSetCookie(res: Response, userId: string, tokenVersion: number): 
 
 // C1: Issue a CSRF token. The browser sends it back as x-csrf-token on every
 // state-changing request; doubleCsrfProtection validates header vs. cookie.
+router.get(
+  "/google",
+  passport.authenticate("google", { session: false, scope: ["profile", "email"] })
+);
+
+router.get(
+  "/google/callback",
+  passport.authenticate("google", { session: false, failureRedirect: "/api/auth/google/failure" }),
+  (req, res) => {
+    const user = (req as any).user;
+    signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
+    res.redirect(config.frontendUrl);
+  }
+);
+
+router.get("/google/failure", (_req, res) => {
+  res.redirect(`${config.frontendUrl}/?auth_error=google_failed`);
+});
+
 router.get("/csrf", (req, res) => {
   const token = generateCsrfToken(req, res);
   res.json({ token });
@@ -83,6 +103,8 @@ router.post(
 
     const user = await UserModel.findOne({ email: email.toLowerCase() });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+    if (!user.passwordHash) return res.status(401).json({ error: "This account uses Google Sign-In. Please sign in with Google." });
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
@@ -130,6 +152,7 @@ router.put(
 
     const user = await UserModel.findById(req.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user.passwordHash) return res.status(400).json({ error: "Google Sign-In accounts do not have a password" });
 
     const ok = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "Current password is incorrect" });

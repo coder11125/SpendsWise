@@ -4,6 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import mongoSanitize from "express-mongo-sanitize";
+import passport from "./middleware/passport.js";
 import { getDB } from "./db.js";
 import authRoutes from "./routes/auth.js";
 import expenseRoutes from "./routes/expenses.js";
@@ -32,6 +33,8 @@ app.use(
     },
   })
 );
+
+app.use(passport.initialize());
 
 app.use(
   cors({
