@@ -40,13 +40,22 @@ function signAndSetCookie(res: Response, userId: string, tokenVersion: number): 
 
 // C1: Issue a CSRF token. The browser sends it back as x-csrf-token on every
 // state-changing request; doubleCsrfProtection validates header vs. cookie.
+function googleEnabled(_req: any, res: any, next: any) {
+  if (!config.googleClientId || !config.googleClientSecret) {
+    return res.status(503).json({ error: "Google Sign-In is not configured" });
+  }
+  next();
+}
+
 router.get(
   "/google",
+  googleEnabled,
   passport.authenticate("google", { session: false, scope: ["profile", "email"] })
 );
 
 router.get(
   "/google/callback",
+  googleEnabled,
   passport.authenticate("google", { session: false, failureRedirect: "/api/auth/google/failure" }),
   (req, res) => {
     const user = (req as any).user;
