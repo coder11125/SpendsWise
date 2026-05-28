@@ -2,7 +2,7 @@
   import { getCurrentCurrency, getIsLoggedIn } from '../lib/state.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
 
-  let { ontogglemenu, onopencurrency } = $props();
+  let { ontogglemenu, onopencurrency, onopenfamily } = $props();
 
   let currentCurrency = $derived(getCurrentCurrency());
   let isLoggedIn = $derived(getIsLoggedIn());
@@ -23,6 +23,13 @@
 
   <div class="flex items-center gap-2">
     {#if isLoggedIn}
+      <button
+        onclick={() => onopenfamily?.()}
+        class="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+      >
+        <i class="ph ph-users text-lg"></i>
+        <span>People</span>
+      </button>
       <button
         onclick={() => onopencurrency?.()}
         class="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"

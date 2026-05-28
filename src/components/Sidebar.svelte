@@ -47,15 +47,6 @@
       </button>
     {/each}
 
-    <div class="pt-3 mt-3 border-t border-slate-800">
-      <button
-        onclick={() => handleNav('people')}
-        class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer {activeFilter === 'people' ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:bg-slate-800'}"
-      >
-        <i class="ph ph-users text-lg"></i>
-        <span>People</span>
-      </button>
-    </div>
   </nav>
 
   <div class="p-4 border-t border-slate-800">

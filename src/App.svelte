@@ -75,6 +75,7 @@
     <Header
       ontogglemenu={() => sidebarOpen = !sidebarOpen}
       onopencurrency={() => showCurrencyModal = true}
+      onopenfamily={() => showFamilyModal = true}
     />
 
     <main class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 lg:p-6">
