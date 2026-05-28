@@ -18,7 +18,7 @@ const router = Router();
 router.use(authRequired);
 
 router.use((req, res, next) => {
-  if (!userBurstLimiter.allow(String(req.userId ?? req.ip), 10)) {
+  if (!userBurstLimiter.allow(String(req.userId ?? req.ip), 30)) {
     res.status(429).json({
       error: "Too many AI requests. Please slow down and wait a moment.",
       retryAfter: 60,
@@ -51,7 +51,7 @@ function groqVisionClient() {
   return new Groq({ apiKey: key });
 }
 
-async function checkAiUsage(userId: string | undefined): Promise<{
+async function checkQuota(userId: string | undefined): Promise<{
   allowed: boolean;
   dailyRemaining: number;
   monthlyRemaining: number;
@@ -75,13 +75,32 @@ async function checkAiUsage(userId: string | undefined): Promise<{
   const currentDaily = u.dailyDate === todayStr ? (u.dailyCount ?? 0) : 0;
   const currentMonthly = u.monthlyDate === monthStr ? (u.monthlyCount ?? 0) : 0;
 
-  if (currentDaily >= config.aiDailyLimit || currentMonthly >= config.aiMonthlyLimit) {
-    return {
-      allowed: false,
-      dailyRemaining: Math.max(0, config.aiDailyLimit - currentDaily),
-      monthlyRemaining: Math.max(0, config.aiMonthlyLimit - currentMonthly),
-    };
+  return {
+    allowed: currentDaily < config.aiDailyLimit && currentMonthly < config.aiMonthlyLimit,
+    dailyRemaining: Math.max(0, config.aiDailyLimit - currentDaily),
+    monthlyRemaining: Math.max(0, config.aiMonthlyLimit - currentMonthly),
+  };
+}
+
+async function incrementQuota(userId: string | undefined): Promise<{
+  dailyRemaining: number;
+  monthlyRemaining: number;
+}> {
+  if (!userId) {
+    return { dailyRemaining: 0, monthlyRemaining: 0 };
   }
+
+  const now = new Date();
+  const todayStr = now.toISOString().substring(0, 10);
+  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const user = await UserModel.findById(userId).select("aiUsage").lean();
+  const u = (user?.aiUsage ?? {}) as {
+    dailyCount?: number;
+    monthlyCount?: number;
+    dailyDate?: string;
+    monthlyDate?: string;
+  };
 
   const update: Record<string, any> = { $inc: { "aiUsage.count": 1 } };
   const $set: Record<string, any> = {};
@@ -89,15 +108,15 @@ async function checkAiUsage(userId: string | undefined): Promise<{
   if (u.dailyDate === todayStr) {
     update.$inc["aiUsage.dailyCount"] = 1;
   } else {
-    $set["aiUsage.dailyCount"] = currentDaily + 1;
     $set["aiUsage.dailyDate"] = todayStr;
+    $set["aiUsage.dailyCount"] = 1;
   }
 
   if (u.monthlyDate === monthStr) {
     update.$inc["aiUsage.monthlyCount"] = 1;
   } else {
-    $set["aiUsage.monthlyCount"] = currentMonthly + 1;
     $set["aiUsage.monthlyDate"] = monthStr;
+    $set["aiUsage.monthlyCount"] = 1;
   }
 
   if (Object.keys($set).length) {
@@ -106,10 +125,12 @@ async function checkAiUsage(userId: string | undefined): Promise<{
 
   await UserModel.updateOne({ _id: userId }, update);
 
+  const newDaily = u.dailyDate === todayStr ? (u.dailyCount ?? 0) + 1 : 1;
+  const newMonthly = u.monthlyDate === monthStr ? (u.monthlyCount ?? 0) + 1 : 1;
+
   return {
-    allowed: true,
-    dailyRemaining: Math.max(0, config.aiDailyLimit - currentDaily - 1),
-    monthlyRemaining: Math.max(0, config.aiMonthlyLimit - currentMonthly - 1),
+    dailyRemaining: Math.max(0, config.aiDailyLimit - newDaily),
+    monthlyRemaining: Math.max(0, config.aiMonthlyLimit - newMonthly),
   };
 }
 
@@ -163,6 +184,17 @@ function rejectQuotaExceeded(
   return false;
 }
 
+router.get(
+  "/quota",
+  asyncHandler(async (req, res) => {
+    const quota = await checkQuota(req.userId);
+    res.json({
+      dailyRemaining: quota.dailyRemaining,
+      monthlyRemaining: quota.monthlyRemaining,
+    });
+  })
+);
+
 router.post(
   "/chat",
   asyncHandler(async (req, res) => {
@@ -175,7 +207,7 @@ router.post(
       return res.status(400).json({ error: "history must be an array" });
     }
 
-    const usage = await checkAiUsage(req.userId);
+    const usage = await checkQuota(req.userId);
     if (rejectQuotaExceeded(res, usage, req, "/chat", start)) return;
     if (rejectIfUnavailable(res, req, "/chat", start)) return;
 
@@ -216,17 +248,19 @@ Be concise, specific to the user's actual data, and actionable.`;
         max_tokens: 1024,
       });
 
+      const remaining = await incrementQuota(req.userId);
+
       logAiEvent({
         userId: req.userId, endpoint: "/chat", duration: Date.now() - start,
-        status: "success", dailyRemaining: usage.dailyRemaining,
-        monthlyRemaining: usage.monthlyRemaining, groqModel: config.groqModel,
+        status: "success", dailyRemaining: remaining.dailyRemaining,
+        monthlyRemaining: remaining.monthlyRemaining, groqModel: config.groqModel,
         groqTokens: completion.usage?.total_tokens ?? null,
       });
 
       return res.json({
         reply: completion.choices[0]?.message?.content ?? "Sorry, I could not generate a response.",
-        dailyRemaining: usage.dailyRemaining,
-        monthlyRemaining: usage.monthlyRemaining,
+        dailyRemaining: remaining.dailyRemaining,
+        monthlyRemaining: remaining.monthlyRemaining,
       });
     } catch (err) {
       logAiEvent({
@@ -249,7 +283,7 @@ router.post(
       return res.status(400).json({ error: "text is required" });
     }
 
-    const usage = await checkAiUsage(req.userId);
+    const usage = await checkQuota(req.userId);
     if (rejectQuotaExceeded(res, usage, req, "/parse", start)) return;
     if (rejectIfUnavailable(res, req, "/parse", start)) return;
 
@@ -279,10 +313,12 @@ Example: {"type":"expense","amount":450,"category":"Food & Dining","date":null,"
         temperature: 0.1,
       });
 
+      const remaining = await incrementQuota(req.userId);
+
       logAiEvent({
         userId: req.userId, endpoint: "/parse", duration: Date.now() - start,
-        status: "success", dailyRemaining: usage.dailyRemaining,
-        monthlyRemaining: usage.monthlyRemaining, groqModel: config.groqModel,
+        status: "success", dailyRemaining: remaining.dailyRemaining,
+        monthlyRemaining: remaining.monthlyRemaining, groqModel: config.groqModel,
         groqTokens: completion.usage?.total_tokens ?? null,
       });
 
@@ -295,7 +331,7 @@ Example: {"type":"expense","amount":450,"category":"Food & Dining","date":null,"
         if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
           return res.status(422).json({ error: "Could not find a valid amount" });
         }
-        return res.json({ ...parsed, dailyRemaining: usage.dailyRemaining, monthlyRemaining: usage.monthlyRemaining });
+        return res.json({ ...parsed, dailyRemaining: remaining.dailyRemaining, monthlyRemaining: remaining.monthlyRemaining });
       } catch {
         return res.status(422).json({ error: "Could not parse expense from that text" });
       }
@@ -320,7 +356,7 @@ router.post(
       return res.status(400).json({ error: "imageData must be a base64 data URL" });
     }
 
-    const usage = await checkAiUsage(req.userId);
+    const usage = await checkQuota(req.userId);
     if (rejectQuotaExceeded(res, usage, req, "/parse-receipt", start)) return;
 
     const visionKey = config.groqVisionApiKey || config.groqApiKey;
@@ -379,10 +415,12 @@ Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"202
         temperature: 0.1,
       });
 
+      const remaining = await incrementQuota(req.userId);
+
       logAiEvent({
         userId: req.userId, endpoint: "/parse-receipt", duration: Date.now() - start,
-        status: "success", dailyRemaining: usage.dailyRemaining,
-        monthlyRemaining: usage.monthlyRemaining, groqModel: config.groqVisionModel,
+        status: "success", dailyRemaining: remaining.dailyRemaining,
+        monthlyRemaining: remaining.monthlyRemaining, groqModel: config.groqVisionModel,
         groqTokens: completion.usage?.total_tokens ?? null,
       });
 
@@ -395,7 +433,7 @@ Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"202
         if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
           return res.status(422).json({ error: "Could not find a valid amount on the receipt" });
         }
-        return res.json({ ...parsed, dailyRemaining: usage.dailyRemaining, monthlyRemaining: usage.monthlyRemaining });
+        return res.json({ ...parsed, dailyRemaining: remaining.dailyRemaining, monthlyRemaining: remaining.monthlyRemaining });
       } catch {
         return res.status(422).json({ error: "Could not extract expense from this receipt" });
       }

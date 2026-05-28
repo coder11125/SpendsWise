@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { sendAiMessage } from '../lib/api.js';
+  import { sendAiMessage, fetchAiQuota } from '../lib/api.js';
   import { getAiChatHistory, setAiChatHistory } from '../lib/state.svelte.js';
 
   let { show, onclose } = $props();
@@ -9,12 +9,19 @@
   let sending = $state(false);
   let dailyRemaining = $state(50);
   let monthlyRemaining = $state(500);
+  let cooldownUntil = $state(0);
+  let cooldownTimer = $state(0);
+  let cooldownInterval;
 
   let messagesEl;
   let inputEl;
 
   $effect(() => {
     if (show) {
+      fetchAiQuota().then(q => {
+        dailyRemaining = q.dailyRemaining;
+        monthlyRemaining = q.monthlyRemaining;
+      }).catch(() => {});
       const history = getAiChatHistory();
       if (history.length === 0) {
         messages = [{ role: 'assistant', content: 'New conversation started. What would you like to know about your finances?' }];
@@ -38,7 +45,7 @@
 
   async function send() {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || Date.now() < cooldownUntil) return;
     input = '';
     sending = true;
     messages = [...messages, { role: 'user', content: text }];
@@ -56,10 +63,28 @@
     } catch (err) {
       const msg = err?.message || 'Network error. Please try again.';
       messages = [...messages.slice(0, typingIdx), { role: 'assistant', content: msg }];
+      if (err.status === 429 && err.retryAfter) {
+        cooldownUntil = Date.now() + err.retryAfter * 1000;
+        cooldownTimer = err.retryAfter;
+      }
     } finally {
       sending = false;
     }
   }
+
+  $effect(() => {
+    if (cooldownUntil > Date.now()) {
+      cooldownInterval = setInterval(() => {
+        const remaining = Math.ceil(Math.max(0, cooldownUntil - Date.now()) / 1000);
+        cooldownTimer = remaining;
+        if (remaining <= 0) {
+          clearInterval(cooldownInterval);
+          cooldownUntil = 0;
+        }
+      }, 1000);
+      return () => clearInterval(cooldownInterval);
+    }
+  });
 
   function handleKeydown(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -120,17 +145,19 @@
           type="text"
           bind:value={input}
           onkeydown={handleKeydown}
-          placeholder="Ask about your finances..."
-          disabled={sending}
+          placeholder={cooldownTimer > 0 ? `Cooldown ${cooldownTimer}s...` : "Ask about your finances..."}
+          disabled={sending || cooldownTimer > 0}
           class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:opacity-50"
         />
         <button
           onclick={send}
-          disabled={!input.trim() || sending}
+          disabled={!input.trim() || sending || cooldownTimer > 0}
           class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {#if sending}
             <i class="ph ph-spinner animate-spin"></i>
+          {:else if cooldownTimer > 0}
+            {cooldownTimer}s
           {:else}
             <i class="ph ph-paper-plane-right"></i>
           {/if}

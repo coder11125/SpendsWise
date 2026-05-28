@@ -68,9 +68,14 @@ async function handleJsonResponse(res: Response, fallbackError: string): Promise
   if (!res.ok) {
     if (isJson) {
       const data = await res.json();
-      throw new Error(data.error ?? fallbackError);
+      const err = new Error(data.error ?? fallbackError) as any;
+      err.status = res.status;
+      if (data.retryAfter) err.retryAfter = data.retryAfter;
+      throw err;
     }
-    throw new Error(`Server error: ${res.status}`);
+    const err = new Error(`Server error: ${res.status}`) as any;
+    err.status = res.status;
+    throw err;
   }
   
   if (isJson) {
@@ -337,6 +342,11 @@ export async function changePassword(currentPassword: string, newPassword: strin
 export async function deleteAllExpenses(): Promise<void> {
   const res = await apiFetch('/expenses', { method: 'DELETE', body: JSON.stringify({ confirm: true }) });
   if (!res.ok) throw new Error('Server error');
+}
+
+export async function fetchAiQuota(): Promise<{ dailyRemaining: number; monthlyRemaining: number }> {
+  const res = await apiFetch('/ai/quota');
+  return handleJsonResponse(res, 'Failed to fetch AI quota');
 }
 
 export async function sendAiMessage(message: string, history: any[]): Promise<any> {
