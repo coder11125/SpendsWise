@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import flatpickr from 'flatpickr';
-  import { saveTransaction, parseWithAI, parseReceipt } from '../lib/api.js';
+  import { saveTransaction, parseWithAI, parseReceiptsBulk } from '../lib/api.js';
   import { getFamilyMembers } from '../lib/state.svelte.js';
   import { compressImageToDataUrl } from '../lib/utils.js';
+  import BulkImportModal from './BulkImportModal.svelte';
 
   let { onadd } = $props();
 
@@ -20,6 +21,9 @@
   let aiText = $state('');
   let aiProcessing = $state(false);
   let receiptProcessing = $state(false);
+  let receiptProgress = $state('');
+  let parsedReceipts = $state<any[]>([]);
+  let showBulkModal = $state(false);
 
   const expenseCategories = ['Food & Dining', 'Housing', 'Transportation', 'Utilities', 'Entertainment', 'Healthcare', 'Shopping', 'Gifts', 'Other'];
   const incomeCategories = ['Salary', 'Freelance', 'Investments', 'Gifts', 'Other'];
@@ -95,28 +99,39 @@
     aiText = '';
   }
 
-  async function handleReceiptUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleBulkReceiptUpload(e) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     receiptProcessing = true;
+    receiptProgress = `Compressing ${files.length} receipt${files.length > 1 ? 's' : ''}...`;
+    const dataUrls = await Promise.all(
+      files.map((f) => compressImageToDataUrl(f, 1920, 0.7))
+    );
+    receiptProgress = `Processing ${dataUrls.length} receipt${dataUrls.length > 1 ? 's' : ''}...`;
     try {
-      const dataUrl = await compressImageToDataUrl(file, 1920, 0.7);
-      const data = await parseReceipt(dataUrl);
-      if (data) {
-        if (data.type) type = data.type;
-        if (data.amount != null) amount = String(data.amount);
-        if (data.category) category = data.category;
-        if (data.date) {
-          date = data.date;
-          if (fpInstance) fpInstance.setDate(date);
-        }
-        if (data.note) note = data.note;
+      const data = await parseReceiptsBulk(dataUrls);
+      receiptProgress = '';
+      parsedReceipts = (data.results ?? []).filter((r: any) => !r.error);
+      if (parsedReceipts.length > 0) {
+        showBulkModal = true;
+      } else {
+        alert('Could not extract data from any of the receipts.');
       }
     } catch (err) {
-      console.error('Receipt parse failed:', err);
+      console.error('Bulk receipt parse failed:', err);
+      receiptProgress = '';
+      alert('Failed to process receipts. Please try again.');
     }
     receiptProcessing = false;
     e.target.value = '';
+  }
+
+  function handleBulkSave(saved: any[]) {
+    showBulkModal = false;
+    parsedReceipts = [];
+    for (const item of saved) {
+      onadd?.(item);
+    }
   }
 
   let receiptInput;
@@ -207,15 +222,22 @@
     <div class="mt-3">
       <button onclick={triggerReceiptUpload} disabled={receiptProcessing} class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer disabled:text-slate-300">
         <i class="ph ph-camera"></i>
-        <span>Upload Receipt</span>
+        <span>{receiptProcessing ? 'Importing...' : 'Import Receipts'}</span>
       </button>
-      <input bind:this={receiptInput} type="file" accept="image/*" class="hidden" onchange={handleReceiptUpload} />
-      {#if receiptProcessing}
+      <input bind:this={receiptInput} type="file" accept="image/*" multiple class="hidden" onchange={handleBulkReceiptUpload} />
+      {#if receiptProgress}
         <div class="flex items-center gap-2 text-sm text-slate-500 mt-2">
           <i class="ph ph-circle-notch animate-spin"></i>
-          <span>Processing receipt...</span>
+          <span>{receiptProgress}</span>
         </div>
       {/if}
     </div>
   </div>
 </div>
+
+<BulkImportModal
+  show={showBulkModal}
+  results={parsedReceipts}
+  onclose={() => { showBulkModal = false; parsedReceipts = []; }}
+  onsave={handleBulkSave}
+/>

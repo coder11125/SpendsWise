@@ -373,6 +373,14 @@ export async function parseReceipt(imageData: string): Promise<any> {
   return handleJsonResponse(res, 'AI request failed');
 }
 
+export async function parseReceiptsBulk(images: string[]): Promise<any> {
+  const res = await apiFetch('/ai/parse-receipts-bulk', {
+    method: 'POST',
+    body: JSON.stringify({ images }),
+  });
+  return handleJsonResponse(res, 'AI request failed');
+}
+
 export async function getProfile(): Promise<Profile> {
   const res = await apiFetch('/auth/me');
   return handleJsonResponse(res, 'Failed to load profile');

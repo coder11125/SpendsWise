@@ -82,7 +82,7 @@ async function checkQuota(userId: string | undefined): Promise<{
   };
 }
 
-async function incrementQuota(userId: string | undefined): Promise<{
+async function incrementQuota(userId: string | undefined, count = 1): Promise<{
   dailyRemaining: number;
   monthlyRemaining: number;
 }> {
@@ -102,21 +102,21 @@ async function incrementQuota(userId: string | undefined): Promise<{
     monthlyDate?: string;
   };
 
-  const update: Record<string, any> = { $inc: { "aiUsage.count": 1 } };
+  const update: Record<string, any> = { $inc: { "aiUsage.count": count } };
   const $set: Record<string, any> = {};
 
   if (u.dailyDate === todayStr) {
-    update.$inc["aiUsage.dailyCount"] = 1;
+    update.$inc["aiUsage.dailyCount"] = count;
   } else {
     $set["aiUsage.dailyDate"] = todayStr;
-    $set["aiUsage.dailyCount"] = 1;
+    $set["aiUsage.dailyCount"] = count;
   }
 
   if (u.monthlyDate === monthStr) {
-    update.$inc["aiUsage.monthlyCount"] = 1;
+    update.$inc["aiUsage.monthlyCount"] = count;
   } else {
     $set["aiUsage.monthlyDate"] = monthStr;
-    $set["aiUsage.monthlyCount"] = 1;
+    $set["aiUsage.monthlyCount"] = count;
   }
 
   if (Object.keys($set).length) {
@@ -125,8 +125,8 @@ async function incrementQuota(userId: string | undefined): Promise<{
 
   await UserModel.updateOne({ _id: userId }, update);
 
-  const newDaily = u.dailyDate === todayStr ? (u.dailyCount ?? 0) + 1 : 1;
-  const newMonthly = u.monthlyDate === monthStr ? (u.monthlyCount ?? 0) + 1 : 1;
+  const newDaily = u.dailyDate === todayStr ? (u.dailyCount ?? 0) + count : count;
+  const newMonthly = u.monthlyDate === monthStr ? (u.monthlyCount ?? 0) + count : count;
 
   return {
     dailyRemaining: Math.max(0, config.aiDailyLimit - newDaily),
@@ -415,7 +415,7 @@ Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"202
         temperature: 0.1,
       });
 
-      const remaining = await incrementQuota(req.userId);
+      const remaining = await incrementQuota(req.userId, 3);
 
       logAiEvent({
         userId: req.userId, endpoint: "/parse-receipt", duration: Date.now() - start,
@@ -446,6 +446,111 @@ Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"202
     } finally {
       releaseGroqSlot();
     }
+  })
+);
+
+router.post(
+  "/parse-receipts-bulk",
+  asyncHandler(async (req, res) => {
+    const start = Date.now();
+    const { images } = req.body ?? {};
+    if (!Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ error: "images must be a non-empty array" });
+    }
+    if (images.length > 10) {
+      return res.status(400).json({ error: "Maximum 10 receipts per batch" });
+    }
+    for (const img of images) {
+      if (typeof img !== "string" || !img.startsWith("data:image/")) {
+        return res.status(400).json({ error: "Each image must be a base64 data URL" });
+      }
+    }
+
+    const quota = await checkQuota(req.userId);
+    const needed = images.length * 3;
+    if (quota.dailyRemaining < needed || quota.monthlyRemaining < needed) {
+      return res.status(429).json({
+        error: `Not enough AI quota — need ${needed} more requests`,
+        dailyRemaining: quota.dailyRemaining,
+        monthlyRemaining: quota.monthlyRemaining,
+      });
+    }
+
+    const visionKey = config.groqVisionApiKey || config.groqApiKey;
+    const today = new Date().toISOString().substring(0, 10);
+    const results: any[] = [];
+
+    for (const imageData of images) {
+      if (!groqSlidingLimiter.allow(visionKey, 25)) {
+        results.push({ error: "AI service temporarily busy" });
+        continue;
+      }
+      if (!acquireGroqSlot()) {
+        results.push({ error: "AI service at capacity" });
+        continue;
+      }
+      try {
+        const completion = await groqVisionClient().chat.completions.create({
+          model: config.groqVisionModel,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "image_url", image_url: { url: imageData } },
+                {
+                  type: "text",
+                  text: `Extract expense or income details from this receipt. Return ONLY a JSON object, no extra text.
+Today: ${today}
+
+JSON fields:
+- type: "expense" or "income"
+- amount: number (required, positive)
+- category: one of: Food & Dining, Housing, Transportation, Utilities, Entertainment, Healthcare, Shopping, Salary, Freelance, Investments, Gifts, Other
+- date: "YYYY-MM-DD" if visible, else null
+- note: merchant name or short description or ""
+- currency: 3-letter uppercase code if visible, else null`,
+                },
+              ],
+            },
+          ],
+          max_tokens: 200,
+          temperature: 0.1,
+        });
+
+        const content = completion.choices[0]?.message?.content ?? "";
+        const match = content.match(/\{[\s\S]*\}/);
+        if (!match) {
+          results.push({ error: "Could not extract expense from this receipt" });
+          continue;
+        }
+        const parsed = JSON.parse(match[0]);
+        if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
+          results.push({ error: "Could not find a valid amount on the receipt" });
+          continue;
+        }
+        results.push(parsed);
+      } catch (err) {
+        results.push({ error: "Failed to process receipt" });
+      } finally {
+        releaseGroqSlot();
+      }
+    }
+
+    const remaining = await incrementQuota(req.userId, images.length * 3);
+
+    const successCount = results.filter((r) => !r.error).length;
+    logAiEvent({
+      userId: req.userId, endpoint: "/parse-receipts-bulk", duration: Date.now() - start,
+      status: "success", batchSize: images.length, successCount,
+      dailyRemaining: remaining.dailyRemaining,
+      monthlyRemaining: remaining.monthlyRemaining,
+    });
+
+    return res.json({
+      results,
+      dailyRemaining: remaining.dailyRemaining,
+      monthlyRemaining: remaining.monthlyRemaining,
+    });
   })
 );
 
