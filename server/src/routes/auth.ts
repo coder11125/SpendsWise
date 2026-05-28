@@ -47,17 +47,6 @@ function googleEnabled(_req: any, res: any, next: any) {
   next();
 }
 
-router.get("/google-debug", (_req, res) => {
-  res.json({
-    googleClientId: config.googleClientId ? config.googleClientId.substring(0, 20) + "..." : "EMPTY",
-    googleClientSecret: config.googleClientSecret ? "SET (" + config.googleClientSecret.length + " chars)" : "EMPTY",
-    googleCallbackUrl: config.googleCallbackUrl,
-    frontendUrl: config.frontendUrl,
-    nodeEnv: process.env.NODE_ENV,
-    envKeys: Object.keys(process.env).filter(k => k.includes("GOOGLE") || k.includes("FRONTEND")),
-  });
-});
-
 router.get(
   "/google",
   googleEnabled,

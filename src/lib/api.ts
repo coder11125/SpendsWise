@@ -116,7 +116,7 @@ export async function logout(): Promise<void> {
 }
 
 export async function checkSession(): Promise<boolean> {
-  if (sessionStorage.getItem('sw_logged_out') === 'true') return false;
+  sessionStorage.removeItem('sw_logged_out');
   try {
     const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
     if (res.ok) {
