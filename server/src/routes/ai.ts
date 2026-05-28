@@ -499,21 +499,30 @@ router.post(
                 { type: "image_url", image_url: { url: imageData } },
                 {
                   type: "text",
-                  text: `Extract expense or income details from this receipt. Return ONLY a JSON object, no extra text.
+                  text: `Extract ALL individual line items from this receipt or billing statement. If the receipt has multiple items, list each one separately — do NOT combine them into a total.
+Return ONLY a JSON object, no extra text.
 Today: ${today}
 
-JSON fields:
-- type: "expense" or "income"
-- amount: number (required, positive)
-- category: one of: Food & Dining, Housing, Transportation, Utilities, Entertainment, Healthcare, Shopping, Salary, Freelance, Investments, Gifts, Other
-- date: "YYYY-MM-DD" if visible, else null
-- note: merchant name or short description or ""
-- currency: 3-letter uppercase code if visible, else null`,
+Format:
+{
+  "merchant": "store name or null",
+  "date": "YYYY-MM-DD" if visible, else null,
+  "items": [
+    {
+      "name": "item description",
+      "amount": 12.50,
+      "category": "one of: Food & Dining, Housing, Transportation, Utilities, Entertainment, Healthcare, Shopping, Salary, Freelance, Investments, Gifts, Other",
+      "type": "expense"
+    }
+  ]
+}
+
+If only a single total is visible, return one item with the total as amount and "note" as merchant name.`,
                 },
               ],
             },
           ],
-          max_tokens: 200,
+          max_tokens: 800,
           temperature: 0.1,
         });
 
@@ -524,11 +533,19 @@ JSON fields:
           continue;
         }
         const parsed = JSON.parse(match[0]);
-        if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
-          results.push({ error: "Could not find a valid amount on the receipt" });
+        const items = parsed.items;
+        if (!Array.isArray(items) || items.length === 0) {
+          results.push({ error: "Could not find any items on the receipt" });
           continue;
         }
-        results.push(parsed);
+        const validItems = items.filter(
+          (it: any) => typeof it.amount === "number" && it.amount > 0
+        );
+        if (validItems.length === 0) {
+          results.push({ error: "Could not find valid amounts on the receipt" });
+          continue;
+        }
+        results.push({ items: validItems, date: parsed.date || null });
       } catch (err) {
         results.push({ error: "Failed to process receipt" });
       } finally {

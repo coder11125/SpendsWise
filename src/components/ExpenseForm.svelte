@@ -111,8 +111,22 @@
     try {
       const data = await parseReceiptsBulk(dataUrls);
       receiptProgress = '';
-      parsedReceipts = (data.results ?? []).filter((r: any) => !r.error);
-      if (parsedReceipts.length > 0) {
+      const flat: any[] = [];
+      const today = new Date().toISOString().split('T')[0];
+      for (const r of data.results ?? []) {
+        if (r.error) continue;
+        for (const item of r.items ?? []) {
+          flat.push({
+            type: item.type || 'expense',
+            amount: item.amount,
+            category: item.category || 'Other',
+            date: r.date || today,
+            note: item.name || item.note || '',
+          });
+        }
+      }
+      if (flat.length > 0) {
+        parsedReceipts = flat;
         showBulkModal = true;
       } else {
         alert('Could not extract data from any of the receipts.');
