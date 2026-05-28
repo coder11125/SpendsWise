@@ -34,6 +34,7 @@ export function mapServerExpense(exp: any): Expense {
     familyMember: exp.familyMember ?? '',
     note: exp.note ?? '',
     currency: exp.currency ?? 'USD',
+    recurrence: exp.recurrence ?? null,
   };
 }
 
@@ -156,14 +157,24 @@ export function showApp(email: string, members: string[] | null = null, userId?:
   startPolling();
 }
 
-export async function saveTransaction({ type, amount, category, date, familyMember = '', note = '' }: Partial<Expense>): Promise<Expense | null> {
+export async function saveTransaction({ type, amount, category, date, familyMember = '', note = '', recurrence }: Partial<Expense>): Promise<Expense | null> {
   if (!type || amount === undefined || Number.isNaN(amount) || !category || !date) return null;
+
+  const body: Record<string, any> = { type, amount, category, date, familyMember, note, currency: getCurrentCurrency() };
+  if (recurrence) {
+    body.recurrence = {
+      frequency: recurrence.frequency,
+      nextDueDate: recurrence.nextDueDate || date,
+      endDate: recurrence.endDate || null,
+      isActive: recurrence.isActive,
+    };
+  }
 
   if (getIsLoggedIn()) {
     try {
       const res = await apiFetch('/expenses', {
         method: 'POST',
-        body: JSON.stringify({ type, amount, category, date, familyMember, note, currency: getCurrentCurrency() }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -177,7 +188,11 @@ export async function saveTransaction({ type, amount, category, date, familyMemb
     }
   }
 
-  return { id: String(Date.now()), type: type as 'income' | 'expense', amount, category, date, familyMember, note, currency: getCurrentCurrency() };
+  return {
+    id: String(Date.now()), type: type as 'income' | 'expense', amount, category, date, familyMember, note,
+    currency: getCurrentCurrency(),
+    recurrence: recurrence ?? null,
+  };
 }
 
 export async function deleteExpenseOnServer(id: string): Promise<boolean> {
@@ -197,10 +212,30 @@ export async function deleteExpenseOnServer(id: string): Promise<boolean> {
 }
 
 export async function updateExpenseOnServer(id: string, data: Partial<Expense>): Promise<Expense> {
+  const body: Record<string, any> = {};
+  if (data.type !== undefined) body.type = data.type;
+  if (data.amount !== undefined) body.amount = data.amount;
+  if (data.category !== undefined) body.category = data.category;
+  if (data.date !== undefined) body.date = data.date;
+  if (data.familyMember !== undefined) body.familyMember = data.familyMember;
+  if (data.note !== undefined) body.note = data.note;
+  if (data.currency !== undefined) body.currency = data.currency;
+  if (data.recurrence !== undefined) {
+    if (data.recurrence) {
+      body.recurrence = {
+        frequency: data.recurrence.frequency,
+        nextDueDate: data.recurrence.nextDueDate || data.date,
+        endDate: data.recurrence.endDate || null,
+        isActive: data.recurrence.isActive,
+      };
+    } else {
+      body.recurrence = null;
+    }
+  }
   try {
     const res = await apiFetch(`/expenses/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     });
     return mapServerExpense(await handleJsonResponse(res, 'Failed to save changes.'));
   } catch (err) {
@@ -363,6 +398,30 @@ export async function parseWithAI(text: string): Promise<any> {
     body: JSON.stringify({ text }),
   });
   return handleJsonResponse(res, 'AI request failed');
+}
+
+export async function loadRecurringExpenses(): Promise<Expense[]> {
+  try {
+    const res = await apiFetch('/expenses/recurring');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.map(mapServerExpense);
+  } catch {
+    return [];
+  }
+}
+
+export async function updateRecurring(id: string, updates: { frequency?: string; endDate?: string | null; isActive?: boolean; nextDueDate?: string }): Promise<Expense | null> {
+  try {
+    const res = await apiFetch(`/expenses/${id}/recurring`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) return null;
+    return mapServerExpense(await res.json());
+  } catch {
+    return null;
+  }
 }
 
 export async function parseReceipt(imageData: string): Promise<any> {

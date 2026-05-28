@@ -21,6 +21,14 @@
   const iconName = options.useTypeIcon
     ? (item.type === 'income' ? 'ph-trend-up' : 'ph-trend-down')
     : (categoryIcons[item.category] || categoryIcons['Other']);
+
+  const frequencyLabels: Record<string, string> = {
+    daily: 'Daily',
+    weekly: 'Weekly',
+    biweekly: 'Bi-weekly',
+    monthly: 'Monthly',
+    yearly: 'Yearly',
+  };
 </script>
 
 <li class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors animate-fade-in">
@@ -36,6 +44,12 @@
         {/if}
         {#if item.familyMember}
           <span class="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full">{item.familyMember}</span>
+        {/if}
+        {#if item.recurrence && item.recurrence.isActive}
+          <span class="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+            <i class="ph ph-repeat text-[10px]"></i>
+            {frequencyLabels[item.recurrence.frequency] || item.recurrence.frequency}
+          </span>
         {/if}
       </div>
       <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">

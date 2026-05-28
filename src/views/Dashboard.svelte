@@ -9,6 +9,7 @@
   import PieChart from '../components/PieChart.svelte';
   import TrendChart from '../components/TrendChart.svelte';
   import ExpenseItem from '../components/ExpenseItem.svelte';
+  import RecurringUpcoming from '../components/RecurringUpcoming.svelte';
 
   let summary = $state({ income: 0, expenses: 0, balance: 0 });
   let categoryData = $state([]);
@@ -67,6 +68,8 @@
     <SummaryCards {summary} currency={getCurrentCurrency()} />
     <BudgetOverview />
   </div>
+
+  <RecurringUpcoming />
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Add Transaction</h2>

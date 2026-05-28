@@ -16,7 +16,14 @@
   let note = $state('');
   let submitting = $state(false);
   let fpInstance = $state(null);
+  let endDateFp = $state(null);
   let dateInputEl;
+  let endDateInputEl;
+
+  // Recurrence state
+  let isRecurring = $state(false);
+  let recurrenceFrequency = $state('monthly');
+  let recurrenceEndDate = $state('');
 
   let aiText = $state('');
   let aiProcessing = $state(false);
@@ -51,12 +58,41 @@
     }
     return () => {
       fpInstance?.destroy();
+      endDateFp?.destroy();
     };
+  });
+
+  $effect(() => {
+    if (endDateInputEl && isRecurring && !endDateFp) {
+      import('flatpickr').then((mod) => {
+        endDateFp = mod.default(endDateInputEl, {
+          dateFormat: 'Y-m-d',
+          disableMobile: true,
+          defaultDate: recurrenceEndDate || undefined,
+          onChange: (selectedDates) => {
+            if (selectedDates[0]) {
+              recurrenceEndDate = selectedDates[0].toISOString().split('T')[0];
+            }
+          }
+        });
+      });
+    }
   });
 
   async function handleSubmit() {
     if (!type || !amount || !category || !date) return;
     submitting = true;
+
+    let recurrence = null;
+    if (isRecurring) {
+      recurrence = {
+        frequency: recurrenceFrequency,
+        nextDueDate: date,
+        endDate: recurrenceEndDate || null,
+        isActive: true,
+      };
+    }
+
     const result = await saveTransaction({
       type,
       amount: parseFloat(amount),
@@ -64,6 +100,7 @@
       date,
       familyMember,
       note,
+      recurrence,
     });
     submitting = false;
     if (result) {
@@ -71,6 +108,9 @@
       note = '';
       familyMember = '';
       date = new Date().toISOString().split('T')[0];
+      isRecurring = false;
+      recurrenceFrequency = 'monthly';
+      recurrenceEndDate = '';
       if (fpInstance) fpInstance.setDate(date);
       onadd?.(result);
     }
@@ -207,6 +247,46 @@
     <div>
       <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Note</label>
       <input type="text" bind:value={note} placeholder="Optional note..." class="input-field w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 text-sm focus:outline-none" />
+    </div>
+
+    <!-- Recurrence Toggle -->
+    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 border border-slate-200 dark:border-slate-600">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <i class="ph ph-repeat text-purple-600"></i>
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Recurring Transaction</span>
+        </div>
+        <button type="button" onclick={() => isRecurring = !isRecurring}
+          class="relative w-10 h-5 rounded-full transition-colors {isRecurring ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-600'}">
+          <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform {isRecurring ? 'translate-x-5' : ''}"></div>
+        </button>
+      </div>
+      {#if isRecurring}
+        <div class="space-y-3 mt-3 animate-fade-in">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Frequency</label>
+            <div class="flex gap-1">
+              {#each [
+                { v: 'daily', l: 'Daily' },
+                { v: 'weekly', l: 'Weekly' },
+                { v: 'biweekly', l: 'Bi-weekly' },
+                { v: 'monthly', l: 'Monthly' },
+                { v: 'yearly', l: 'Yearly' }
+              ] as opt}
+                <button type="button" onclick={() => recurrenceFrequency = opt.v}
+                  class="px-2.5 py-1 text-xs rounded-md font-medium transition-colors {recurrenceFrequency === opt.v ? 'bg-purple-600 text-white' : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-500'}">
+                  {opt.l}
+                </button>
+              {/each}
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">End Date (optional)</label>
+            <input bind:this={endDateInputEl} type="text" bind:value={recurrenceEndDate} placeholder="No end date"
+              class="input-field w-full px-3 py-1.5 bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded-md text-slate-800 dark:text-slate-100 text-xs focus:outline-none" />
+          </div>
+        </div>
+      {/if}
     </div>
 
     <button onclick={handleSubmit} disabled={submitting || !amount || !category} class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-600 text-white font-medium rounded-lg transition-colors text-sm flex items-center justify-center gap-2 cursor-pointer">

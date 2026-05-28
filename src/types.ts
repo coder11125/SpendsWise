@@ -1,3 +1,10 @@
+export interface Recurrence {
+  frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+  nextDueDate: string;
+  endDate?: string | null;
+  isActive: boolean;
+}
+
 export interface Expense {
   id: string;
   type: 'income' | 'expense';
@@ -7,6 +14,7 @@ export interface Expense {
   familyMember?: string;
   note?: string;
   currency: string;
+  recurrence?: Recurrence | null;
 }
 
 export interface Profile {

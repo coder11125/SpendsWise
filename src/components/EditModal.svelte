@@ -15,8 +15,15 @@
   let error = $state('');
   let loading = $state(false);
 
+  // Recurrence state
+  let hasRecurrence = $state(false);
+  let recurrenceFrequency = $state('monthly');
+  let recurrenceEndDate = $state('');
+
   let dateInput = $state(null);
+  let endDateInput = $state(null);
   let fp = $state(null);
+  let endDateFp = $state(null);
 
   const expenseCategories = ['Food & Dining', 'Housing', 'Transportation', 'Utilities', 'Entertainment', 'Healthcare', 'Shopping', 'Other'];
   const incomeCategories = ['Salary', 'Freelance', 'Investments', 'Gifts', 'Other'];
@@ -31,6 +38,9 @@
       date = expenseItem.date;
       familyMember = expenseItem.familyMember || '';
       note = expenseItem.note || '';
+      hasRecurrence = !!expenseItem.recurrence;
+      recurrenceFrequency = expenseItem.recurrence?.frequency || 'monthly';
+      recurrenceEndDate = expenseItem.recurrence?.endDate || '';
       error = '';
     }
   });
@@ -42,6 +52,20 @@
           dateFormat: 'Y-m-d',
           disableMobile: true,
           defaultDate: date || 'today',
+        });
+      });
+    }
+    if (endDateInput && hasRecurrence && !endDateFp) {
+      import('flatpickr').then((mod) => {
+        endDateFp = mod.default(endDateInput, {
+          dateFormat: 'Y-m-d',
+          disableMobile: true,
+          defaultDate: recurrenceEndDate || undefined,
+          onChange: (selectedDates) => {
+            if (selectedDates[0]) {
+              recurrenceEndDate = selectedDates[0].toISOString().split('T')[0];
+            }
+          }
         });
       });
     }
@@ -57,7 +81,23 @@
     }
     loading = true;
     try {
-      const updated = await updateExpenseOnServer(expenseItem.id, { type, amount, category, date, familyMember, note, currency: getCurrentCurrency() });
+      let recurrence = undefined;
+      if (hasRecurrence) {
+        recurrence = {
+          frequency: recurrenceFrequency,
+          nextDueDate: expenseItem.recurrence?.nextDueDate || date,
+          endDate: recurrenceEndDate || null,
+          isActive: expenseItem.recurrence?.isActive ?? true,
+        };
+      } else if (expenseItem.recurrence) {
+        // User turned off recurrence
+        recurrence = null;
+      }
+
+      const updated = await updateExpenseOnServer(expenseItem.id, {
+        type, amount, category, date, familyMember, note, currency: getCurrentCurrency(),
+        recurrence,
+      });
       updateExpenseItem(updated);
       onsaved?.();
     } catch (err) {
@@ -156,6 +196,46 @@
             placeholder="Optional note..."
             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
           />
+        </div>
+
+        <!-- Recurrence -->
+        <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <i class="ph ph-repeat text-purple-600"></i>
+              <span class="text-sm font-medium text-slate-700">Recurring Transaction</span>
+            </div>
+            <button type="button" onclick={() => hasRecurrence = !hasRecurrence}
+              class="relative w-10 h-5 rounded-full transition-colors {hasRecurrence ? 'bg-purple-600' : 'bg-slate-300'}">
+              <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform {hasRecurrence ? 'translate-x-5' : ''}"></div>
+            </button>
+          </div>
+          {#if hasRecurrence}
+            <div class="space-y-3 mt-3 animate-fade-in">
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Frequency</label>
+                <div class="flex gap-1">
+                  {#each [
+                    { v: 'daily', l: 'Daily' },
+                    { v: 'weekly', l: 'Weekly' },
+                    { v: 'biweekly', l: 'Bi-weekly' },
+                    { v: 'monthly', l: 'Monthly' },
+                    { v: 'yearly', l: 'Yearly' }
+                  ] as opt}
+                    <button type="button" onclick={() => recurrenceFrequency = opt.v}
+                      class="px-2.5 py-1 text-xs rounded-md font-medium transition-colors {recurrenceFrequency === opt.v ? 'bg-purple-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-200'}">
+                      {opt.l}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">End Date (optional)</label>
+                <input bind:this={endDateInput} type="text" bind:value={recurrenceEndDate} placeholder="No end date"
+                  class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md text-slate-800 text-xs focus:ring-2 focus:ring-blue-500 outline-none" />
+              </div>
+            </div>
+          {/if}
         </div>
 
         {#if error}

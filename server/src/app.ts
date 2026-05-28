@@ -13,6 +13,7 @@ import aiRoutes from "./routes/ai.js";
 import currencyRoutes from "./routes/currency.js";
 import { config } from "./config.js";
 import { doubleCsrfProtection, invalidCsrfTokenError } from "./middleware/csrf.js";
+import { startRecurringScheduler } from "./lib/recurringScheduler.js";
 
 const app = express();
 
@@ -115,6 +116,9 @@ app.use("/api/expenses", expenseLimiter, expenseRoutes);
 app.use("/api/family-members", expenseLimiter, familyMemberRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/currency", expenseLimiter, currencyRoutes);
+
+// Start recurring transaction scheduler
+startRecurringScheduler();
 
 // C1: Handle CSRF validation failures with a clear 403 before the generic handler
 app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
