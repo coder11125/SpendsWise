@@ -37,32 +37,46 @@ function calculateNextDueDate(
 export async function processRecurringTransactions(): Promise<void> {
   try {
     const now = new Date();
-    const todayStr = now.toISOString().substring(0, 10);
-
-    // Find all active recurring expenses whose nextDueDate is <= now
-    const dueTemplates = await ExpenseModel.find({
-      "recurrence.isActive": true,
-      "recurrence.nextDueDate": { $lte: now },
-    }).lean();
-
-    if (dueTemplates.length === 0) return;
-
     let processedCount = 0;
+    const notifiedUsers = new Set<string>();
 
-    for (const template of dueTemplates) {
+    // Process one template at a time using an atomic claim to prevent duplicate
+    // entries when multiple instances run concurrently (e.g. serverless warm starts).
+    // The claim works by advancing nextDueDate as part of the findOneAndUpdate filter:
+    // a second concurrent process will no longer match the same nextDueDate and skips it.
+    while (true) {
+      const template = await ExpenseModel.findOne({
+        "recurrence.isActive": true,
+        "recurrence.nextDueDate": { $lte: now },
+      }).lean();
+
+      if (!template) break;
+
       const rec = template.recurrence;
-      if (!rec || !rec.isActive) continue;
+      if (!rec || !rec.isActive) break;
 
-      // Skip if endDate has passed
+      // Deactivate immediately if endDate has already passed
       if (rec.endDate && new Date(rec.endDate) < now) {
-        await ExpenseModel.updateOne(
-          { _id: template._id },
+        await ExpenseModel.findOneAndUpdate(
+          { _id: template._id, "recurrence.nextDueDate": rec.nextDueDate },
           { $set: { "recurrence.isActive": false } }
         );
         continue;
       }
 
-      // Create the new expense entry from the template
+      const nextDue = calculateNextDueDate(new Date(rec.nextDueDate), rec.frequency);
+      const shouldDeactivate = !!(rec.endDate && nextDue > new Date(rec.endDate));
+
+      // Atomically advance nextDueDate — if another process already did this,
+      // the filter won't match and claimed will be null (skip without duplicating).
+      const claimed = await ExpenseModel.findOneAndUpdate(
+        { _id: template._id, "recurrence.nextDueDate": rec.nextDueDate },
+        { $set: { "recurrence.nextDueDate": nextDue, "recurrence.isActive": !shouldDeactivate } },
+        { new: false }
+      );
+
+      if (!claimed) continue; // another instance already processed this template
+
       await ExpenseModel.create({
         userId: template.userId,
         type: template.type,
@@ -72,41 +86,16 @@ export async function processRecurringTransactions(): Promise<void> {
         familyMember: template.familyMember || "",
         note: template.note || "",
         date: new Date(rec.nextDueDate),
-        recurrence: undefined, // Generated entries are not recurring themselves
+        recurrence: undefined,
       });
 
-      // Calculate next due date
-      const nextDue = calculateNextDueDate(
-        new Date(rec.nextDueDate),
-        rec.frequency
-      );
-
-      // Check if we've passed endDate
-      const shouldDeactivate =
-        rec.endDate && nextDue > new Date(rec.endDate);
-
-      await ExpenseModel.updateOne(
-        { _id: template._id },
-        {
-          $set: {
-            "recurrence.nextDueDate": nextDue,
-            "recurrence.isActive": !shouldDeactivate,
-          },
-        }
-      );
-
+      notifiedUsers.add(String(template.userId));
       processedCount++;
     }
 
     if (processedCount > 0) {
-      console.log(
-        `[Recurring] Processed ${processedCount} recurring transaction(s)`
-      );
-      // Notify affected users
-      const userIds = [
-        ...new Set(dueTemplates.map((t) => String(t.userId))),
-      ];
-      for (const uid of userIds) {
+      console.log(`[Recurring] Processed ${processedCount} recurring transaction(s)`);
+      for (const uid of notifiedUsers) {
         notifyDataChanged(uid);
       }
     }

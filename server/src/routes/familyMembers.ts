@@ -38,6 +38,9 @@ router.post(
     if (existing.has(name.toLocaleLowerCase())) {
       return res.status(409).json({ error: "Family member already exists" });
     }
+    if ((user.familyMembers ?? []).length >= 20) {
+      return res.status(400).json({ error: "Maximum 20 family members allowed" });
+    }
 
     user.familyMembers = [...(user.familyMembers ?? []), name];
     await user.save();

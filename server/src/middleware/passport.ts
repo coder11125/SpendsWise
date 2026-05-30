@@ -18,19 +18,27 @@ if (config.googleClientId && config.googleClientSecret) {
           const email = profile.emails?.[0]?.value?.toLowerCase().trim();
           if (!email) return done(new Error("No email returned from Google"));
 
-          let user = await UserModel.findOne({ $or: [{ googleId }, { email }] });
+          // Look up by googleId first. Only fall back to email for accounts
+          // that were created with a password and have no googleId yet — this
+          // covers the intentional "link existing account" flow while preventing
+          // a Google account from silently taking over a different user's account
+          // if they happen to share an email address.
+          let user = await UserModel.findOne({ googleId });
 
-          if (user) {
-            if (!user.googleId) {
-              user.googleId = googleId;
-              await user.save();
+          if (!user) {
+            const byEmail = await UserModel.findOne({ email });
+            if (byEmail) {
+              if (byEmail.googleId && byEmail.googleId !== googleId) {
+                // Email is already linked to a different Google account — reject
+                return done(new Error("This email is already linked to a different Google account"));
+              }
+              // Password account — attach this Google identity
+              byEmail.googleId = googleId;
+              await byEmail.save();
+              user = byEmail;
+            } else {
+              user = await UserModel.create({ email, googleId, familyMembers: [] });
             }
-          } else {
-            user = await UserModel.create({
-              email,
-              googleId,
-              familyMembers: [],
-            });
           }
 
           return done(null, user);

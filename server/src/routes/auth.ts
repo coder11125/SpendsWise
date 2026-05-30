@@ -90,7 +90,7 @@ router.post(
     const existing = await UserModel.findOne({ email: normalizedEmail });
     if (existing) return res.status(409).json({ error: "Email already registered" });
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
     try {
       const user = await UserModel.create({ email: normalizedEmail, passwordHash, familyMembers: [] });
       signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
@@ -169,7 +169,7 @@ router.put(
     // C4: Increment tokenVersion to invalidate all existing sessions (including
     // any stolen cookies), then re-issue a fresh cookie for the current request.
     user.tokenVersion = (user.tokenVersion ?? 0) + 1;
-    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
     await user.save();
 
     signAndSetCookie(res, user._id.toString(), user.tokenVersion);

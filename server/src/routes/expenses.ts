@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { authRequired } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { ExpenseModel } from "../models/Expense.js";
@@ -33,6 +34,9 @@ router.get(
 router.put(
   "/:id/recurring",
   asyncHandler(async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
     const { frequency, endDate, isActive, nextDueDate } = req.body ?? {};
     const updates: Record<string, unknown> = {};
 
@@ -106,6 +110,9 @@ router.post(
 router.put(
   "/:id",
   asyncHandler(async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
     const allowed = ["type", "amount", "category", "date", "familyMember", "note", "currency"];
     const updates: Record<string, unknown> = {};
     for (const key of allowed) {
@@ -146,6 +153,9 @@ router.put(
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
     const expense = await ExpenseModel.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!expense) return res.status(404).json({ error: "Expense not found" });
     notifyDataChanged(req.userId!);
@@ -171,6 +181,25 @@ router.post(
     const { rows } = req.body ?? {};
     if (!Array.isArray(rows) || rows.length === 0) {
       return res.status(400).json({ error: "rows must be a non-empty array" });
+    }
+    if (rows.length > 500) {
+      return res.status(400).json({ error: "Maximum 500 rows per bulk import" });
+    }
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row.type || !["income", "expense"].includes(row.type)) {
+        return res.status(400).json({ error: `Row ${i + 1}: type must be 'income' or 'expense'` });
+      }
+      if (typeof row.amount !== "number" || row.amount <= 0) {
+        return res.status(400).json({ error: `Row ${i + 1}: amount must be a positive number` });
+      }
+      if (!row.category || typeof row.category !== "string") {
+        return res.status(400).json({ error: `Row ${i + 1}: category is required` });
+      }
+      if (!row.date) {
+        return res.status(400).json({ error: `Row ${i + 1}: date is required` });
+      }
     }
 
     const docs = rows.map((row: any) => ({

@@ -3,6 +3,7 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authRequired } from "../middleware/auth.js";
 
 const router = express.Router();
+router.use(authRequired);
 
 // Simple in-memory cache for currency rates (1 hour expiry)
 const rateCache: {
@@ -33,7 +34,11 @@ async function fetchCurrencyRates(baseCurrency: string = "USD"): Promise<Record<
 
   try {
     // Use a free currency API
-    const apiKey = process.env.CURRENCY_API_KEY || "7a6b4e3d2b1c0f9e8d7c6b5a"; // Default to a demo key
+    const apiKey = process.env.CURRENCY_API_KEY;
+    if (!apiKey) {
+      console.warn("[CURRENCY] CURRENCY_API_KEY not set, skipping external fetch");
+      throw new Error("Currency API key not configured");
+    }
     apiCallCount++;
     
     // Warn if approaching rate limit
@@ -122,7 +127,10 @@ async function tryFallbackCurrencyAPI(baseCurrency: string): Promise<Record<stri
 router.get(
   "/rates",
   asyncHandler(async (req, res) => {
-    const baseCurrency = (req.query.base as string) || "USD";
+    const baseCurrency = ((req.query.base as string) || "USD").toUpperCase();
+    if (!/^[A-Z]{3}$/.test(baseCurrency)) {
+      return res.status(400).json({ error: "base must be a 3-letter ISO 4217 currency code" });
+    }
     const rates = await fetchCurrencyRates(baseCurrency);
     
     res.json({

@@ -212,7 +212,7 @@ router.post(
     if (rejectIfUnavailable(res, req, "/chat", start)) return;
 
     try {
-      const expenses = await ExpenseModel.find({ userId: req.userId }).sort({ date: -1 }).lean();
+      const expenses = await ExpenseModel.find({ userId: req.userId }).sort({ date: -1 }).limit(200).lean();
       const totalIncome = expenses.filter((e) => e.type === "income").reduce((s, e) => s + e.amount, 0);
       const totalExpense = expenses.filter((e) => e.type === "expense").reduce((s, e) => s + e.amount, 0);
 

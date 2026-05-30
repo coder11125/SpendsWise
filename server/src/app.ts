@@ -131,11 +131,7 @@ app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error("Express Error Handler:", err);
-  res.status(500).json({ 
-    error: "Internal server error", 
-    message: err.message,
-    stack: process.env.NODE_ENV === "development" ? err.stack : undefined
-  });
+  res.status(500).json({ error: "Internal server error" });
 });
 
 export default app;
