@@ -32,10 +32,11 @@ const COOKIE_OPTS = {
 
 // C4: embed tokenVersion (tv) in the JWT so authRequired can verify it against
 // the DB and immediately detect revoked sessions (e.g. after password change).
-function signAndSetCookie(res: Response, userId: string, tokenVersion: number): void {
+function signAndSetCookie(res: Response, userId: string, tokenVersion: number): string {
   const options: SignOptions = { expiresIn: config.jwtExpiresIn };
   const token = jwt.sign({ userId, tv: tokenVersion }, config.jwtSecret, options);
   res.cookie("sw_session", token, COOKIE_OPTS);
+  return token;
 }
 
 // C1: Issue a CSRF token. The browser sends it back as x-csrf-token on every
@@ -93,8 +94,8 @@ router.post(
     const passwordHash = await bcrypt.hash(password, 12);
     try {
       const user = await UserModel.create({ email: normalizedEmail, passwordHash, familyMembers: [] });
-      signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
-      return res.status(201).json({ user: { id: user._id, email: user.email, familyMembers: user.familyMembers ?? [] } });
+      const token = signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
+      return res.status(201).json({ token, user: { id: user._id, email: user.email, familyMembers: user.familyMembers ?? [] } });
     } catch (err: any) {
       if (err.code === 11000) return res.status(409).json({ error: "Email already registered" });
       throw err;
@@ -118,8 +119,8 @@ router.post(
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
-    signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
-    return res.json({ user: { id: user._id, email: user.email, familyMembers: user.familyMembers ?? [] } });
+    const token = signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
+    return res.json({ token, user: { id: user._id, email: user.email, familyMembers: user.familyMembers ?? [] } });
   })
 );
 
@@ -172,8 +173,8 @@ router.put(
     user.passwordHash = await bcrypt.hash(newPassword, 12);
     await user.save();
 
-    signAndSetCookie(res, user._id.toString(), user.tokenVersion);
-    return res.json({ message: "Password updated successfully" });
+    const token = signAndSetCookie(res, user._id.toString(), user.tokenVersion);
+    return res.json({ token, message: "Password updated successfully" });
   })
 );
 

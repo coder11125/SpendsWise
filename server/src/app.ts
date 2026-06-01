@@ -49,7 +49,7 @@ app.use(
     },
     methods: ["GET", "POST", "PUT", "DELETE"],
     // x-csrf-token must be in allowedHeaders for browsers to send it cross-origin
-    allowedHeaders: ["Content-Type", "x-csrf-token"],
+    allowedHeaders: ["Content-Type", "x-csrf-token", "Authorization"],
     credentials: true,
   })
 );
@@ -108,8 +108,12 @@ app.get("/health", async (_req, res) => {
 });
 
 // C1: Apply CSRF protection to all state-changing routes.
+// Bearer-token requests (mobile app) are exempt — CSRF is a browser-cookie attack vector only.
 // GET /api/auth/csrf is exempt because CSRF middleware ignores GET requests.
-app.use(doubleCsrfProtection);
+app.use((req, res, next) => {
+  if (req.headers.authorization?.startsWith("Bearer ")) return next();
+  doubleCsrfProtection(req, res, next);
+});
 
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/expenses", expenseLimiter, expenseRoutes);

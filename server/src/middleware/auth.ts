@@ -30,7 +30,12 @@ function maybeRefreshSession(res: Response, payload: JwtPayload): void {
 }
 
 export async function authRequired(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const token = req.cookies?.sw_session;
+  // Cookie (web) or Bearer token (mobile)
+  let token = req.cookies?.sw_session;
+  if (!token) {
+    const auth = req.headers.authorization;
+    if (auth?.startsWith("Bearer ")) token = auth.slice(7);
+  }
   if (!token) {
     res.status(401).json({ error: "Not authenticated" });
     return;
