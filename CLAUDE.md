@@ -34,7 +34,7 @@ Health check: `GET http://localhost:4000/health`
 - State is managed with Svelte 5 runes (`$state`, `$derived`) in `src/lib/state.svelte.ts` — a shared reactive module.
 - All API calls go through `apiFetch()` in `src/lib/api.ts`, which automatically attaches credentials and CSRF header.
 - Shared types live in `src/types.ts` (Expense, Recurrence, Profile, CurrencyRates, Summary, CategoryData, TrendData, etc.).
-- The backend lives in `server/src/` and compiles to `server/dist/`. On Vercel, `server/src/app.ts` is the serverless entry; `server/src/index.ts` is the local dev entry.
+- The backend lives in `server/src/` and compiles to `server/dist/`. On Vercel, `api/index.ts` is the serverless entry (re-exports the Express app); `server/src/index.ts` is the local dev entry.
 - Vite dev server proxies `/api` → `localhost:4000` automatically.
 
 ### Frontend architecture
@@ -184,7 +184,9 @@ Key state:
 | DELETE | `/api/expenses` | Delete all expenses (requires `confirm: true`) |
 | GET | `/api/expenses/recurring` | List active recurring templates |
 | PUT | `/api/expenses/:id/recurring` | Update recurrence (frequency, endDate, isActive, nextDueDate) |
-| POST | `/api/expenses/bulk` | Bulk create from CSV rows |
+| POST | `/api/expenses/bulk` | Bulk create from CSV rows (max 500) |
+| GET | `/api/auth/google` | Start Google OAuth flow |
+| GET | `/api/auth/google/callback` | Google OAuth callback |
 | GET | `/api/family-members` | List family members |
 | POST | `/api/family-members` | Add family member |
 | DELETE | `/api/family-members` | Remove family member |
@@ -224,3 +226,7 @@ Key state:
 - Flatpickr is used for date inputs and loaded from npm (not CDN at build time).
 - Recurring templates are the expense document itself; generated instances are separate plain expenses (no `recurrence` field).
 - AI endpoints are rate-limited per user (burst + sliding window) and per API key (Groq concurrency slots).
+- bcrypt cost factor is 12.
+- Bulk import is capped at 500 rows with per-row validation.
+- All `:id` expense route params are guarded with `ObjectId.isValid()` before DB access.
+- `PUSHER_*` env vars enable real-time sync; omitting them falls back to 5-min polling only.
