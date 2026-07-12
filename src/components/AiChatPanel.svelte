@@ -169,7 +169,7 @@
 {/snippet}
 
 {#if embedded}
-  <div class="h-full flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+  <div class="h-full flex flex-col bg-white dark:bg-slate-800">
     {@render panelContent()}
   </div>
 {:else if show}

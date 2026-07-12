@@ -26,21 +26,32 @@
 <aside class="flex flex-col h-full bg-slate-900 text-white">
   <div class="relative p-5 border-b border-slate-800 flex items-center {collapsed ? 'lg:justify-center' : 'justify-between'} gap-2">
     <div class="flex items-center gap-3 min-w-0">
-      <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+      <button
+        onclick={() => collapsed && oncollapsetoggle?.()}
+        class="relative w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 {collapsed ? 'pointer-events-none lg:pointer-events-auto lg:cursor-pointer lg:hover:bg-blue-500 transition-colors' : 'cursor-default'}"
+        title={collapsed ? 'Expand sidebar' : ''}
+      >
         <i class="ph ph-wallet text-white text-lg"></i>
-      </div>
+        {#if collapsed}
+          <span class="hidden lg:flex absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-700 border-2 border-slate-900 items-center justify-center">
+            <i class="ph ph-caret-right text-[7px] text-slate-300"></i>
+          </span>
+        {/if}
+      </button>
       <div class="min-w-0 {collapsed ? 'lg:hidden' : ''}">
         <h1 class="font-bold text-lg leading-tight truncate">SpendsWise</h1>
         <p class="text-xs text-slate-400 truncate">Global Budget Tracker</p>
       </div>
     </div>
-    <button
-      onclick={() => oncollapsetoggle?.()}
-      class="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer flex-shrink-0 {collapsed ? 'lg:absolute lg:top-4 lg:-right-3 lg:bg-slate-800 lg:border lg:border-slate-700' : ''}"
-      title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-    >
-      <i class="ph {collapsed ? 'ph-caret-line-right' : 'ph-caret-line-left'} text-sm"></i>
-    </button>
+    {#if !collapsed}
+      <button
+        onclick={() => oncollapsetoggle?.()}
+        class="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer flex-shrink-0"
+        title="Collapse sidebar"
+      >
+        <i class="ph ph-caret-line-left text-sm"></i>
+      </button>
+    {/if}
   </div>
 
   <nav class="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
