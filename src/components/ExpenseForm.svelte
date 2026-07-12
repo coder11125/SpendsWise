@@ -48,6 +48,8 @@
     if (dateInputEl) {
       fpInstance = flatpickr(dateInputEl, {
         dateFormat: 'Y-m-d',
+        altInput: true,
+        altFormat: 'd/m/Y',
         defaultDate: date,
         onChange: (selectedDates) => {
           if (selectedDates[0]) {
@@ -67,6 +69,8 @@
       import('flatpickr').then((mod) => {
         endDateFp = mod.default(endDateInputEl, {
           dateFormat: 'Y-m-d',
+          altInput: true,
+          altFormat: 'd/m/Y',
           disableMobile: true,
           defaultDate: recurrenceEndDate || undefined,
           onChange: (selectedDates) => {
@@ -253,11 +257,11 @@
     <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 border border-slate-200 dark:border-slate-600">
       <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-2">
-          <i class="ph ph-repeat text-purple-600"></i>
+          <i class="ph ph-repeat text-blue-600"></i>
           <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Recurring Transaction</span>
         </div>
         <button type="button" onclick={() => isRecurring = !isRecurring}
-          class="relative w-10 h-5 rounded-full transition-colors {isRecurring ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-600'}">
+          class="relative w-10 h-5 rounded-full transition-colors {isRecurring ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}">
           <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform {isRecurring ? 'translate-x-5' : ''}"></div>
         </button>
       </div>
@@ -274,7 +278,7 @@
                 { v: 'yearly', l: 'Yearly' }
               ] as opt}
                 <button type="button" onclick={() => recurrenceFrequency = opt.v}
-                  class="px-2.5 py-1 text-xs rounded-md font-medium transition-colors {recurrenceFrequency === opt.v ? 'bg-purple-600 text-white' : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-500'}">
+                  class="px-2.5 py-1 text-xs rounded-md font-medium transition-colors {recurrenceFrequency === opt.v ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-500'}">
                   {opt.l}
                 </button>
               {/each}
@@ -304,7 +308,7 @@
     </div>
     <div class="flex gap-2">
       <input type="text" bind:value={aiText} placeholder="e.g. 'Lunch $15 yesterday'" class="input-field flex-1 px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 text-sm focus:outline-none" onkeydown={(e) => e.key === 'Enter' && handleAiQuickAdd()} />
-      <button onclick={handleAiQuickAdd} disabled={aiProcessing || !aiText.trim()} class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-medium rounded-lg transition-colors text-sm flex items-center gap-2 whitespace-nowrap cursor-pointer">
+      <button onclick={handleAiQuickAdd} disabled={aiProcessing || !aiText.trim()} class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium rounded-lg transition-colors text-sm flex items-center gap-2 whitespace-nowrap cursor-pointer">
         {#if aiProcessing}
           <i class="ph ph-circle-notch animate-spin"></i>
         {:else}

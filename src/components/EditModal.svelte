@@ -50,6 +50,8 @@
       import('flatpickr').then((mod) => {
         fp = mod.default(dateInput, {
           dateFormat: 'Y-m-d',
+          altInput: true,
+          altFormat: 'd/m/Y',
           disableMobile: true,
           defaultDate: date || 'today',
         });
@@ -59,6 +61,8 @@
       import('flatpickr').then((mod) => {
         endDateFp = mod.default(endDateInput, {
           dateFormat: 'Y-m-d',
+          altInput: true,
+          altFormat: 'd/m/Y',
           disableMobile: true,
           defaultDate: recurrenceEndDate || undefined,
           onChange: (selectedDates) => {
@@ -202,11 +206,11 @@
         <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2">
-              <i class="ph ph-repeat text-purple-600"></i>
+              <i class="ph ph-repeat text-blue-600"></i>
               <span class="text-sm font-medium text-slate-700">Recurring Transaction</span>
             </div>
             <button type="button" onclick={() => hasRecurrence = !hasRecurrence}
-              class="relative w-10 h-5 rounded-full transition-colors {hasRecurrence ? 'bg-purple-600' : 'bg-slate-300'}">
+              class="relative w-10 h-5 rounded-full transition-colors {hasRecurrence ? 'bg-blue-600' : 'bg-slate-300'}">
               <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform {hasRecurrence ? 'translate-x-5' : ''}"></div>
             </button>
           </div>
@@ -223,7 +227,7 @@
                     { v: 'yearly', l: 'Yearly' }
                   ] as opt}
                     <button type="button" onclick={() => recurrenceFrequency = opt.v}
-                      class="px-2.5 py-1 text-xs rounded-md font-medium transition-colors {recurrenceFrequency === opt.v ? 'bg-purple-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-200'}">
+                      class="px-2.5 py-1 text-xs rounded-md font-medium transition-colors {recurrenceFrequency === opt.v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-200'}">
                       {opt.l}
                     </button>
                   {/each}

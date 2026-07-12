@@ -68,8 +68,8 @@ export function renderTrendChart(canvas: HTMLCanvasElement, points: TrendPoint[]
   const isDark = document.documentElement.classList.contains('dark');
   const gridColor = isDark ? '#334155' : '#e2e8f0';
   const labelColor = isDark ? '#94a3b8' : '#64748b';
-  const lineColor = '#e11d48';
-  const fillColor = isDark ? 'rgba(225, 29, 72, 0.16)' : 'rgba(225, 29, 72, 0.12)';
+  const lineColor = '#007AFF';
+  const fillColor = isDark ? 'rgba(0, 122, 255, 0.16)' : 'rgba(0, 122, 255, 0.10)';
   const axisLeft = 54, axisRight = 18, axisTop = 16, axisBottom = 36;
   const chartWidth = logicalWidth - axisLeft - axisRight;
   const chartHeight = logicalHeight - axisTop - axisBottom;

@@ -149,7 +149,7 @@ export function stopPolling() {
 
 function pathToView(path: string) {
   const route = path.replace(/^\//, '') || 'dashboard';
-  return ['dashboard', 'income', 'expense', 'account'].includes(route) ? route : 'dashboard';
+  return ['dashboard', 'income', 'expense', 'account', 'ai'].includes(route) ? route : 'dashboard';
 }
 
 export function initRouter() {

@@ -19,6 +19,7 @@
   import AiChatPanel from './components/AiChatPanel.svelte';
 
   let sidebarOpen = $state(false);
+  let sidebarCollapsed = $state(typeof localStorage !== 'undefined' && localStorage.getItem('sw_sidebar_collapsed') === 'true');
   let editingItem = $state(null);
   let showCurrencyModal = $state(false);
   let showFamilyModal = $state(false);
@@ -34,6 +35,11 @@
     }
     navigate('/' + filter);
     sidebarOpen = false;
+  }
+
+  function toggleSidebarCollapsed() {
+    sidebarCollapsed = !sidebarCollapsed;
+    localStorage.setItem('sw_sidebar_collapsed', String(sidebarCollapsed));
   }
 
   function handleEditItem(e) {
@@ -67,8 +73,8 @@
     <div role="presentation" onclick={() => sidebarOpen = false} class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
   {/if}
 
-  <div class="fixed lg:static inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 lg:translate-x-0 {sidebarOpen ? 'translate-x-0' : '-translate-x-full invisible lg:visible'}">
-    <Sidebar activeFilter={view} onnavigate={handleNavigate} />
+  <div class="fixed lg:static inset-y-0 left-0 z-50 w-64 {sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'} flex-shrink-0 transform transition-all duration-300 lg:translate-x-0 {sidebarOpen ? 'translate-x-0' : '-translate-x-full invisible lg:visible'}">
+    <Sidebar activeFilter={view} onnavigate={handleNavigate} collapsed={sidebarCollapsed} oncollapsetoggle={toggleSidebarCollapsed} />
   </div>
 
   <div class="flex-1 flex flex-col min-w-0 h-full relative z-0">
@@ -78,7 +84,7 @@
       onopenfamily={() => showFamilyModal = true}
     />
 
-    <main class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 lg:p-6">
+    <main class="flex-1 min-h-0 {view === 'ai' ? 'flex flex-col overflow-hidden p-4 lg:p-6' : 'overflow-y-auto overflow-x-hidden custom-scrollbar p-4 lg:p-6'}">
       {#if view === 'dashboard'}
         <Dashboard />
       {:else if view === 'income'}
@@ -87,6 +93,8 @@
         <ExpenseView />
       {:else if view === 'account'}
         <AccountView />
+      {:else if view === 'ai'}
+        <AiChatPanel embedded />
       {/if}
     </main>
   </div>
@@ -140,7 +148,7 @@
 <!-- AI Chat FAB -->
 <button
   onclick={() => showAiChat = true}
-  class="fixed bottom-6 right-6 z-40 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-xl transition-all hover:scale-105 active:scale-95 cursor-pointer"
+  class="fixed bottom-6 right-6 z-40 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-xl transition-all hover:scale-105 active:scale-95 cursor-pointer lg:hidden"
   aria-label="Open AI chat"
 >
   <i class="ph-fill ph-chat-circle-dots text-2xl"></i>

@@ -100,8 +100,8 @@
   <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
     <div class="flex items-center justify-between p-5 border-b border-slate-200 shrink-0">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-          <i class="ph ph-camera text-indigo-600 text-xl"></i>
+        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+          <i class="ph ph-camera text-blue-600 text-xl"></i>
         </div>
         <h2 class="text-lg font-bold text-slate-800">Import Receipts</h2>
       </div>
@@ -150,7 +150,7 @@
                 </div>
               </div>
               <div class="flex gap-2 pt-1">
-                <button onclick={() => toggleEdit(idx)} class="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors">
+                <button onclick={() => toggleEdit(idx)} class="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
                   Done
                 </button>
                 <button onclick={() => removeItem(idx)} class="px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors">
@@ -183,7 +183,7 @@
                 </div>
               </div>
               <div class="flex gap-1 ml-3 shrink-0">
-                <button onclick={() => toggleEdit(idx)} class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit">
+                <button onclick={() => toggleEdit(idx)} class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
                   <i class="ph ph-pencil-simple-line text-lg"></i>
                 </button>
                 <button onclick={() => removeItem(idx)} class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete">

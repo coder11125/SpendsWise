@@ -46,7 +46,7 @@
           <span class="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full">{item.familyMember}</span>
         {/if}
         {#if item.recurrence && item.recurrence.isActive}
-          <span class="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+          <span class="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
             <i class="ph ph-repeat text-[10px]"></i>
             {frequencyLabels[item.recurrence.frequency] || item.recurrence.frequency}
           </span>

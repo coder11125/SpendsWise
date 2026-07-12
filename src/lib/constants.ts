@@ -10,9 +10,9 @@ export const currencies: string[] = [
 export const popularCurrencies: string[] = ["USD","EUR","GBP","JPY","CAD","AUD","CHF","CNY","INR","MXN","BRL","RUB"];
 
 export const chartColors: string[] = [
-  '#f43f5e', '#f97316', '#f59e0b', '#84cc16',
-  '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6',
-  '#d946ef', '#64748b'
+  '#007AFF', '#5E5CE6', '#30B0C7', '#34C759',
+  '#FF9F0A', '#8E8E93', '#BF5AF2', '#FF453A',
+  '#64D2FF', '#A2845E'
 ];
 
 export const categoryIcons: Record<string, string> = {

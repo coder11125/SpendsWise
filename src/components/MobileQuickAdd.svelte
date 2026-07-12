@@ -2,8 +2,11 @@
   import { onMount } from 'svelte';
   import { saveTransaction } from '../lib/api.js';
   import { addExpenseItem, getFamilyMembers, getCurrentCurrency } from '../lib/state.svelte.js';
+  import { getCurrencySymbol } from '../lib/currency.js';
 
   let { show, onclose } = $props();
+
+  const currencySymbol = $derived(getCurrencySymbol(getCurrentCurrency()));
 
   let type = $state('expense');
   let amount = $state(0);
@@ -27,6 +30,8 @@
       import('flatpickr').then((mod) => {
         fp = mod.default(dateInput, {
           dateFormat: 'Y-m-d',
+          altInput: true,
+          altFormat: 'd/m/Y',
           disableMobile: true,
           defaultDate: date || 'today',
         });
@@ -91,7 +96,7 @@
         <div>
           <label for="mqAmount" class="block text-sm font-medium text-slate-700 mb-1">Amount</label>
           <div class="relative">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">$</span>
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">{currencySymbol}</span>
             <input
               id="mqAmount"
               type="number"

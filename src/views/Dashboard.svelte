@@ -71,28 +71,11 @@
 
   <RecurringUpcoming />
 
-  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-    <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Add Transaction</h2>
-    <ExpenseForm onadd={handleAdd} />
-  </div>
+  <ExpenseForm onadd={handleAdd} />
 
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-      <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Expenses by Category</h2>
-      <PieChart {categoryData} total={categoryTotal} currency={getCurrentCurrency()} />
-    </div>
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Expense Trend</h2>
-        <div class="flex gap-1">
-          {#each [{v:'day',l:'Day'},{v:'week',l:'Week'},{v:'month',l:'Month'},{v:'all',l:'All'}] as r}
-            <button onclick={() => handleTrendChange(r.v)}
-              class="px-3 py-1 text-xs rounded-lg font-medium transition-colors {trendRange === r.v ? 'bg-rose-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}">{r.l}</button>
-          {/each}
-        </div>
-      </div>
-      <TrendChart points={trendPoints} total={trendTotal} average={trendAverage} periodLabel={trendPeriodLabel} currency={getCurrentCurrency()} />
-    </div>
+    <PieChart {categoryData} total={categoryTotal} currency={getCurrentCurrency()} />
+    <TrendChart points={trendPoints} total={trendTotal} average={trendAverage} periodLabel={trendPeriodLabel} currency={getCurrentCurrency()} range={trendRange} onRangeChange={handleTrendChange} />
   </div>
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">

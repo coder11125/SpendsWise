@@ -108,13 +108,13 @@
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2">
-        <i class="ph ph-repeat text-purple-600 text-lg"></i>
+        <i class="ph ph-repeat text-blue-600 text-lg"></i>
         <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Recurring Transactions</h2>
       </div>
       {#if activeRecurring.length > 0}
         <div class="text-right">
           <p class="text-xs text-slate-500 dark:text-slate-400">Est. Monthly</p>
-          <p class="text-sm font-semibold text-purple-600 dark:text-purple-400">
+          <p class="text-sm font-semibold text-blue-600 dark:text-blue-400">
             {getCurrencySymbol(getCurrentCurrency())}{totalMonthly.toFixed(2)}
           </p>
         </div>
@@ -124,15 +124,15 @@
     {#if activeRecurring.length > 0}
       <div class="space-y-2 mb-4">
         {#each activeRecurring as item (item.id)}
-          <div class="flex items-center justify-between py-2.5 px-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-800/30">
+          <div class="flex items-center justify-between py-2.5 px-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-100 dark:border-slate-700">
             <div class="flex items-center gap-3 min-w-0">
-              <div class="p-1.5 bg-purple-100 dark:bg-purple-800/40 rounded-md flex-shrink-0">
-                <i class="ph {frequencyIcons[item.recurrence?.frequency || 'monthly']} text-purple-600 dark:text-purple-400 text-sm"></i>
+              <div class="p-1.5 bg-blue-100 dark:bg-blue-900/40 rounded-md flex-shrink-0">
+                <i class="ph {frequencyIcons[item.recurrence?.frequency || 'monthly']} text-blue-600 dark:text-blue-400 text-sm"></i>
               </div>
               <div class="min-w-0">
                 <div class="flex items-center gap-2">
                   <span class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{item.category}</span>
-                  <span class="text-xs bg-purple-100 dark:bg-purple-800/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                  <span class="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full flex-shrink-0">
                     {frequencyLabels[item.recurrence?.frequency || 'monthly']}
                   </span>
                 </div>

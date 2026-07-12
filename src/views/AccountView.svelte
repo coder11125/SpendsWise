@@ -179,7 +179,7 @@
 <div class="w-full space-y-4">
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex items-center gap-4">
-      <div class="w-16 h-16 rounded-full bg-rose-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+      <div class="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
         {profile?.email ? profile.email[0].toUpperCase() : '?'}
       </div>
       <div class="min-w-0 flex-1 overflow-hidden">
@@ -243,7 +243,7 @@
         </div>
         <p class="text-slate-600 dark:text-slate-300">{importResult.message}</p>
         <button onclick={() => importResult = null}
-          class="mt-4 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition-colors text-sm">Close</button>
+          class="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm">Close</button>
       </div>
     </div>
   {/if}
@@ -255,7 +255,7 @@
         <p class="text-sm text-slate-500 dark:text-slate-400">Toggle dark theme</p>
       </div>
       <button aria-label="Toggle dark mode" onclick={toggleDark}
-        class="relative w-12 h-6 rounded-full transition-colors {isDark ? 'bg-rose-500' : 'bg-slate-300'}">
+        class="relative w-12 h-6 rounded-full transition-colors {isDark ? 'bg-blue-500' : 'bg-slate-300'}">
         <div class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform {isDark ? 'translate-x-6' : ''} flex items-center justify-center">
           <i class="ph {isDark ? 'ph-moon text-slate-800' : 'ph-sun text-yellow-500'} text-xs"></i>
         </div>
@@ -267,13 +267,13 @@
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Change Password</h3>
     <div class="space-y-3">
       <input type="password" placeholder="Current password" bind:value={currentPassword}
-        class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+        class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <input type="password" placeholder="New password" bind:value={newPassword}
-        class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+        class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <input type="password" placeholder="Confirm new password" bind:value={confirmPassword}
-        class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+        class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <button onclick={handleChangePassword}
-        class="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition-colors text-sm font-medium">Update Password</button>
+        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium">Update Password</button>
       {#if passwordMessage}
         <p class="text-sm text-emerald-600">{passwordMessage}</p>
       {/if}
@@ -287,12 +287,12 @@
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Budget Goals</h3>
     <div class="flex flex-col sm:flex-row gap-2 mb-4">
       <input type="text" placeholder="Category" bind:value={newGoalCategory}
-        class="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+        class="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <div class="flex gap-2">
         <input type="number" placeholder="Amount" bind:value={newGoalAmount}
-          class="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+          class="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         <button onclick={handleAddGoal}
-          class="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition-colors text-sm font-medium">Add</button>
+          class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium">Add</button>
       </div>
     </div>
     {#if goalMessage}
