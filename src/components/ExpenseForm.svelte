@@ -32,6 +32,7 @@
   let receiptProgress = $state('');
   let parsedReceipts = $state<any[]>([]);
   let showBulkModal = $state(false);
+  let ocrPro = $state(false);
 
   let categories = $derived(getAllCategories(type));
   let familyMembers = $derived(getFamilyMembers());
@@ -151,7 +152,7 @@
     );
     receiptProgress = `Processing ${dataUrls.length} receipt${dataUrls.length > 1 ? 's' : ''}...`;
     try {
-      const data = await parseReceiptsBulk(dataUrls);
+      const data = await parseReceiptsBulk(dataUrls, ocrPro);
       receiptProgress = '';
       const flat: any[] = [];
       const today = new Date().toISOString().split('T')[0];
@@ -320,6 +321,22 @@
         <i class="ph ph-camera"></i>
         <span>{receiptProcessing ? 'Importing...' : 'Import Receipts'}</span>
       </button>
+      <div class="flex gap-2 mt-2">
+        <label class="flex-1 flex flex-col gap-0.5 cursor-pointer border rounded-lg px-3 py-2 transition-colors {!ocrPro ? 'border-blue-300 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-200 dark:border-slate-600'}">
+          <span class="flex items-center gap-1.5">
+            <input type="radio" name="ocrMode" checked={!ocrPro} onchange={() => ocrPro = false} class="text-blue-600 focus:ring-blue-500" />
+            <span class="text-xs font-medium text-slate-700 dark:text-slate-200">Basic OCR</span>
+          </span>
+          <span class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">Good OCR capabilities at least amount of quota</span>
+        </label>
+        <label class="flex-1 flex flex-col gap-0.5 cursor-pointer border rounded-lg px-3 py-2 transition-colors {ocrPro ? 'border-blue-300 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-200 dark:border-slate-600'}">
+          <span class="flex items-center gap-1.5">
+            <input type="radio" name="ocrMode" checked={ocrPro} onchange={() => ocrPro = true} class="text-blue-600 focus:ring-blue-500" />
+            <span class="text-xs font-medium text-slate-700 dark:text-slate-200">OCR Pro <span class="text-slate-400 dark:text-slate-500 font-normal">(10 credits)</span></span>
+          </span>
+          <span class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">Extreme OCR capabilities. Use sparingly for messy, handwritten receipts in low light</span>
+        </label>
+      </div>
       <input bind:this={receiptInput} type="file" accept="image/*" multiple class="hidden" onchange={handleBulkReceiptUpload} />
       {#if receiptProgress}
         <div class="flex items-center gap-2 text-sm text-slate-500 mt-2">

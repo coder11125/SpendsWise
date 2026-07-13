@@ -351,13 +351,29 @@ router.post(
   "/parse-receipt",
   asyncHandler(async (req, res) => {
     const start = Date.now();
-    const { imageData } = req.body ?? {};
+    const { imageData, pro } = req.body ?? {};
     if (typeof imageData !== "string" || !imageData.startsWith("data:image/")) {
       return res.status(400).json({ error: "imageData must be a base64 data URL" });
     }
 
+    const isPro = pro === true;
+    const cost = isPro ? config.ocrProCost : 3;
+    const visionModel = isPro ? config.groqVisionProModel : config.groqVisionModel;
+
     const usage = await checkQuota(req.userId);
     if (rejectQuotaExceeded(res, usage, req, "/parse-receipt", start)) return;
+    if (usage.dailyRemaining < cost || usage.monthlyRemaining < cost) {
+      logAiEvent({
+        userId: req.userId, endpoint: "/parse-receipt", duration: Date.now() - start,
+        status: "rate_limited", error: "insufficient_quota", cost,
+        dailyRemaining: usage.dailyRemaining, monthlyRemaining: usage.monthlyRemaining,
+      });
+      return res.status(429).json({
+        error: `Not enough AI quota — ${isPro ? "OCR Pro" : "this"} needs ${cost} requests`,
+        dailyRemaining: usage.dailyRemaining,
+        monthlyRemaining: usage.monthlyRemaining,
+      });
+    }
 
     const visionKey = config.groqVisionApiKey || config.groqApiKey;
     if (!groqSlidingLimiter.allow(visionKey, 25)) {
@@ -384,7 +400,7 @@ router.post(
     try {
       const today = new Date().toISOString().substring(0, 10);
       const completion = await groqVisionClient().chat.completions.create({
-        model: config.groqVisionModel,
+        model: visionModel,
         messages: [
           {
             role: "user",
@@ -415,12 +431,12 @@ Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"202
         temperature: 0.1,
       });
 
-      const remaining = await incrementQuota(req.userId, 3);
+      const remaining = await incrementQuota(req.userId, cost);
 
       logAiEvent({
         userId: req.userId, endpoint: "/parse-receipt", duration: Date.now() - start,
         status: "success", dailyRemaining: remaining.dailyRemaining,
-        monthlyRemaining: remaining.monthlyRemaining, groqModel: config.groqVisionModel,
+        monthlyRemaining: remaining.monthlyRemaining, groqModel: visionModel, ocrPro: isPro,
         groqTokens: completion.usage?.total_tokens ?? null,
       });
 
@@ -453,7 +469,7 @@ router.post(
   "/parse-receipts-bulk",
   asyncHandler(async (req, res) => {
     const start = Date.now();
-    const { images } = req.body ?? {};
+    const { images, pro } = req.body ?? {};
     if (!Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ error: "images must be a non-empty array" });
     }
@@ -466,11 +482,15 @@ router.post(
       }
     }
 
+    const isPro = pro === true;
+    const perImageCost = isPro ? config.ocrProCost : 3;
+    const visionModel = isPro ? config.groqVisionProModel : config.groqVisionModel;
+
     const quota = await checkQuota(req.userId);
-    const needed = images.length * 3;
+    const needed = images.length * perImageCost;
     if (quota.dailyRemaining < needed || quota.monthlyRemaining < needed) {
       return res.status(429).json({
-        error: `Not enough AI quota — need ${needed} more requests`,
+        error: `Not enough AI quota — ${isPro ? "OCR Pro " : ""}need${isPro ? "s" : ""} ${needed} more requests`,
         dailyRemaining: quota.dailyRemaining,
         monthlyRemaining: quota.monthlyRemaining,
       });
@@ -491,7 +511,7 @@ router.post(
       }
       try {
         const completion = await groqVisionClient().chat.completions.create({
-          model: config.groqVisionModel,
+          model: visionModel,
           messages: [
             {
               role: "user",
@@ -553,12 +573,12 @@ If only a single total is visible, return one item with the total as amount and 
       }
     }
 
-    const remaining = await incrementQuota(req.userId, images.length * 3);
+    const remaining = await incrementQuota(req.userId, images.length * perImageCost);
 
     const successCount = results.filter((r) => !r.error).length;
     logAiEvent({
       userId: req.userId, endpoint: "/parse-receipts-bulk", duration: Date.now() - start,
-      status: "success", batchSize: images.length, successCount,
+      status: "success", batchSize: images.length, successCount, ocrPro: isPro, groqModel: visionModel,
       dailyRemaining: remaining.dailyRemaining,
       monthlyRemaining: remaining.monthlyRemaining,
     });

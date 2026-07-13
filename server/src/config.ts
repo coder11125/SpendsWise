@@ -42,6 +42,8 @@ export const config = {
   pusherCluster: process.env.PUSHER_CLUSTER ?? "ap1",
   groqModel: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
   groqVisionModel: process.env.GROQ_VISION_MODEL ?? "meta-llama/llama-4-scout-17b-16e-instruct",
+  groqVisionProModel: process.env.GROQ_VISION_PRO_MODEL ?? "qwen/qwen3.6-27b",
   aiDailyLimit: Number(process.env.AI_DAILY_LIMIT ?? 50),
   aiMonthlyLimit: Number(process.env.AI_MONTHLY_LIMIT ?? 500),
+  ocrProCost: Number(process.env.OCR_PRO_COST ?? 10),
 };

@@ -424,18 +424,18 @@ export async function updateRecurring(id: string, updates: { frequency?: string;
   }
 }
 
-export async function parseReceipt(imageData: string): Promise<any> {
+export async function parseReceipt(imageData: string, pro = false): Promise<any> {
   const res = await apiFetch('/ai/parse-receipt', {
     method: 'POST',
-    body: JSON.stringify({ imageData }),
+    body: JSON.stringify({ imageData, pro }),
   });
   return handleJsonResponse(res, 'AI request failed');
 }
 
-export async function parseReceiptsBulk(images: string[]): Promise<any> {
+export async function parseReceiptsBulk(images: string[], pro = false): Promise<any> {
   const res = await apiFetch('/ai/parse-receipts-bulk', {
     method: 'POST',
-    body: JSON.stringify({ images }),
+    body: JSON.stringify({ images, pro }),
   });
   return handleJsonResponse(res, 'AI request failed');
 }
