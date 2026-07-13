@@ -78,12 +78,14 @@
   </div>
 
   <div class="flex-1 flex flex-col min-w-0 h-full relative z-0">
-    <Header
-      ontogglemenu={() => sidebarOpen = !sidebarOpen}
-      onopencurrency={() => showCurrencyModal = true}
-      onopenfamily={() => showFamilyModal = true}
-      view={view}
-    />
+    {#if view !== 'ai'}
+      <Header
+        ontogglemenu={() => sidebarOpen = !sidebarOpen}
+        onopencurrency={() => showCurrencyModal = true}
+        onopenfamily={() => showFamilyModal = true}
+        view={view}
+      />
+    {/if}
 
     <main class="flex-1 min-h-0 {view === 'ai' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overflow-x-hidden custom-scrollbar p-4 lg:p-6'}">
       {#if view === 'dashboard'}
@@ -95,7 +97,7 @@
       {:else if view === 'account'}
         <AccountView />
       {:else if view === 'ai'}
-        <AiChatPanel embedded />
+        <AiChatPanel embedded ontogglemenu={() => sidebarOpen = !sidebarOpen} />
       {/if}
     </main>
   </div>

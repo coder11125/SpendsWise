@@ -2,7 +2,7 @@
   import { sendAiMessage, fetchAiQuota } from '../lib/api.js';
   import { getAiChats, getActiveAiChat, startNewAiChat, selectAiChat, setActiveAiChatMessages } from '../lib/state.svelte.js';
 
-  let { show = false, onclose, embedded = false } = $props();
+  let { show = false, onclose, embedded = false, ontogglemenu } = $props();
 
   let active = $derived(embedded || show);
 
@@ -103,6 +103,15 @@
 {#snippet panelContent()}
   <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
     <div class="flex items-center gap-2">
+      {#if embedded}
+        <button
+          onclick={() => ontogglemenu?.()}
+          class="lg:hidden p-2 -ml-2 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+          aria-label="Toggle sidebar"
+        >
+          <i class="ph ph-list text-xl"></i>
+        </button>
+      {/if}
       <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
         <i class="ph-fill ph-brain text-blue-600 dark:text-blue-400 text-sm"></i>
       </div>
