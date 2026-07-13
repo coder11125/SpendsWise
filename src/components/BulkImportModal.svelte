@@ -1,11 +1,9 @@
 <script lang="ts">
   import { saveTransaction } from '../lib/api.js';
-  import { getFamilyMembers } from '../lib/state.svelte.js';
+  import { getFamilyMembers, getAllCategories } from '../lib/state.svelte.js';
+  import CategorySelect from './CategorySelect.svelte';
 
   let { show, results, onclose, onsave } = $props();
-
-  const expenseCategories = ['Food & Dining', 'Housing', 'Transportation', 'Utilities', 'Entertainment', 'Healthcare', 'Shopping', 'Gifts', 'Other'];
-  const incomeCategories = ['Salary', 'Freelance', 'Investments', 'Gifts', 'Other'];
 
   interface Item {
     type: string;
@@ -34,13 +32,8 @@
 
   let saving = $state(false);
 
-  let categories = $derived.by(() => {
-    const list = items.map((i) => i.type === 'expense' ? expenseCategories : incomeCategories);
-    return list;
-  });
-
   function availableCategories(type: string): string[] {
-    return type === 'expense' ? expenseCategories : incomeCategories;
+    return getAllCategories(type);
   }
 
   function toggleEdit(idx: number) {
@@ -132,11 +125,11 @@
                 </div>
                 <div>
                   <label class="text-xs text-slate-500 mb-1 block">Category</label>
-                  <select bind:value={item.category} class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    {#each availableCategories(item.type) as cat}
-                      <option value={cat}>{cat}</option>
-                    {/each}
-                  </select>
+                  <CategorySelect
+                    type={item.type}
+                    bind:value={item.category}
+                    selectClass="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-3">

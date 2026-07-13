@@ -2,9 +2,10 @@
   import { onMount } from 'svelte';
   import flatpickr from 'flatpickr';
   import { saveTransaction, parseWithAI, parseReceiptsBulk } from '../lib/api.js';
-  import { getFamilyMembers } from '../lib/state.svelte.js';
+  import { getFamilyMembers, getAllCategories } from '../lib/state.svelte.js';
   import { compressImageToDataUrl } from '../lib/utils.js';
   import BulkImportModal from './BulkImportModal.svelte';
+  import CategorySelect from './CategorySelect.svelte';
 
   let { onadd } = $props();
 
@@ -32,10 +33,7 @@
   let parsedReceipts = $state<any[]>([]);
   let showBulkModal = $state(false);
 
-  const expenseCategories = ['Food & Dining', 'Housing', 'Transportation', 'Utilities', 'Entertainment', 'Healthcare', 'Shopping', 'Gifts', 'Other'];
-  const incomeCategories = ['Salary', 'Freelance', 'Investments', 'Gifts', 'Other'];
-
-  let categories = $derived(type === 'expense' ? expenseCategories : incomeCategories);
+  let categories = $derived(getAllCategories(type));
   let familyMembers = $derived(getFamilyMembers());
 
   $effect(() => {
@@ -224,11 +222,11 @@
 
     <div>
       <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
-      <select bind:value={category} class="input-field w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 text-sm focus:outline-none">
-        {#each categories as cat}
-          <option value={cat}>{cat}</option>
-        {/each}
-      </select>
+      <CategorySelect
+        type={type}
+        bind:value={category}
+        selectClass="input-field w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 text-sm focus:outline-none"
+      />
     </div>
 
     <div>

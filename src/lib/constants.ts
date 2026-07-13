@@ -15,6 +15,9 @@ export const chartColors: string[] = [
   '#64D2FF', '#A2845E'
 ];
 
+export const defaultExpenseCategories: string[] = ['Food & Dining', 'Housing', 'Transportation', 'Utilities', 'Entertainment', 'Healthcare', 'Shopping', 'Gifts', 'Other'];
+export const defaultIncomeCategories: string[] = ['Salary', 'Freelance', 'Investments', 'Gifts', 'Other'];
+
 export const categoryIcons: Record<string, string> = {
   'Food & Dining': 'ph-hamburger',
   'Housing': 'ph-house',

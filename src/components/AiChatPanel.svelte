@@ -1,12 +1,17 @@
 <script lang="ts">
   import { sendAiMessage, fetchAiQuota } from '../lib/api.js';
-  import { getAiChatHistory, setAiChatHistory } from '../lib/state.svelte.js';
+  import { getAiChats, getActiveAiChat, startNewAiChat, selectAiChat, setActiveAiChatMessages } from '../lib/state.svelte.js';
 
   let { show = false, onclose, embedded = false } = $props();
 
   let active = $derived(embedded || show);
 
-  let messages = $state([]);
+  let activeChat = $derived(getActiveAiChat());
+  let messages = $derived(activeChat.messages.length === 0
+    ? [{ role: 'assistant', content: 'New conversation started. What would you like to know about your finances?' }]
+    : activeChat.messages);
+  let recentChats = $derived(getAiChats());
+
   let input = $state('');
   let sending = $state(false);
   let dailyRemaining = $state(50);
@@ -14,6 +19,7 @@
   let cooldownUntil = $state(0);
   let cooldownTimer = $state(0);
   let cooldownInterval;
+  let showChatsMenu = $state(false);
 
   let messagesEl;
   let inputEl;
@@ -24,12 +30,6 @@
         dailyRemaining = q.dailyRemaining;
         monthlyRemaining = q.monthlyRemaining;
       }).catch(() => {});
-      const history = getAiChatHistory();
-      if (history.length === 0) {
-        messages = [{ role: 'assistant', content: 'New conversation started. What would you like to know about your finances?' }];
-      } else {
-        messages = [...history];
-      }
       setTimeout(() => inputEl?.focus(), 100);
     }
   });
@@ -41,8 +41,15 @@
   });
 
   function newChat() {
-    setAiChatHistory([]);
-    messages = [{ role: 'assistant', content: 'New conversation started. What would you like to know about your finances?' }];
+    startNewAiChat();
+    showChatsMenu = false;
+    setTimeout(() => inputEl?.focus(), 100);
+  }
+
+  function openChat(id) {
+    selectAiChat(id);
+    showChatsMenu = false;
+    setTimeout(() => inputEl?.focus(), 100);
   }
 
   async function send() {
@@ -50,21 +57,18 @@
     if (!text || sending || Date.now() < cooldownUntil) return;
     input = '';
     sending = true;
-    messages = [...messages, { role: 'user', content: text }];
-    const typingIdx = messages.length;
-    messages = [...messages, { role: 'assistant', content: '...' }];
+    const history = activeChat.messages;
+    const withUser = [...history, { role: 'user', content: text }];
+    setActiveAiChatMessages([...withUser, { role: 'assistant', content: '...' }]);
     try {
-      const history = getAiChatHistory();
       const res = await sendAiMessage(text, history);
       if (res.dailyRemaining !== undefined) dailyRemaining = res.dailyRemaining;
       if (res.monthlyRemaining !== undefined) monthlyRemaining = res.monthlyRemaining;
       const reply = res.reply || 'Sorry, I could not process that.';
-      const newHistory = [...history, { role: 'user', content: text }, { role: 'assistant', content: reply }];
-      setAiChatHistory(newHistory);
-      messages = [...messages.slice(0, typingIdx), { role: 'assistant', content: reply }];
+      setActiveAiChatMessages([...withUser, { role: 'assistant', content: reply }]);
     } catch (err) {
       const msg = err?.message || 'Network error. Please try again.';
-      messages = [...messages.slice(0, typingIdx), { role: 'assistant', content: msg }];
+      setActiveAiChatMessages([...withUser, { role: 'assistant', content: msg }]);
       if (err.status === 429 && err.retryAfter) {
         cooldownUntil = Date.now() + err.retryAfter * 1000;
         cooldownTimer = err.retryAfter;
@@ -107,10 +111,34 @@
         <p class="text-xs text-slate-500 dark:text-slate-400">Powered by AI</p>
       </div>
     </div>
-    <div class="flex items-center gap-1">
+    <div class="flex items-center gap-1 relative">
       <button onclick={newChat} class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1" title="New chat">
         <i class="ph ph-plus-circle text-lg"></i>
       </button>
+      <button
+        onclick={() => showChatsMenu = !showChatsMenu}
+        class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1"
+        title="Recent chats"
+      >
+        <i class="ph ph-clock-counter-clockwise text-lg"></i>
+      </button>
+      {#if showChatsMenu}
+        <div role="presentation" class="fixed inset-0 z-10" onclick={() => showChatsMenu = false}></div>
+        <div class="absolute right-0 top-full mt-1 w-64 max-h-80 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-20">
+          {#if recentChats.length === 0}
+            <p class="text-xs text-slate-400 dark:text-slate-500 px-3 py-3 text-center">No chats yet</p>
+          {:else}
+            {#each recentChats as chat}
+              <button
+                onclick={() => openChat(chat.id)}
+                class="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors truncate {chat.id === activeChat.id ? 'bg-slate-100 dark:bg-slate-700 font-medium' : ''}"
+              >
+                {chat.title}
+              </button>
+            {/each}
+          {/if}
+        </div>
+      {/if}
       {#if !embedded}
         <button onclick={() => onclose?.()} class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1">
           <i class="ph ph-x text-xl"></i>

@@ -1,4 +1,4 @@
-import { API_BASE, POLL_INTERVAL_MS } from './constants.js';
+import { API_BASE, POLL_INTERVAL_MS, defaultExpenseCategories, defaultIncomeCategories } from './constants.js';
 import type { Expense, CurrencyRates, CategoryData } from '../types.js';
 
 let _csrfToken = $state<string | null>(null);
@@ -15,11 +15,75 @@ let _currencyRates = $state<CurrencyRates>(JSON.parse(localStorage.getItem('sw_c
 let _lastRateFetch = $state<number>(parseInt(localStorage.getItem('sw_last_rate_fetch') || '0', 10));
 let _rateLimitHit = $state<boolean>(localStorage.getItem('sw_rate_limit_hit') === 'true');
 let _rateLimitHitTime = $state<number>(parseInt(localStorage.getItem('sw_rate_limit_hit_time') || '0', 10));
-let _aiChatHistory = $state<any[]>([]);
+export interface AiChatMessage { role: string; content: string }
+export interface AiChat { id: string; title: string; messages: AiChatMessage[]; updatedAt: number }
+
+function loadAiChats(): AiChat[] {
+  try {
+    return JSON.parse(localStorage.getItem('sw_ai_chats') || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function persistAiChats(): void {
+  try {
+    localStorage.setItem('sw_ai_chats', JSON.stringify(_aiChats));
+  } catch (e) {
+    console.warn('Could not save AI chats to localStorage:', e);
+  }
+}
+
+function makeDraftChat(): AiChat {
+  return { id: crypto.randomUUID(), title: 'New chat', messages: [], updatedAt: Date.now() };
+}
+
+let _aiChats = $state<AiChat[]>(loadAiChats());
+let _activeAiChat = $state<AiChat>(makeDraftChat());
+let _activeAiChatSaved = $state<boolean>(false);
 let _email = $state<string>(localStorage.getItem('sw_email') || '');
 let _expenseChartData = $state<CategoryData[]>([]);
 let _expenseChartTotal = $state<number>(0);
 let _rateFetchAttempts: Record<string, number> = {};
+
+function loadCustomCategories(): { expense: string[]; income: string[] } {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('sw_custom_categories') || '{}');
+    return {
+      expense: Array.isArray(parsed.expense) ? parsed.expense : [],
+      income: Array.isArray(parsed.income) ? parsed.income : [],
+    };
+  } catch {
+    return { expense: [], income: [] };
+  }
+}
+
+let _customCategories = $state<{ expense: string[]; income: string[] }>(loadCustomCategories());
+
+export function getCustomCategories(type: string): string[] {
+  return type === 'income' ? _customCategories.income : _customCategories.expense;
+}
+
+export function getAllCategories(type: string): string[] {
+  const defaults = type === 'income' ? defaultIncomeCategories : defaultExpenseCategories;
+  return [...defaults, ...getCustomCategories(type)];
+}
+
+export function addCustomCategory(type: string, name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '';
+  const existing = getAllCategories(type);
+  const match = existing.find(c => c.toLowerCase() === trimmed.toLowerCase());
+  if (match) return match;
+  const key = type === 'income' ? 'income' : 'expense';
+  _customCategories = { ..._customCategories, [key]: [..._customCategories[key], trimmed] };
+  try {
+    localStorage.setItem('sw_custom_categories', JSON.stringify(_customCategories));
+  } catch (e) {
+    console.warn('Could not save custom categories to localStorage:', e);
+  }
+  return trimmed;
+}
 
 let _currentView = $state<string>('dashboard');
 let _pollInterval: any = null;
@@ -81,8 +145,35 @@ export function setRateLimitHit(v: boolean) { _rateLimitHit = v; }
 export function getRateLimitHitTime() { return _rateLimitHitTime; }
 export function setRateLimitHitTime(v: number) { _rateLimitHitTime = v; }
 
-export function getAiChatHistory() { return _aiChatHistory; }
-export function setAiChatHistory(v: any[]) { _aiChatHistory = v; }
+export function getAiChats() { return _aiChats; }
+
+export function getActiveAiChat() { return _activeAiChat; }
+
+export function startNewAiChat(): void {
+  _activeAiChat = makeDraftChat();
+  _activeAiChatSaved = false;
+}
+
+export function selectAiChat(id: string): void {
+  const chat = _aiChats.find(c => c.id === id);
+  if (!chat) return;
+  _activeAiChat = chat;
+  _activeAiChatSaved = true;
+}
+
+export function setActiveAiChatMessages(messages: AiChatMessage[]): void {
+  _activeAiChat = { ..._activeAiChat, messages, updatedAt: Date.now() };
+  if (!_activeAiChatSaved) {
+    const firstUser = messages.find(m => m.role === 'user');
+    if (!firstUser) return;
+    _activeAiChat.title = firstUser.content.slice(0, 40) || 'New chat';
+    _aiChats = [_activeAiChat, ..._aiChats];
+    _activeAiChatSaved = true;
+  } else {
+    _aiChats = _aiChats.map(c => c.id === _activeAiChat.id ? _activeAiChat : c);
+  }
+  persistAiChats();
+}
 
 export function getEmail() { return _email; }
 export function setEmail(v: string) {

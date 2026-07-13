@@ -2,7 +2,7 @@
   import { getCurrentCurrency, getIsLoggedIn } from '../lib/state.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
 
-  let { ontogglemenu, onopencurrency, onopenfamily } = $props();
+  let { ontogglemenu, onopencurrency, onopenfamily, view = '' } = $props();
 
   let currentCurrency = $derived(getCurrentCurrency());
   let isLoggedIn = $derived(getIsLoggedIn());
@@ -22,7 +22,7 @@
   </div>
 
   <div class="flex items-center gap-2">
-    {#if isLoggedIn}
+    {#if isLoggedIn && view !== 'ai'}
       <button
         onclick={() => onopenfamily?.()}
         class="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"

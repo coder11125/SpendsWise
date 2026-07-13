@@ -3,6 +3,7 @@
   import { saveTransaction } from '../lib/api.js';
   import { addExpenseItem, getFamilyMembers, getCurrentCurrency } from '../lib/state.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
+  import CategorySelect from './CategorySelect.svelte';
 
   let { show, onclose } = $props();
 
@@ -20,9 +21,6 @@
   let dateInput = $state(null);
   let fp = $state(null);
 
-  const expenseCategories = ['Food & Dining', 'Housing', 'Transportation', 'Utilities', 'Entertainment', 'Healthcare', 'Shopping', 'Other'];
-  const incomeCategories = ['Salary', 'Freelance', 'Investments', 'Gifts', 'Other'];
-  const categories = $derived(type === 'income' ? incomeCategories : expenseCategories);
   const familyMembers = $derived(getFamilyMembers());
 
   $effect(() => {
@@ -111,16 +109,12 @@
 
         <div>
           <label for="mqCategory" class="block text-sm font-medium text-slate-700 mb-1">Category</label>
-          <select
+          <CategorySelect
             id="mqCategory"
+            type={type}
             bind:value={category}
-            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          >
-            <option value="" disabled>Select category</option>
-            {#each categories as cat}
-              <option value={cat}>{cat}</option>
-            {/each}
-          </select>
+            selectClass="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+          />
         </div>
 
         <div>

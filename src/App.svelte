@@ -82,6 +82,7 @@
       ontogglemenu={() => sidebarOpen = !sidebarOpen}
       onopencurrency={() => showCurrencyModal = true}
       onopenfamily={() => showFamilyModal = true}
+      view={view}
     />
 
     <main class="flex-1 min-h-0 {view === 'ai' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overflow-x-hidden custom-scrollbar p-4 lg:p-6'}">
