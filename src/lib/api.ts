@@ -392,14 +392,6 @@ export async function sendAiMessage(message: string, history: any[]): Promise<an
   return handleJsonResponse(res, 'AI request failed');
 }
 
-export async function parseWithAI(text: string): Promise<any> {
-  const res = await apiFetch('/ai/parse', {
-    method: 'POST',
-    body: JSON.stringify({ text }),
-  });
-  return handleJsonResponse(res, 'AI request failed');
-}
-
 export async function loadRecurringExpenses(): Promise<Expense[]> {
   try {
     const res = await apiFetch('/expenses/recurring');

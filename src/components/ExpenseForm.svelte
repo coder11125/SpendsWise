@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import flatpickr from 'flatpickr';
-  import { saveTransaction, parseWithAI, parseReceiptsBulk } from '../lib/api.js';
+  import { saveTransaction, parseReceiptsBulk } from '../lib/api.js';
   import { getFamilyMembers, getAllCategories } from '../lib/state.svelte.js';
   import { compressImageToDataUrl } from '../lib/utils.js';
   import BulkImportModal from './BulkImportModal.svelte';
@@ -26,8 +26,6 @@
   let recurrenceFrequency = $state('monthly');
   let recurrenceEndDate = $state('');
 
-  let aiText = $state('');
-  let aiProcessing = $state(false);
   let receiptProcessing = $state(false);
   let receiptProgress = $state('');
   let parsedReceipts = $state<any[]>([]);
@@ -117,29 +115,6 @@
       if (fpInstance) fpInstance.setDate(date);
       onadd?.(result);
     }
-  }
-
-  async function handleAiQuickAdd() {
-    if (!aiText.trim()) return;
-    aiProcessing = true;
-    try {
-      const data = await parseWithAI(aiText);
-      if (data) {
-        if (data.type) type = data.type;
-        if (data.amount != null) amount = String(data.amount);
-        if (data.category) category = data.category;
-        if (data.date) {
-          date = data.date;
-          if (fpInstance) fpInstance.setDate(date);
-        }
-        if (data.familyMember) familyMember = data.familyMember;
-        if (data.note) note = data.note;
-      }
-    } catch (err) {
-      console.error('AI parse failed:', err);
-    }
-    aiProcessing = false;
-    aiText = '';
   }
 
   async function handleBulkReceiptUpload(e) {
@@ -302,21 +277,10 @@
 
   <div class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
     <div class="flex items-center gap-2 mb-3">
-      <i class="ph ph-magic-wand text-blue-600"></i>
-      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">AI Quick Add</h3>
+      <i class="ph ph-lightning text-blue-600"></i>
+      <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Quick Add</h3>
     </div>
-    <div class="flex gap-2">
-      <input type="text" bind:value={aiText} placeholder="e.g. 'Lunch $15 yesterday'" class="input-field flex-1 px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 text-sm focus:outline-none" onkeydown={(e) => e.key === 'Enter' && handleAiQuickAdd()} />
-      <button onclick={handleAiQuickAdd} disabled={aiProcessing || !aiText.trim()} class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium rounded-lg transition-colors text-sm flex items-center gap-2 whitespace-nowrap cursor-pointer">
-        {#if aiProcessing}
-          <i class="ph ph-circle-notch animate-spin"></i>
-        {:else}
-          <i class="ph ph-lightning"></i>
-        {/if}
-        AI
-      </button>
-    </div>
-    <div class="mt-3">
+    <div>
       <button onclick={triggerReceiptUpload} disabled={receiptProcessing} class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer disabled:text-slate-300">
         <i class="ph ph-camera"></i>
         <span>{receiptProcessing ? 'Importing...' : 'Import Receipts'}</span>
