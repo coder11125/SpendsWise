@@ -124,7 +124,7 @@
                   <input type="number" step="0.01" bind:value={item.amount} placeholder="0.00" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label class="text-xs text-slate-500 mb-1 block">Category</label>
+                  <label class="text-xs text-slate-500 mb-1 block">Type</label>
                   <CategorySelect
                     type={item.type}
                     bind:value={item.category}
@@ -163,7 +163,7 @@
                   <span class="font-semibold text-slate-800">{item.amount}</span>
                 </div>
                 <div>
-                  <span class="text-xs text-slate-400 block">Category</span>
+                  <span class="text-xs text-slate-400 block">Type</span>
                   <span class="text-slate-700">{item.category}</span>
                 </div>
                 <div>

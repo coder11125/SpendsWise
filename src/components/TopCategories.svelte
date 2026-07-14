@@ -16,7 +16,7 @@
 <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 animate-fade-in">
   <div class="flex items-center gap-2 mb-4">
     <i class="ph ph-list-bullets text-blue-600"></i>
-    <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Top Categories</h2>
+    <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Top Types</h2>
   </div>
   <div class="space-y-3">
     {#each topCategories as cat, i}
@@ -40,7 +40,7 @@
       </div>
     {/each}
     {#if topCategories.length === 0}
-      <p class="text-slate-400 dark:text-slate-500 text-sm text-center py-4">No category data</p>
+      <p class="text-slate-400 dark:text-slate-500 text-sm text-center py-4">No type data</p>
     {/if}
   </div>
 </div>

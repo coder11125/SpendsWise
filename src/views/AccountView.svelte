@@ -286,7 +286,7 @@
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Budget Goals</h3>
     <div class="flex flex-col sm:flex-row gap-2 mb-4">
-      <input type="text" placeholder="Category" bind:value={newGoalCategory}
+      <input type="text" placeholder="Type" bind:value={newGoalCategory}
         class="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <div class="flex gap-2">
         <input type="number" placeholder="Amount" bind:value={newGoalAmount}

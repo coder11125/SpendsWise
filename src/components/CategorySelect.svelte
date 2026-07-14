@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getAllCategories, addCustomCategory } from '../lib/state.svelte.js';
+  import { getAllCategories, getCustomCategories, addCustomCategory, removeCustomCategory } from '../lib/state.svelte.js';
 
   let { type = 'expense', value = $bindable(''), selectClass = '', id = '' } = $props();
 
@@ -8,6 +8,14 @@
   let inputEl;
 
   let categories = $derived(getAllCategories(type));
+  let isCustomSelected = $derived(getCustomCategories(type).includes(value));
+
+  function deleteSelected() {
+    if (!isCustomSelected) return;
+    if (!confirm(`Delete category "${value}"?`)) return;
+    removeCustomCategory(type, value);
+    value = '';
+  }
 
   function handleChange(e) {
     const v = e.target.value;
@@ -59,13 +67,20 @@
     </button>
   </div>
 {:else}
-  <select {id} {value} onchange={handleChange} class={selectClass}>
-    {#if !value}
-      <option value="" disabled>Select category</option>
+  <div class="flex gap-2">
+    <select {id} {value} onchange={handleChange} class={selectClass}>
+      {#if !value}
+        <option value="" disabled>Select category</option>
+      {/if}
+      {#each categories as cat}
+        <option value={cat}>{cat}</option>
+      {/each}
+      <option value="__add__">+ Add new category…</option>
+    </select>
+    {#if isCustomSelected}
+      <button type="button" onclick={deleteSelected} title="Delete custom category" class="px-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm cursor-pointer">
+        <i class="ph ph-trash"></i>
+      </button>
     {/if}
-    {#each categories as cat}
-      <option value={cat}>{cat}</option>
-    {/each}
-    <option value="__add__">+ Add new category…</option>
-  </select>
+  </div>
 {/if}

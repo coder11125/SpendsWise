@@ -197,7 +197,7 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Type</label>
       <CategorySelect
         type={type}
         bind:value={category}

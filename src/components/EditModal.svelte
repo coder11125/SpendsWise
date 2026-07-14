@@ -152,7 +152,7 @@
         </div>
 
         <div>
-          <label for="editCategory" class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+          <label for="editCategory" class="block text-sm font-medium text-slate-700 mb-1">Type</label>
           <CategorySelect
             id="editCategory"
             type={type}

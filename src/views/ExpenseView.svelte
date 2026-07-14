@@ -127,14 +127,8 @@
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-      <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Expenses by Category</h2>
-      <PieChart {categoryData} total={categoryTotal} currency={getCurrentCurrency()} />
-    </div>
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-      <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Top Categories</h2>
-      <TopCategories {categoryData} total={categoryTotal} currency={getCurrentCurrency()} />
-    </div>
+    <PieChart {categoryData} total={categoryTotal} currency={getCurrentCurrency()} />
+    <TopCategories {categoryData} total={categoryTotal} currency={getCurrentCurrency()} />
   </div>
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">

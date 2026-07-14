@@ -108,7 +108,7 @@
         </div>
 
         <div>
-          <label for="mqCategory" class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+          <label for="mqCategory" class="block text-sm font-medium text-slate-700 mb-1">Type</label>
           <CategorySelect
             id="mqCategory"
             type={type}

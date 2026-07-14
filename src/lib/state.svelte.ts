@@ -85,6 +85,16 @@ export function addCustomCategory(type: string, name: string): string {
   return trimmed;
 }
 
+export function removeCustomCategory(type: string, name: string): void {
+  const key = type === 'income' ? 'income' : 'expense';
+  _customCategories = { ..._customCategories, [key]: _customCategories[key].filter(c => c !== name) };
+  try {
+    localStorage.setItem('sw_custom_categories', JSON.stringify(_customCategories));
+  } catch (e) {
+    console.warn('Could not save custom categories to localStorage:', e);
+  }
+}
+
 let _currentView = $state<string>('dashboard');
 let _pollInterval: any = null;
 let _pusher: any = null;
