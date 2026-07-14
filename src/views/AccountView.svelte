@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getExpense, getCurrentCurrency, setExpense, getBudgetGoals, setBudgetGoals } from '../lib/state.svelte.js';
+  import { getExpense, getCurrentCurrency, setExpense, getBudgetGoals, setBudgetGoals, getCustomCategories, removeCustomCategory } from '../lib/state.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
   import { changePassword, deleteAllExpenses, getProfile, uploadBulkExpenses, loadExpenses } from '../lib/api.js';
   import { calculateSummary } from '../lib/calculations.svelte.js';
@@ -159,6 +159,11 @@
     setBudgetGoals(goals);
   }
 
+  function handleDeleteCategory(type, name) {
+    if (!confirm(`Delete category "${name}"?`)) return;
+    removeCustomCategory(type, name);
+  }
+
   async function handleDeleteAll() {
     if (!confirm('Are you sure you want to permanently delete ALL expenses? This action cannot be undone.')) return;
     if (!confirm('This will remove every transaction from your account. Are you absolutely sure?')) return;
@@ -174,6 +179,8 @@
   }
 
   let goals = $derived(Object.entries(getBudgetGoals()));
+  let customExpenseCategories = $derived(getCustomCategories('expense'));
+  let customIncomeCategories = $derived(getCustomCategories('income'));
 </script>
 
 <div class="w-full space-y-4">
@@ -314,6 +321,50 @@
           </li>
         {/each}
       </ul>
+    {/if}
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+    <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Manage Categories</h3>
+    {#if customExpenseCategories.length === 0 && customIncomeCategories.length === 0}
+      <p class="text-sm text-slate-500 dark:text-slate-400">No custom categories yet. Add one from the category dropdown when adding a transaction.</p>
+    {:else}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Expense</p>
+          {#if customExpenseCategories.length === 0}
+            <p class="text-sm text-slate-400 dark:text-slate-500">None</p>
+          {:else}
+            <ul class="space-y-2">
+              {#each customExpenseCategories as cat}
+                <li class="flex items-center justify-between py-2 px-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                  <span class="font-medium text-slate-800 dark:text-slate-100">{cat}</span>
+                  <button aria-label="Delete category" onclick={() => handleDeleteCategory('expense', cat)} class="text-rose-500 hover:text-rose-700 transition-colors">
+                    <i class="ph ph-trash text-sm"></i>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+        <div>
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Income</p>
+          {#if customIncomeCategories.length === 0}
+            <p class="text-sm text-slate-400 dark:text-slate-500">None</p>
+          {:else}
+            <ul class="space-y-2">
+              {#each customIncomeCategories as cat}
+                <li class="flex items-center justify-between py-2 px-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                  <span class="font-medium text-slate-800 dark:text-slate-100">{cat}</span>
+                  <button aria-label="Delete category" onclick={() => handleDeleteCategory('income', cat)} class="text-rose-500 hover:text-rose-700 transition-colors">
+                    <i class="ph ph-trash text-sm"></i>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      </div>
     {/if}
   </div>
 
