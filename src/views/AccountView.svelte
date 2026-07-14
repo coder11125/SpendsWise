@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { getExpense, getCurrentCurrency, setExpense, getBudgetGoals, setBudgetGoals, getCustomCategories, removeCustomCategory } from '../lib/state.svelte.js';
+  import { getExpense, getCurrentCurrency, setExpense, getBudgetGoals, setBudgetGoals, getCustomCategories, removeCustomCategory, getHiddenCategories, hideCategory, unhideCategory } from '../lib/state.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
   import { changePassword, deleteAllExpenses, getProfile, uploadBulkExpenses, loadExpenses } from '../lib/api.js';
   import { calculateSummary } from '../lib/calculations.svelte.js';
+  import { defaultExpenseCategories, defaultIncomeCategories } from '../lib/constants.js';
 
   let profile = $state(null);
   let stats = $state({ income: 0, expenses: 0, balance: 0, expenseCount: 0, incomeCount: 0 });
@@ -164,6 +165,11 @@
     removeCustomCategory(type, name);
   }
 
+  function toggleHiddenCategory(type, name, hidden) {
+    if (hidden) unhideCategory(type, name);
+    else hideCategory(type, name);
+  }
+
   async function handleDeleteAll() {
     if (!confirm('Are you sure you want to permanently delete ALL expenses? This action cannot be undone.')) return;
     if (!confirm('This will remove every transaction from your account. Are you absolutely sure?')) return;
@@ -181,6 +187,8 @@
   let goals = $derived(Object.entries(getBudgetGoals()));
   let customExpenseCategories = $derived(getCustomCategories('expense'));
   let customIncomeCategories = $derived(getCustomCategories('income'));
+  let hiddenExpenseCategories = $derived(getHiddenCategories('expense'));
+  let hiddenIncomeCategories = $derived(getHiddenCategories('income'));
 </script>
 
 <div class="w-full space-y-4">
@@ -326,12 +334,25 @@
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Manage Categories</h3>
-    {#if customExpenseCategories.length === 0 && customIncomeCategories.length === 0}
-      <p class="text-sm text-slate-500 dark:text-slate-400">No custom categories yet. Add one from the category dropdown when adding a transaction.</p>
-    {:else}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <div class="space-y-4">
+        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Expense</p>
         <div>
-          <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Expense</p>
+          <p class="text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">Built-in</p>
+          <ul class="space-y-2">
+            {#each defaultExpenseCategories as cat}
+              {@const hidden = hiddenExpenseCategories.includes(cat)}
+              <li class="flex items-center justify-between py-2 px-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                <span class="font-medium {hidden ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-800 dark:text-slate-100'}">{cat}</span>
+                <button aria-label={hidden ? 'Show category' : 'Hide category'} onclick={() => toggleHiddenCategory('expense', cat, hidden)} class="text-slate-500 hover:text-blue-600 transition-colors">
+                  <i class="ph {hidden ? 'ph-eye-slash' : 'ph-eye'} text-sm"></i>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+        <div>
+          <p class="text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">Custom</p>
           {#if customExpenseCategories.length === 0}
             <p class="text-sm text-slate-400 dark:text-slate-500">None</p>
           {:else}
@@ -347,8 +368,25 @@
             </ul>
           {/if}
         </div>
+      </div>
+      <div class="space-y-4">
+        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Income</p>
         <div>
-          <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Income</p>
+          <p class="text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">Built-in</p>
+          <ul class="space-y-2">
+            {#each defaultIncomeCategories as cat}
+              {@const hidden = hiddenIncomeCategories.includes(cat)}
+              <li class="flex items-center justify-between py-2 px-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                <span class="font-medium {hidden ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-800 dark:text-slate-100'}">{cat}</span>
+                <button aria-label={hidden ? 'Show category' : 'Hide category'} onclick={() => toggleHiddenCategory('income', cat, hidden)} class="text-slate-500 hover:text-blue-600 transition-colors">
+                  <i class="ph {hidden ? 'ph-eye-slash' : 'ph-eye'} text-sm"></i>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+        <div>
+          <p class="text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">Custom</p>
           {#if customIncomeCategories.length === 0}
             <p class="text-sm text-slate-400 dark:text-slate-500">None</p>
           {:else}
@@ -365,7 +403,7 @@
           {/if}
         </div>
       </div>
-    {/if}
+    </div>
   </div>
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-red-200 dark:border-red-800 p-6">

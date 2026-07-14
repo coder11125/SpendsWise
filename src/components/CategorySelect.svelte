@@ -7,7 +7,10 @@
   let newCategory = $state('');
   let inputEl;
 
-  let categories = $derived(getAllCategories(type));
+  let categories = $derived.by(() => {
+    const cats = getAllCategories(type);
+    return value && !cats.includes(value) ? [value, ...cats] : cats;
+  });
   let isCustomSelected = $derived(getCustomCategories(type).includes(value));
 
   function deleteSelected() {

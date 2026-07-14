@@ -61,13 +61,54 @@ function loadCustomCategories(): { expense: string[]; income: string[] } {
 
 let _customCategories = $state<{ expense: string[]; income: string[] }>(loadCustomCategories());
 
+function loadHiddenCategories(): { expense: string[]; income: string[] } {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('sw_hidden_categories') || '{}');
+    return {
+      expense: Array.isArray(parsed.expense) ? parsed.expense : [],
+      income: Array.isArray(parsed.income) ? parsed.income : [],
+    };
+  } catch {
+    return { expense: [], income: [] };
+  }
+}
+
+let _hiddenCategories = $state<{ expense: string[]; income: string[] }>(loadHiddenCategories());
+
 export function getCustomCategories(type: string): string[] {
   return type === 'income' ? _customCategories.income : _customCategories.expense;
 }
 
+export function getHiddenCategories(type: string): string[] {
+  return type === 'income' ? _hiddenCategories.income : _hiddenCategories.expense;
+}
+
+export function hideCategory(type: string, name: string): void {
+  const key = type === 'income' ? 'income' : 'expense';
+  if (_hiddenCategories[key].includes(name)) return;
+  _hiddenCategories = { ..._hiddenCategories, [key]: [..._hiddenCategories[key], name] };
+  try {
+    localStorage.setItem('sw_hidden_categories', JSON.stringify(_hiddenCategories));
+  } catch (e) {
+    console.warn('Could not save hidden categories to localStorage:', e);
+  }
+}
+
+export function unhideCategory(type: string, name: string): void {
+  const key = type === 'income' ? 'income' : 'expense';
+  _hiddenCategories = { ..._hiddenCategories, [key]: _hiddenCategories[key].filter(c => c !== name) };
+  try {
+    localStorage.setItem('sw_hidden_categories', JSON.stringify(_hiddenCategories));
+  } catch (e) {
+    console.warn('Could not save hidden categories to localStorage:', e);
+  }
+}
+
 export function getAllCategories(type: string): string[] {
   const defaults = type === 'income' ? defaultIncomeCategories : defaultExpenseCategories;
-  return [...defaults, ...getCustomCategories(type)];
+  const hidden = getHiddenCategories(type);
+  const visibleDefaults = defaults.filter(c => !hidden.includes(c));
+  return [...visibleDefaults, ...getCustomCategories(type)];
 }
 
 export function addCustomCategory(type: string, name: string): string {
