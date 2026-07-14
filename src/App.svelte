@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { fetchCsrfToken, checkSession } from './lib/api.js';
-  import { getIsLoggedIn, getCurrentCurrency, initRouter, getCurrentView, navigate } from './lib/state.svelte.js';
+  import { getIsLoggedIn, getAuthChecking, setAuthChecking, getCurrentCurrency, initRouter, getCurrentView, navigate } from './lib/state.svelte.js';
   import { getCurrencySymbol } from './lib/currency.js';
   import Sidebar from './components/Sidebar.svelte';
   import Header from './components/Header.svelte';
@@ -61,13 +61,18 @@
 
   onMount(async () => {
     initRouter();
-    await fetchCsrfToken();
-    await checkSession();
+    await Promise.allSettled([fetchCsrfToken(), checkSession()]);
+    setAuthChecking(false);
   });
 
   let view = $derived(getCurrentView());
 </script>
 
+{#if getAuthChecking()}
+  <div class="h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+    <i class="ph ph-circle-notch animate-spin text-3xl text-blue-500"></i>
+  </div>
+{:else}
 <div class="h-screen flex overflow-hidden bg-slate-50 dark:bg-slate-900">
   {#if sidebarOpen}
     <div role="presentation" onclick={() => sidebarOpen = false} class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
@@ -102,6 +107,7 @@
     </main>
   </div>
 </div>
+{/if}
 
 <AuthModal />
 

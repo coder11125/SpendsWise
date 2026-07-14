@@ -1,6 +1,6 @@
 <script lang="ts">
   import { login, register, showApp } from '../lib/api.js';
-  import { getIsLoggedIn } from '../lib/state.svelte.js';
+  import { getIsLoggedIn, getAuthChecking } from '../lib/state.svelte.js';
 
   let tab = $state('login');
   let email = $state('');
@@ -27,7 +27,7 @@
   }
 </script>
 
-{#if !getIsLoggedIn()}
+{#if !getAuthChecking() && !getIsLoggedIn()}
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
       <div class="flex items-center justify-between mb-6">

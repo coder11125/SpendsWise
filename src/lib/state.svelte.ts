@@ -3,6 +3,7 @@ import type { Expense, CurrencyRates, CategoryData } from '../types.js';
 
 let _csrfToken = $state<string | null>(null);
 let _isLoggedIn = $state<boolean>(false);
+let _authChecking = $state<boolean>(true);
 let _userId = $state<string | null>(null);
 let _expense = $state<Expense[]>([]);
 let _currentCurrency = $state<string>(localStorage.getItem('sw_currency') || 'USD');
@@ -104,6 +105,9 @@ export function setCsrfToken(v: string | null) { _csrfToken = v; }
 
 export function getIsLoggedIn() { return _isLoggedIn; }
 export function setIsLoggedIn(v: boolean) { _isLoggedIn = v; }
+
+export function getAuthChecking() { return _authChecking; }
+export function setAuthChecking(v: boolean) { _authChecking = v; }
 
 export function getUserId() { return _userId; }
 export function setUserId(v: string | null) { _userId = v; }
