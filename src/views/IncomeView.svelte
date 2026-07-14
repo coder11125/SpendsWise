@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getExpense, getCurrentCurrency, removeExpenseItem } from '../lib/state.svelte.js';
+  import { getExpense, getCurrentCurrency, removeExpenseItem, confirmDialog } from '../lib/state.svelte.js';
   import { calculateIncomeSummary } from '../lib/calculations.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
   import { deleteExpenseOnServer } from '../lib/api.js';
@@ -74,8 +74,8 @@
     window.dispatchEvent(ev);
   }
 
-  function handleDelete(id) {
-    if (confirm('Delete this income entry?')) {
+  async function handleDelete(id) {
+    if (await confirmDialog('Delete this income entry?')) {
       deleteExpenseOnServer(id);
       removeExpenseItem(id);
     }

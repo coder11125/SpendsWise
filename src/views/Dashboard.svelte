@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getExpense, getCurrentCurrency, addExpenseItem, removeExpenseItem, getDashboardTrendRange, setDashboardTrendRange } from '../lib/state.svelte.js';
+  import { getExpense, getCurrentCurrency, addExpenseItem, removeExpenseItem, getDashboardTrendRange, setDashboardTrendRange, confirmDialog } from '../lib/state.svelte.js';
   import { calculateSummary, calculateExpenseByCategory } from '../lib/calculations.svelte.js';
   import { calculateExpenseTrendData } from '../lib/utils.js';
   import { saveTransaction, deleteExpenseOnServer } from '../lib/api.js';
@@ -55,8 +55,8 @@
     if (saved) addExpenseItem(saved);
   }
 
-  function handleDelete(id) {
-    if (confirm('Delete this item?')) {
+  async function handleDelete(id) {
+    if (await confirmDialog('Delete this item?')) {
       deleteExpenseOnServer(id);
       removeExpenseItem(id);
     }

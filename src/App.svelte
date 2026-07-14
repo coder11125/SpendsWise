@@ -10,6 +10,7 @@
   import ExpenseView from './views/ExpenseView.svelte';
   import AccountView from './views/AccountView.svelte';
   import AuthModal from './components/AuthModal.svelte';
+  import ConfirmModal from './components/ConfirmModal.svelte';
   import EditModal from './components/EditModal.svelte';
   import CurrencyModal from './components/CurrencyModal.svelte';
   import FamilyModal from './components/FamilyModal.svelte';
@@ -110,6 +111,7 @@
 {/if}
 
 <AuthModal />
+<ConfirmModal />
 
 {#if editingItem}
   <EditModal

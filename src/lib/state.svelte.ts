@@ -141,6 +141,17 @@ let _currentView = $state<string>('dashboard');
 let _pollInterval: any = null;
 let _pusher: any = null;
 
+export interface ConfirmRequest { message: string; resolve: (v: boolean) => void }
+let _confirmRequest = $state<ConfirmRequest | null>(null);
+
+export function getConfirmRequest() { return _confirmRequest; }
+
+export function confirmDialog(message: string): Promise<boolean> {
+  return new Promise(resolve => {
+    _confirmRequest = { message, resolve: (v: boolean) => { _confirmRequest = null; resolve(v); } };
+  });
+}
+
 export function getCsrfToken() { return _csrfToken; }
 export function setCsrfToken(v: string | null) { _csrfToken = v; }
 

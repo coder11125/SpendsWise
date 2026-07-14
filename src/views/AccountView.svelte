@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getExpense, getCurrentCurrency, setExpense, getBudgetGoals, setBudgetGoals, getCustomCategories, removeCustomCategory, getHiddenCategories, hideCategory, unhideCategory } from '../lib/state.svelte.js';
+  import { getExpense, getCurrentCurrency, setExpense, getBudgetGoals, setBudgetGoals, getCustomCategories, removeCustomCategory, getHiddenCategories, hideCategory, unhideCategory, confirmDialog } from '../lib/state.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
   import { changePassword, deleteAllExpenses, getProfile, uploadBulkExpenses, loadExpenses } from '../lib/api.js';
   import { calculateSummary } from '../lib/calculations.svelte.js';
@@ -160,8 +160,8 @@
     setBudgetGoals(goals);
   }
 
-  function handleDeleteCategory(type, name) {
-    if (!confirm(`Delete category "${name}"?`)) return;
+  async function handleDeleteCategory(type, name) {
+    if (!await confirmDialog(`Delete category "${name}"?`)) return;
     removeCustomCategory(type, name);
   }
 
@@ -171,8 +171,8 @@
   }
 
   async function handleDeleteAll() {
-    if (!confirm('Are you sure you want to permanently delete ALL expenses? This action cannot be undone.')) return;
-    if (!confirm('This will remove every transaction from your account. Are you absolutely sure?')) return;
+    if (!await confirmDialog('Are you sure you want to permanently delete ALL expenses? This action cannot be undone.')) return;
+    if (!await confirmDialog('This will remove every transaction from your account. Are you absolutely sure?')) return;
     isDeletingAll = true;
     try {
       await deleteAllExpenses();

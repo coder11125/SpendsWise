@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getAllCategories, getCustomCategories, addCustomCategory, removeCustomCategory } from '../lib/state.svelte.js';
+  import { getAllCategories, getCustomCategories, addCustomCategory, removeCustomCategory, confirmDialog } from '../lib/state.svelte.js';
 
   let { type = 'expense', value = $bindable(''), selectClass = '', id = '' } = $props();
 
@@ -13,9 +13,9 @@
   });
   let isCustomSelected = $derived(getCustomCategories(type).includes(value));
 
-  function deleteSelected() {
+  async function deleteSelected() {
     if (!isCustomSelected) return;
-    if (!confirm(`Delete category "${value}"?`)) return;
+    if (!await confirmDialog(`Delete category "${value}"?`)) return;
     removeCustomCategory(type, value);
     value = '';
   }

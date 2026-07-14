@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getExpense, getCurrentCurrency, removeExpenseItem, getExpenseTrendRange, setExpenseTrendRange } from '../lib/state.svelte.js';
+  import { getExpense, getCurrentCurrency, removeExpenseItem, getExpenseTrendRange, setExpenseTrendRange, confirmDialog } from '../lib/state.svelte.js';
   import { calculateExpenseSummary, calculateExpenseByCategory } from '../lib/calculations.svelte.js';
   import { calculateExpenseTrendData } from '../lib/utils.js';
   import { getCurrencySymbol } from '../lib/currency.js';
@@ -102,8 +102,8 @@
     window.dispatchEvent(ev);
   }
 
-  function handleDelete(id) {
-    if (confirm('Delete this expense?')) {
+  async function handleDelete(id) {
+    if (await confirmDialog('Delete this expense?')) {
       deleteExpenseOnServer(id);
       removeExpenseItem(id);
     }
