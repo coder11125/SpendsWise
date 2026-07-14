@@ -356,14 +356,14 @@ Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"202
         ],
         max_tokens: 200,
         temperature: 0.1,
+        // C5: qwen3.6-27b defaults to "thinking mode" and burns max_tokens on
+        // chain-of-thought before ever emitting the JSON, if left unset.
+        ...(isPro ? { reasoning_effort: "none" } : {}),
       });
-
-      const remaining = await incrementQuota(req.userId, cost);
 
       logAiEvent({
         userId: req.userId, endpoint: "/parse-receipt", duration: Date.now() - start,
-        status: "success", dailyRemaining: remaining.dailyRemaining,
-        monthlyRemaining: remaining.monthlyRemaining, groqModel: visionModel, ocrPro: isPro,
+        status: "success", groqModel: visionModel, ocrPro: isPro,
         groqTokens: completion.usage?.total_tokens ?? null,
       });
 
@@ -376,6 +376,9 @@ Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"202
         if (typeof parsed.amount !== "number" || parsed.amount <= 0) {
           return res.status(422).json({ error: "Could not find a valid amount on the receipt" });
         }
+        // C6: only spend quota once we actually have a usable result — a
+        // request that fails to extract data shouldn't cost the user quota.
+        const remaining = await incrementQuota(req.userId, cost);
         return res.json({ ...parsed, dailyRemaining: remaining.dailyRemaining, monthlyRemaining: remaining.monthlyRemaining });
       } catch {
         return res.status(422).json({ error: "Could not extract expense from this receipt" });
@@ -471,6 +474,7 @@ If only a single total is visible, return one item with the total as amount and 
           ],
           max_tokens: 800,
           temperature: 0.1,
+          ...(isPro ? { reasoning_effort: "none" } : {}),
         });
 
         const content = completion.choices[0]?.message?.content ?? "";
@@ -500,9 +504,9 @@ If only a single total is visible, return one item with the total as amount and 
       }
     }
 
-    const remaining = await incrementQuota(req.userId, images.length * perImageCost);
-
     const successCount = results.filter((r) => !r.error).length;
+    const remaining = await incrementQuota(req.userId, successCount * perImageCost);
+
     logAiEvent({
       userId: req.userId, endpoint: "/parse-receipts-bulk", duration: Date.now() - start,
       status: "success", batchSize: images.length, successCount, ocrPro: isPro, groqModel: visionModel,
