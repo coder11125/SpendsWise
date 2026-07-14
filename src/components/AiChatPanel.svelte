@@ -14,8 +14,7 @@
 
   let input = $state('');
   let sending = $state(false);
-  let dailyRemaining = $state(50);
-  let monthlyRemaining = $state(500);
+  let weeklyRemaining = $state(115);
   let cooldownUntil = $state(0);
   let cooldownTimer = $state(0);
   let cooldownInterval;
@@ -27,8 +26,7 @@
   $effect(() => {
     if (active) {
       fetchAiQuota().then(q => {
-        dailyRemaining = q.dailyRemaining;
-        monthlyRemaining = q.monthlyRemaining;
+        weeklyRemaining = q.weeklyRemaining;
       }).catch(() => {});
       setTimeout(() => inputEl?.focus(), 100);
     }
@@ -62,8 +60,7 @@
     setActiveAiChatMessages([...withUser, { role: 'assistant', content: '...' }]);
     try {
       const res = await sendAiMessage(text, history);
-      if (res.dailyRemaining !== undefined) dailyRemaining = res.dailyRemaining;
-      if (res.monthlyRemaining !== undefined) monthlyRemaining = res.monthlyRemaining;
+      if (res.weeklyRemaining !== undefined) weeklyRemaining = res.weeklyRemaining;
       const reply = res.reply || 'Sorry, I could not process that.';
       setActiveAiChatMessages([...withUser, { role: 'assistant', content: reply }]);
     } catch (err) {
@@ -175,8 +172,7 @@
 
   <div class="border-t border-slate-200 dark:border-slate-700 px-4 py-2">
     <div class="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 mb-2">
-      <span>Today: {dailyRemaining} left</span>
-      <span>Month: {monthlyRemaining} left</span>
+      <span>This week: {weeklyRemaining} left</span>
     </div>
     <div class="flex gap-2">
       <input

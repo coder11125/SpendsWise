@@ -53,70 +53,64 @@ function groqVisionClient() {
 
 async function checkQuota(userId: string | undefined): Promise<{
   allowed: boolean;
-  dailyRemaining: number;
-  monthlyRemaining: number;
+  weeklyRemaining: number;
 }> {
-  const now = new Date();
-  const todayStr = now.toISOString().substring(0, 10);
-  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-
   if (!userId) {
-    return { allowed: false, dailyRemaining: 0, monthlyRemaining: 0 };
+    return { allowed: false, weeklyRemaining: 0 };
   }
+
+  const weekStartKey = getWeekStartKey(new Date());
 
   const user = await UserModel.findById(userId).select("aiUsage").lean();
   const u = (user?.aiUsage ?? {}) as {
-    dailyCount?: number;
-    monthlyCount?: number;
-    dailyDate?: string;
-    monthlyDate?: string;
+    weeklyCount?: number;
+    weekStartDate?: string;
   };
 
-  const currentDaily = u.dailyDate === todayStr ? (u.dailyCount ?? 0) : 0;
-  const currentMonthly = u.monthlyDate === monthStr ? (u.monthlyCount ?? 0) : 0;
+  const currentWeekly = u.weekStartDate === weekStartKey ? (u.weeklyCount ?? 0) : 0;
 
   return {
-    allowed: currentDaily < config.aiDailyLimit && currentMonthly < config.aiMonthlyLimit,
-    dailyRemaining: Math.max(0, config.aiDailyLimit - currentDaily),
-    monthlyRemaining: Math.max(0, config.aiMonthlyLimit - currentMonthly),
+    allowed: currentWeekly < config.aiWeeklyLimit,
+    weeklyRemaining: Math.max(0, config.aiWeeklyLimit - currentWeekly),
   };
 }
 
+// C7: reset lands at the start of the Monday following the current date —
+// i.e. usage resets right after Sunday 11:59pm — using the server's local
+// clock/timezone rather than a hardcoded UTC offset.
+function getWeekStartKey(now: Date): string {
+  const day = now.getDay(); // 0 = Sunday .. 6 = Saturday
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+  const y = monday.getFullYear();
+  const m = String(monday.getMonth() + 1).padStart(2, "0");
+  const d = String(monday.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 async function incrementQuota(userId: string | undefined, count = 1): Promise<{
-  dailyRemaining: number;
-  monthlyRemaining: number;
+  weeklyRemaining: number;
 }> {
   if (!userId) {
-    return { dailyRemaining: 0, monthlyRemaining: 0 };
+    return { weeklyRemaining: 0 };
   }
 
-  const now = new Date();
-  const todayStr = now.toISOString().substring(0, 10);
-  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const weekStartKey = getWeekStartKey(new Date());
 
   const user = await UserModel.findById(userId).select("aiUsage").lean();
   const u = (user?.aiUsage ?? {}) as {
-    dailyCount?: number;
-    monthlyCount?: number;
-    dailyDate?: string;
-    monthlyDate?: string;
+    weeklyCount?: number;
+    weekStartDate?: string;
   };
 
   const update: Record<string, any> = { $inc: { "aiUsage.count": count } };
   const $set: Record<string, any> = {};
 
-  if (u.dailyDate === todayStr) {
-    update.$inc["aiUsage.dailyCount"] = count;
+  if (u.weekStartDate === weekStartKey) {
+    update.$inc["aiUsage.weeklyCount"] = count;
   } else {
-    $set["aiUsage.dailyDate"] = todayStr;
-    $set["aiUsage.dailyCount"] = count;
-  }
-
-  if (u.monthlyDate === monthStr) {
-    update.$inc["aiUsage.monthlyCount"] = count;
-  } else {
-    $set["aiUsage.monthlyDate"] = monthStr;
-    $set["aiUsage.monthlyCount"] = count;
+    $set["aiUsage.weekStartDate"] = weekStartKey;
+    $set["aiUsage.weeklyCount"] = count;
   }
 
   if (Object.keys($set).length) {
@@ -125,12 +119,10 @@ async function incrementQuota(userId: string | undefined, count = 1): Promise<{
 
   await UserModel.updateOne({ _id: userId }, update);
 
-  const newDaily = u.dailyDate === todayStr ? (u.dailyCount ?? 0) + count : count;
-  const newMonthly = u.monthlyDate === monthStr ? (u.monthlyCount ?? 0) + count : count;
+  const newWeekly = u.weekStartDate === weekStartKey ? (u.weeklyCount ?? 0) + count : count;
 
   return {
-    dailyRemaining: Math.max(0, config.aiDailyLimit - newDaily),
-    monthlyRemaining: Math.max(0, config.aiMonthlyLimit - newMonthly),
+    weeklyRemaining: Math.max(0, config.aiWeeklyLimit - newWeekly),
   };
 }
 
@@ -161,23 +153,18 @@ function rejectIfUnavailable(res: any, req: any, endpoint: string, start: number
 }
 
 function rejectQuotaExceeded(
-  res: any, usage: { allowed: boolean; dailyRemaining: number; monthlyRemaining: number },
+  res: any, usage: { allowed: boolean; weeklyRemaining: number },
   req: any, endpoint: string, start: number
 ): boolean {
   if (!usage.allowed) {
-    const isDaily = usage.dailyRemaining === 0;
     logAiEvent({
       userId: req.userId, endpoint, duration: Date.now() - start,
-      status: "rate_limited", error: isDaily ? "daily_quota" : "monthly_quota",
-      dailyRemaining: usage.dailyRemaining,
-      monthlyRemaining: usage.monthlyRemaining,
+      status: "rate_limited", error: "weekly_quota",
+      weeklyRemaining: usage.weeklyRemaining,
     });
     res.status(429).json({
-      error: isDaily
-        ? "Daily AI request limit reached. Try again tomorrow."
-        : "Monthly AI request limit reached. Try again next month.",
-      dailyRemaining: usage.dailyRemaining,
-      monthlyRemaining: usage.monthlyRemaining,
+      error: "Weekly AI request limit reached. Resets Monday.",
+      weeklyRemaining: usage.weeklyRemaining,
     });
     return true;
   }
@@ -189,8 +176,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const quota = await checkQuota(req.userId);
     res.json({
-      dailyRemaining: quota.dailyRemaining,
-      monthlyRemaining: quota.monthlyRemaining,
+      weeklyRemaining: quota.weeklyRemaining,
     });
   })
 );
@@ -252,15 +238,13 @@ Be concise, specific to the user's actual data, and actionable.`;
 
       logAiEvent({
         userId: req.userId, endpoint: "/chat", duration: Date.now() - start,
-        status: "success", dailyRemaining: remaining.dailyRemaining,
-        monthlyRemaining: remaining.monthlyRemaining, groqModel: config.groqModel,
+        status: "success", weeklyRemaining: remaining.weeklyRemaining, groqModel: config.groqModel,
         groqTokens: completion.usage?.total_tokens ?? null,
       });
 
       return res.json({
         reply: completion.choices[0]?.message?.content ?? "Sorry, I could not generate a response.",
-        dailyRemaining: remaining.dailyRemaining,
-        monthlyRemaining: remaining.monthlyRemaining,
+        weeklyRemaining: remaining.weeklyRemaining,
       });
     } catch (err) {
       logAiEvent({
@@ -289,16 +273,15 @@ router.post(
 
     const usage = await checkQuota(req.userId);
     if (rejectQuotaExceeded(res, usage, req, "/parse-receipt", start)) return;
-    if (usage.dailyRemaining < cost || usage.monthlyRemaining < cost) {
+    if (usage.weeklyRemaining < cost) {
       logAiEvent({
         userId: req.userId, endpoint: "/parse-receipt", duration: Date.now() - start,
         status: "rate_limited", error: "insufficient_quota", cost,
-        dailyRemaining: usage.dailyRemaining, monthlyRemaining: usage.monthlyRemaining,
+        weeklyRemaining: usage.weeklyRemaining,
       });
       return res.status(429).json({
         error: `Not enough AI quota — ${isPro ? "OCR Pro" : "this"} needs ${cost} requests`,
-        dailyRemaining: usage.dailyRemaining,
-        monthlyRemaining: usage.monthlyRemaining,
+        weeklyRemaining: usage.weeklyRemaining,
       });
     }
 
@@ -379,7 +362,7 @@ Example: {"type":"expense","amount":24.50,"category":"Food & Dining","date":"202
         // C6: only spend quota once we actually have a usable result — a
         // request that fails to extract data shouldn't cost the user quota.
         const remaining = await incrementQuota(req.userId, cost);
-        return res.json({ ...parsed, dailyRemaining: remaining.dailyRemaining, monthlyRemaining: remaining.monthlyRemaining });
+        return res.json({ ...parsed, weeklyRemaining: remaining.weeklyRemaining });
       } catch {
         return res.status(422).json({ error: "Could not extract expense from this receipt" });
       }
@@ -418,11 +401,10 @@ router.post(
 
     const quota = await checkQuota(req.userId);
     const needed = images.length * perImageCost;
-    if (quota.dailyRemaining < needed || quota.monthlyRemaining < needed) {
+    if (quota.weeklyRemaining < needed) {
       return res.status(429).json({
         error: `Not enough AI quota — ${isPro ? "OCR Pro " : ""}need${isPro ? "s" : ""} ${needed} more requests`,
-        dailyRemaining: quota.dailyRemaining,
-        monthlyRemaining: quota.monthlyRemaining,
+        weeklyRemaining: quota.weeklyRemaining,
       });
     }
 
@@ -510,14 +492,12 @@ If only a single total is visible, return one item with the total as amount and 
     logAiEvent({
       userId: req.userId, endpoint: "/parse-receipts-bulk", duration: Date.now() - start,
       status: "success", batchSize: images.length, successCount, ocrPro: isPro, groqModel: visionModel,
-      dailyRemaining: remaining.dailyRemaining,
-      monthlyRemaining: remaining.monthlyRemaining,
+      weeklyRemaining: remaining.weeklyRemaining,
     });
 
     return res.json({
       results,
-      dailyRemaining: remaining.dailyRemaining,
-      monthlyRemaining: remaining.monthlyRemaining,
+      weeklyRemaining: remaining.weeklyRemaining,
     });
   })
 );

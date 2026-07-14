@@ -15,12 +15,12 @@ const userSchema = new Schema(
     aiUsage: {
       type: {
         count: { type: Number, default: 0 },
-        dailyCount: { type: Number, default: 0 },
-        dailyDate: { type: String, default: "" },
-        monthlyCount: { type: Number, default: 0 },
-        monthlyDate: { type: String, default: "" },
+        weeklyCount: { type: Number, default: 0 },
+        // C7: date key (YYYY-MM-DD) of the Monday that starts the current
+        // usage week — the week rolls over once "now" lands on a later Monday.
+        weekStartDate: { type: String, default: "" },
       },
-      default: { count: 0, dailyCount: 0, dailyDate: "", monthlyCount: 0, monthlyDate: "" },
+      default: { count: 0, weeklyCount: 0, weekStartDate: "" },
     },
   },
   { timestamps: true }

@@ -379,7 +379,7 @@ export async function deleteAllExpenses(): Promise<void> {
   if (!res.ok) throw new Error('Server error');
 }
 
-export async function fetchAiQuota(): Promise<{ dailyRemaining: number; monthlyRemaining: number }> {
+export async function fetchAiQuota(): Promise<{ weeklyRemaining: number }> {
   const res = await apiFetch('/ai/quota');
   return handleJsonResponse(res, 'Failed to fetch AI quota');
 }
