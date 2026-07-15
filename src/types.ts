@@ -66,3 +66,23 @@ export interface TrendData {
   periodLabel: string;
   isEmpty?: boolean;
 }
+
+export interface WeeklySummaryCategory {
+  category: string;
+  amount: number;
+  count: number;
+}
+
+export interface WeeklySummary {
+  weekStartDate: string;
+  weekEndDate: string;
+  narrative: string;
+  stats: {
+    totalIncome: number;
+    totalExpense: number;
+    net: number;
+    transactionCount: number;
+    byCategory: WeeklySummaryCategory[];
+    previousWeekExpense: number | null;
+  };
+}

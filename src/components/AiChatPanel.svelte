@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { sendAiMessage, fetchAiQuota } from '../lib/api.js';
+  import { sendAiMessage, fetchAiQuota, loadExpenses } from '../lib/api.js';
   import { getAiChats, getActiveAiChat, startNewAiChat, selectAiChat, setActiveAiChatMessages } from '../lib/state.svelte.js';
 
   let { show = false, onclose, embedded = false, ontogglemenu } = $props();
@@ -63,6 +63,7 @@
       if (res.weeklyRemaining !== undefined) weeklyRemaining = res.weeklyRemaining;
       const reply = res.reply || 'Sorry, I could not process that.';
       setActiveAiChatMessages([...withUser, { role: 'assistant', content: reply }]);
+      if (res.dataChanged) loadExpenses();
     } catch (err) {
       const msg = err?.message || 'Network error. Please try again.';
       setActiveAiChatMessages([...withUser, { role: 'assistant', content: msg }]);

@@ -11,6 +11,7 @@ import expenseRoutes from "./routes/expenses.js";
 import familyMemberRoutes from "./routes/familyMembers.js";
 import aiRoutes from "./routes/ai.js";
 import currencyRoutes from "./routes/currency.js";
+import summaryRoutes from "./routes/summaries.js";
 import { config } from "./config.js";
 import { doubleCsrfProtection, invalidCsrfTokenError } from "./middleware/csrf.js";
 import { startRecurringScheduler } from "./lib/recurringScheduler.js";
@@ -120,6 +121,7 @@ app.use("/api/expenses", expenseLimiter, expenseRoutes);
 app.use("/api/family-members", expenseLimiter, familyMemberRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/currency", expenseLimiter, currencyRoutes);
+app.use("/api/summaries", expenseLimiter, summaryRoutes);
 
 // Start recurring transaction scheduler
 startRecurringScheduler();

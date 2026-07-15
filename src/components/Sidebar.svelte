@@ -11,6 +11,7 @@
     { filter: 'dashboard', icon: 'ph-chart-pie-slice', label: 'Dashboard' },
     { filter: 'income', icon: 'ph-trend-up', label: 'Income' },
     { filter: 'expense', icon: 'ph-trend-down', label: 'Expense' },
+    { filter: 'summaries', icon: 'ph-newspaper', label: 'Summaries' },
     { filter: 'ai', icon: 'ph-chat-circle-dots', label: 'AI Assistant' },
   ];
 

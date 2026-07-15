@@ -9,6 +9,7 @@
   import IncomeView from './views/IncomeView.svelte';
   import ExpenseView from './views/ExpenseView.svelte';
   import AccountView from './views/AccountView.svelte';
+  import SummariesView from './views/SummariesView.svelte';
   import AuthModal from './components/AuthModal.svelte';
   import ConfirmModal from './components/ConfirmModal.svelte';
   import EditModal from './components/EditModal.svelte';
@@ -102,6 +103,8 @@
         <ExpenseView />
       {:else if view === 'account'}
         <AccountView />
+      {:else if view === 'summaries'}
+        <SummariesView />
       {:else if view === 'ai'}
         <AiChatPanel embedded ontogglemenu={() => sidebarOpen = !sidebarOpen} />
       {/if}

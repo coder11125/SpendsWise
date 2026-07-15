@@ -12,6 +12,9 @@ const userSchema = new Schema(
     // C4: Incrementing this field invalidates all existing JWTs for this user.
     // Bump on password change so stolen tokens cannot be reused after a reset.
     tokenVersion: { type: Number, default: 0, required: true },
+    // IANA timezone (e.g. "Asia/Kolkata"), detected client-side. Used to figure
+    // out when "Sunday 11:59pm" actually is for this specific user.
+    timezone: { type: String, default: "" },
     aiUsage: {
       type: {
         count: { type: Number, default: 0 },

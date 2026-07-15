@@ -145,7 +145,27 @@ router.get(
       email: user.email,
       createdAt: user.createdAt,
       familyMembers: user.familyMembers ?? [],
+      timezone: user.timezone ?? "",
     });
+  })
+);
+
+router.put(
+  "/timezone",
+  authRequired,
+  asyncHandler(async (req, res) => {
+    const { timezone } = req.body ?? {};
+    if (typeof timezone !== "string" || !timezone.trim() || timezone.length > 64) {
+      return res.status(400).json({ error: "timezone is required" });
+    }
+    try {
+      // Intl throws RangeError for anything that isn't a real IANA zone name.
+      new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+    } catch {
+      return res.status(400).json({ error: "Invalid timezone" });
+    }
+    await UserModel.updateOne({ _id: req.userId }, { $set: { timezone } });
+    return res.json({ message: "Timezone updated" });
   })
 );
 

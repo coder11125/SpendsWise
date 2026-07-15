@@ -10,7 +10,7 @@ import {
   getRateLimitHitTime, setRateLimitHitTime,
   getRateFetchAttempts,
 } from './state.svelte.js';
-import type { Expense, Profile } from '../types.js';
+import type { Expense, Profile, WeeklySummary } from '../types.js';
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   return fetch(`${API_BASE}${path}`, {
@@ -134,6 +134,9 @@ export async function checkSession(): Promise<boolean> {
       initPusher(data.id);
       startPolling();
       loadExpenses();
+      if (data.timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone) {
+        syncTimezone();
+      }
       return true;
     }
   } catch {}
@@ -155,6 +158,7 @@ export function showApp(email: string, members: string[] | null = null, userId?:
   }
   loadExpenses();
   startPolling();
+  syncTimezone();
 }
 
 export async function saveTransaction({ type, amount, category, date, familyMember = '', note = '', recurrence }: Partial<Expense>): Promise<Expense | null> {
@@ -382,6 +386,24 @@ export async function deleteAllExpenses(): Promise<void> {
 export async function fetchAiQuota(): Promise<{ weeklyRemaining: number }> {
   const res = await apiFetch('/ai/quota');
   return handleJsonResponse(res, 'Failed to fetch AI quota');
+}
+
+export async function fetchSummaries(): Promise<{ summaries: WeeklySummary[] }> {
+  const res = await apiFetch('/summaries');
+  return handleJsonResponse(res, 'Failed to fetch summaries');
+}
+
+export async function syncTimezone(): Promise<void> {
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timezone) return;
+    await apiFetch('/auth/timezone', {
+      method: 'PUT',
+      body: JSON.stringify({ timezone }),
+    });
+  } catch {
+    // best-effort — a missing/stale timezone just falls back to UTC server-side
+  }
 }
 
 export async function sendAiMessage(message: string, history: any[]): Promise<any> {
