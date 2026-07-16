@@ -9,6 +9,7 @@ import {
   getRateLimitHit, setRateLimitHit,
   getRateLimitHitTime, setRateLimitHitTime,
   getRateFetchAttempts,
+  setRatesAreLive,
 } from './state.svelte.js';
 import type { Expense, Profile, WeeklySummary } from '../types.js';
 
@@ -333,9 +334,11 @@ export async function fetchCurrencyRates(baseCurrency: string = 'USD'): Promise<
     }
     const data = await res.json();
     setRateLimitHit(false);
+    setRatesAreLive(data.live !== false);
     return data.rates;
   } catch (err) {
     console.error('Currency rate fetch error:', err);
+    setRatesAreLive(false);
     return null;
   }
 }

@@ -16,6 +16,10 @@ let _currencyRates = $state<CurrencyRates>(JSON.parse(localStorage.getItem('sw_c
 let _lastRateFetch = $state<number>(parseInt(localStorage.getItem('sw_last_rate_fetch') || '0', 10));
 let _rateLimitHit = $state<boolean>(localStorage.getItem('sw_rate_limit_hit') === 'true');
 let _rateLimitHitTime = $state<number>(parseInt(localStorage.getItem('sw_rate_limit_hit_time') || '0', 10));
+// C12: whether the currently cached currency rates came from the real
+// exchangerate-api response vs. the server's 1:1 fallback. Starts true
+// (optimistic) so no warning flashes before the first rate fetch resolves.
+let _ratesAreLive = $state<boolean>(true);
 export interface AiChatMessage { role: string; content: string }
 export interface AiChat { id: string; title: string; messages: AiChatMessage[]; updatedAt: number }
 
@@ -210,6 +214,9 @@ export function setRateLimitHit(v: boolean) { _rateLimitHit = v; }
 
 export function getRateLimitHitTime() { return _rateLimitHitTime; }
 export function setRateLimitHitTime(v: number) { _rateLimitHitTime = v; }
+
+export function getRatesAreLive() { return _ratesAreLive; }
+export function setRatesAreLive(v: boolean) { _ratesAreLive = v; }
 
 export function getAiChats() { return _aiChats; }
 

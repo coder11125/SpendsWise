@@ -1,11 +1,12 @@
 <script lang="ts">
   import { currencies, popularCurrencies } from '../lib/constants.js';
-  import { getCurrentCurrency, setCurrentCurrency } from '../lib/state.svelte.js';
+  import { getCurrentCurrency, setCurrentCurrency, getRatesAreLive } from '../lib/state.svelte.js';
 
   let { onclose } = $props();
 
   let search = $state('');
   let current = $derived(getCurrentCurrency());
+  let ratesAreLive = $derived(getRatesAreLive());
   let filteredPopular = $derived(popularCurrencies.filter(c => c.toLowerCase().includes(search.toLowerCase())));
   let filteredAll = $derived(currencies.filter(c => c.toLowerCase().includes(search.toLowerCase())));
 
@@ -23,6 +24,13 @@
         <i class="ph ph-x text-xl"></i>
       </button>
     </div>
+
+    {#if !ratesAreLive}
+      <div class="flex items-start gap-2 mx-4 mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+        <i class="ph ph-warning-circle text-amber-500 text-sm mt-0.5 flex-shrink-0"></i>
+        <span>Live exchange rates are unavailable right now, so amounts won't be converted between currencies until they're back.</span>
+      </div>
+    {/if}
 
     <div class="p-4 border-b border-slate-200">
       <div class="relative">
