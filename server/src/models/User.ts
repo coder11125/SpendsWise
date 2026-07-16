@@ -5,10 +5,6 @@ const userSchema = new Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     googleId: { type: String, sparse: true, unique: true },
     passwordHash: { type: String },
-    familyMembers: {
-      type: [{ type: String, trim: true, maxlength: 64 }],
-      default: [],
-    },
     // C4: Incrementing this field invalidates all existing JWTs for this user.
     // Bump on password change so stolen tokens cannot be reused after a reset.
     tokenVersion: { type: Number, default: 0, required: true },

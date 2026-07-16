@@ -1,5 +1,8 @@
+import { Model } from "mongoose";
 import { ExpenseModel } from "../models/Expense.js";
-import { notifyDataChanged } from "./pusher.js";
+import { SpaceModel } from "../models/Space.js";
+import { getSpaceExpenseModel } from "./spaceDb.js";
+import { notifyDataChanged, notifySpaceDataChanged } from "./pusher.js";
 
 /**
  * Calculate the next due date based on frequency and current due date.
@@ -30,73 +33,94 @@ function calculateNextDueDate(
 }
 
 /**
- * Process all recurring transactions that are due.
- * For each due recurring template, creates a new expense entry
- * and advances the nextDueDate. Deactivates if endDate is reached.
+ * Process all recurring templates due in a single Model (personal ledger or
+ * one Hub's ledger), atomically claiming each one so concurrent instances
+ * don't double-generate. Returns the set of notify-keys (e.g. userId) whose
+ * templates actually fired, so the caller notifies only what changed.
+ */
+async function processRecurringForModel(
+  Model: Model<any>,
+  extraCreateFields: (template: any) => Record<string, unknown>,
+  getNotifyKey: (template: any) => string
+): Promise<Set<string>> {
+  const now = new Date();
+  const notifyKeys = new Set<string>();
+
+  while (true) {
+    const template: any = await Model.findOne({
+      "recurrence.isActive": true,
+      "recurrence.nextDueDate": { $lte: now },
+    }).lean();
+
+    if (!template) break;
+
+    const rec = template.recurrence;
+    if (!rec || !rec.isActive) break;
+
+    if (rec.endDate && new Date(rec.endDate) < now) {
+      await Model.findOneAndUpdate(
+        { _id: template._id, "recurrence.nextDueDate": rec.nextDueDate },
+        { $set: { "recurrence.isActive": false } }
+      );
+      continue;
+    }
+
+    const nextDue = calculateNextDueDate(new Date(rec.nextDueDate), rec.frequency);
+    const shouldDeactivate = !!(rec.endDate && nextDue > new Date(rec.endDate));
+
+    const claimed = await Model.findOneAndUpdate(
+      { _id: template._id, "recurrence.nextDueDate": rec.nextDueDate },
+      { $set: { "recurrence.nextDueDate": nextDue, "recurrence.isActive": !shouldDeactivate } },
+      { new: false }
+    );
+
+    if (!claimed) continue;
+
+    await Model.create({
+      ...extraCreateFields(template),
+      type: template.type,
+      amount: template.amount,
+      category: template.category,
+      currency: template.currency,
+      note: template.note || "",
+      date: new Date(rec.nextDueDate),
+      recurrence: undefined,
+    });
+
+    notifyKeys.add(getNotifyKey(template));
+  }
+
+  return notifyKeys;
+}
+
+/**
+ * Process all recurring transactions that are due, across the personal
+ * ledger and every Hub's separate database.
  */
 export async function processRecurringTransactions(): Promise<void> {
   try {
-    const now = new Date();
-    let processedCount = 0;
-    const notifiedUsers = new Set<string>();
-
-    // Process one template at a time using an atomic claim to prevent duplicate
-    // entries when multiple instances run concurrently (e.g. serverless warm starts).
-    // The claim works by advancing nextDueDate as part of the findOneAndUpdate filter:
-    // a second concurrent process will no longer match the same nextDueDate and skips it.
-    while (true) {
-      const template = await ExpenseModel.findOne({
-        "recurrence.isActive": true,
-        "recurrence.nextDueDate": { $lte: now },
-      }).lean();
-
-      if (!template) break;
-
-      const rec = template.recurrence;
-      if (!rec || !rec.isActive) break;
-
-      // Deactivate immediately if endDate has already passed
-      if (rec.endDate && new Date(rec.endDate) < now) {
-        await ExpenseModel.findOneAndUpdate(
-          { _id: template._id, "recurrence.nextDueDate": rec.nextDueDate },
-          { $set: { "recurrence.isActive": false } }
-        );
-        continue;
-      }
-
-      const nextDue = calculateNextDueDate(new Date(rec.nextDueDate), rec.frequency);
-      const shouldDeactivate = !!(rec.endDate && nextDue > new Date(rec.endDate));
-
-      // Atomically advance nextDueDate — if another process already did this,
-      // the filter won't match and claimed will be null (skip without duplicating).
-      const claimed = await ExpenseModel.findOneAndUpdate(
-        { _id: template._id, "recurrence.nextDueDate": rec.nextDueDate },
-        { $set: { "recurrence.nextDueDate": nextDue, "recurrence.isActive": !shouldDeactivate } },
-        { new: false }
-      );
-
-      if (!claimed) continue; // another instance already processed this template
-
-      await ExpenseModel.create({
-        userId: template.userId,
-        type: template.type,
-        amount: template.amount,
-        category: template.category,
-        currency: template.currency,
-        familyMember: template.familyMember || "",
-        note: template.note || "",
-        date: new Date(rec.nextDueDate),
-        recurrence: undefined,
-      });
-
-      notifiedUsers.add(String(template.userId));
-      processedCount++;
+    const affectedUsers = await processRecurringForModel(
+      ExpenseModel,
+      (template) => ({ userId: template.userId, familyMember: template.familyMember || "" }),
+      (template) => String(template.userId)
+    );
+    if (affectedUsers.size > 0) {
+      console.log(`[Recurring] Processed recurring transactions for ${affectedUsers.size} user(s)`);
+      for (const uid of affectedUsers) notifyDataChanged(uid);
     }
 
-    if (processedCount > 0) {
-      console.log(`[Recurring] Processed ${processedCount} recurring transaction(s)`);
-      for (const uid of notifiedUsers) {
-        notifyDataChanged(uid);
+    const spaces = await SpaceModel.find().select("_id").lean();
+    for (const space of spaces) {
+      const spaceId = String(space._id);
+      const spaceModel = getSpaceExpenseModel(spaceId);
+      const notified = await processRecurringForModel(
+        spaceModel,
+        (template) => ({ authorUserId: template.authorUserId }),
+        () => spaceId
+      );
+      if (notified.size > 0) {
+        console.log(`[Recurring] Processed recurring transaction(s) in Hub ${spaceId}`);
+        notifySpaceDataChanged(spaceId);
       }
     }
   } catch (err) {

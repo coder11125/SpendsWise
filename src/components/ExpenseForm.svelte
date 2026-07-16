@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import flatpickr from 'flatpickr';
-  import { saveTransaction, parseReceiptsBulk } from '../lib/api.js';
-  import { getFamilyMembers, getAllCategories } from '../lib/state.svelte.js';
+  import { saveTransaction, parseReceiptsBulk, switchSpace } from '../lib/api.js';
+  import { getAllCategories, getSpaces, getCurrentSpaceId } from '../lib/state.svelte.js';
   import { compressImageToDataUrl } from '../lib/utils.js';
   import BulkImportModal from './BulkImportModal.svelte';
   import CategorySelect from './CategorySelect.svelte';
@@ -13,7 +13,6 @@
   let amount = $state('');
   let category = $state('Food & Dining');
   let date = $state(new Date().toISOString().split('T')[0]);
-  let familyMember = $state('');
   let note = $state('');
   let submitting = $state(false);
   let fpInstance = $state(null);
@@ -33,13 +32,25 @@
   let ocrPro = $state(false);
 
   let categories = $derived(getAllCategories(type));
-  let familyMembers = $derived(getFamilyMembers());
+  let spaces = $derived(getSpaces());
+  let currentSpaceId = $derived(getCurrentSpaceId());
+  let switchingSpace = $state(false);
 
   $effect(() => {
     if (categories.length > 0 && !categories.includes(category)) {
       category = categories[0];
     }
   });
+
+  async function handleSpaceChange(e: Event) {
+    const value = (e.target as HTMLSelectElement).value;
+    switchingSpace = true;
+    try {
+      await switchSpace(value || null);
+    } finally {
+      switchingSpace = false;
+    }
+  }
 
   onMount(() => {
     if (dateInputEl) {
@@ -99,7 +110,6 @@
       amount: parseFloat(amount),
       category,
       date,
-      familyMember,
       note,
       recurrence,
     });
@@ -107,7 +117,6 @@
     if (result) {
       amount = '';
       note = '';
-      familyMember = '';
       date = new Date().toISOString().split('T')[0];
       isRecurring = false;
       recurrenceFrequency = 'monthly';
@@ -190,6 +199,23 @@
     </label>
   </div>
 
+  {#if spaces.length > 0}
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Space</label>
+      <select
+        value={currentSpaceId ?? ''}
+        onchange={handleSpaceChange}
+        disabled={switchingSpace}
+        class="input-field w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 text-sm focus:outline-none disabled:opacity-60"
+      >
+        <option value="">Personal</option>
+        {#each spaces as space}
+          <option value={space.id}>{space.name}</option>
+        {/each}
+      </select>
+    </div>
+  {/if}
+
   <div class="space-y-4">
     <div>
       <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Amount</label>
@@ -209,18 +235,6 @@
       <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Date</label>
       <input bind:this={dateInputEl} type="text" bind:value={date} class="input-field w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 text-sm focus:outline-none" />
     </div>
-
-    {#if familyMembers.length > 0}
-      <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Family Member</label>
-        <select bind:value={familyMember} class="input-field w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-100 text-sm focus:outline-none">
-          <option value="">None</option>
-          {#each familyMembers as member}
-            <option value={member.name || member}>{member.name || member}</option>
-          {/each}
-        </select>
-      </div>
-    {/if}
 
     <div>
       <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Note</label>

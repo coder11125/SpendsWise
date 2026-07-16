@@ -26,3 +26,13 @@ export async function notifyDataChanged(userId: string): Promise<void> {
     console.error("[PUSHER] Trigger failed:", err);
   }
 }
+
+export async function notifySpaceDataChanged(spaceId: string): Promise<void> {
+  const p = getClient();
+  if (!p) return;
+  try {
+    await p.trigger(`space-${spaceId}`, "data-changed", {});
+  } catch (err) {
+    console.error("[PUSHER] Space trigger failed:", err);
+  }
+}

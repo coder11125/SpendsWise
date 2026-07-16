@@ -1,7 +1,9 @@
 import { API_BASE, RATE_CACHE_DURATION, RATE_FETCH_COOLDOWN } from './constants.js';
 import {
   getCsrfToken, setCsrfToken, getIsLoggedIn,
-  setExpense, getFamilyMembers, setFamilyMembers,
+  setExpense, getCurrentSpaceId, setCurrentSpaceId, getCurrentSpace,
+  getSpaces, setSpaces, getPendingInvites, setPendingInvites,
+  subscribeSpaceChannel, unsubscribeSpaceChannel,
   setEmail, setUserId, setIsLoggedIn, startPolling, stopPolling, initPusher,
   getCurrentCurrency, setCurrentCurrency,
   getCurrencyRates, setCurrencyRates,
@@ -11,7 +13,7 @@ import {
   getRateFetchAttempts,
   setRatesAreLive,
 } from './state.svelte.js';
-import type { Expense, Profile, WeeklySummary } from '../types.js';
+import type { Expense, Profile, WeeklySummary, Space } from '../types.js';
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   return fetch(`${API_BASE}${path}`, {
@@ -25,7 +27,18 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   });
 }
 
+function expensesBasePath(): string {
+  const spaceId = getCurrentSpaceId();
+  return spaceId ? `/spaces/${spaceId}/expenses` : '/expenses';
+}
+
 export function mapServerExpense(exp: any): Expense {
+  const authorUserId = exp.authorUserId ? String(exp.authorUserId) : undefined;
+  let authorNickname: string | undefined;
+  if (authorUserId) {
+    const space = getCurrentSpace();
+    authorNickname = space?.members.find(m => m.userId === authorUserId)?.nickname;
+  }
   return {
     id: exp._id,
     type: exp.type as 'income' | 'expense',
@@ -36,6 +49,22 @@ export function mapServerExpense(exp: any): Expense {
     note: exp.note ?? '',
     currency: exp.currency ?? 'USD',
     recurrence: exp.recurrence ?? null,
+    authorUserId,
+    authorNickname,
+  };
+}
+
+function mapServerSpace(sp: any): Space {
+  return {
+    id: sp._id,
+    name: sp.name,
+    ownerId: String(sp.ownerId),
+    members: (sp.members ?? []).map((m: any) => ({
+      userId: String(m.userId),
+      nickname: m.nickname,
+      role: m.role,
+      status: m.status,
+    })),
   };
 }
 
@@ -54,7 +83,7 @@ export async function fetchCsrfToken(): Promise<void> {
 export async function loadExpenses(): Promise<void> {
   if (!getIsLoggedIn()) return;
   try {
-    const res = await apiFetch('/expenses');
+    const res = await apiFetch(expensesBasePath());
     if (!res.ok) return;
     const data = await res.json();
     setExpense(data.map(mapServerExpense));
@@ -66,7 +95,7 @@ export async function loadExpenses(): Promise<void> {
 async function handleJsonResponse(res: Response, fallbackError: string): Promise<any> {
   const contentType = res.headers.get('content-type');
   const isJson = contentType?.includes('application/json');
-  
+
   if (!res.ok) {
     if (isJson) {
       const data = await res.json();
@@ -79,7 +108,7 @@ async function handleJsonResponse(res: Response, fallbackError: string): Promise
     err.status = res.status;
     throw err;
   }
-  
+
   if (isJson) {
     return res.json();
   }
@@ -108,9 +137,13 @@ export async function register(email: string, password: string): Promise<any> {
 
 export async function logout(): Promise<void> {
   stopPolling();
+  unsubscribeSpaceChannel();
   setIsLoggedIn(false);
   setExpense([]);
   setEmail('');
+  setCurrentSpaceId(null);
+  setSpaces([]);
+  setPendingInvites([]);
   try {
     await fetch(`${API_BASE}/auth/logout`, {
       method: 'POST',
@@ -118,7 +151,6 @@ export async function logout(): Promise<void> {
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() ?? '' },
     });
   } catch {}
-  setFamilyMembers([]);
   sessionStorage.setItem('sw_logged_out', 'true');
 }
 
@@ -131,10 +163,11 @@ export async function checkSession(): Promise<boolean> {
       setIsLoggedIn(true);
       setEmail(data.email);
       setUserId(data.id);
-      setFamilyMembers(data.familyMembers);
       initPusher(data.id);
       startPolling();
       loadExpenses();
+      fetchSpaces();
+      fetchPendingInvites();
       if (data.timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone) {
         syncTimezone();
       }
@@ -144,7 +177,7 @@ export async function checkSession(): Promise<boolean> {
   return false;
 }
 
-export function showApp(email: string, members: string[] | null = null, userId?: string): void {
+export function showApp(email: string, userId?: string): void {
   sessionStorage.removeItem('sw_logged_out');
   setIsLoggedIn(true);
   setEmail(email);
@@ -152,20 +185,17 @@ export function showApp(email: string, members: string[] | null = null, userId?:
     setUserId(userId);
     initPusher(userId);
   }
-  if (Array.isArray(members)) {
-    setFamilyMembers(members);
-  } else {
-    loadFamilyMembers();
-  }
   loadExpenses();
+  fetchSpaces();
+  fetchPendingInvites();
   startPolling();
   syncTimezone();
 }
 
-export async function saveTransaction({ type, amount, category, date, familyMember = '', note = '', recurrence }: Partial<Expense>): Promise<Expense | null> {
+export async function saveTransaction({ type, amount, category, date, note = '', recurrence }: Partial<Expense>): Promise<Expense | null> {
   if (!type || amount === undefined || Number.isNaN(amount) || !category || !date) return null;
 
-  const body: Record<string, any> = { type, amount, category, date, familyMember, note, currency: getCurrentCurrency() };
+  const body: Record<string, any> = { type, amount, category, date, note, currency: getCurrentCurrency() };
   if (recurrence) {
     body.recurrence = {
       frequency: recurrence.frequency,
@@ -177,7 +207,7 @@ export async function saveTransaction({ type, amount, category, date, familyMemb
 
   if (getIsLoggedIn()) {
     try {
-      const res = await apiFetch('/expenses', {
+      const res = await apiFetch(expensesBasePath(), {
         method: 'POST',
         body: JSON.stringify(body),
       });
@@ -194,7 +224,7 @@ export async function saveTransaction({ type, amount, category, date, familyMemb
   }
 
   return {
-    id: String(Date.now()), type: type as 'income' | 'expense', amount, category, date, familyMember, note,
+    id: String(Date.now()), type: type as 'income' | 'expense', amount, category, date, note,
     currency: getCurrentCurrency(),
     recurrence: recurrence ?? null,
   };
@@ -203,7 +233,7 @@ export async function saveTransaction({ type, amount, category, date, familyMemb
 export async function deleteExpenseOnServer(id: string): Promise<boolean> {
   if (getIsLoggedIn()) {
     try {
-      const res = await apiFetch(`/expenses/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`${expensesBasePath()}/${id}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 404) {
         console.error('Failed to delete expense, status:', res.status);
         return false;
@@ -222,7 +252,6 @@ export async function updateExpenseOnServer(id: string, data: Partial<Expense>):
   if (data.amount !== undefined) body.amount = data.amount;
   if (data.category !== undefined) body.category = data.category;
   if (data.date !== undefined) body.date = data.date;
-  if (data.familyMember !== undefined) body.familyMember = data.familyMember;
   if (data.note !== undefined) body.note = data.note;
   if (data.currency !== undefined) body.currency = data.currency;
   if (data.recurrence !== undefined) {
@@ -238,7 +267,7 @@ export async function updateExpenseOnServer(id: string, data: Partial<Expense>):
     }
   }
   try {
-    const res = await apiFetch(`/expenses/${id}`, {
+    const res = await apiFetch(`${expensesBasePath()}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     });
@@ -249,60 +278,118 @@ export async function updateExpenseOnServer(id: string, data: Partial<Expense>):
   }
 }
 
-export async function loadFamilyMembers(): Promise<void> {
+export async function fetchSpaces(): Promise<void> {
   if (!getIsLoggedIn()) return;
   try {
-    const res = await apiFetch('/family-members');
+    const res = await apiFetch('/spaces');
     if (!res.ok) return;
     const data = await res.json();
-    setFamilyMembers(data.familyMembers);
+    setSpaces(data.map(mapServerSpace));
   } catch (err) {
-    console.error('Failed to load family members:', err);
+    console.error('Failed to load Hubs:', err);
   }
 }
 
-export async function addFamilyMemberOnServer(name: string): Promise<boolean> {
-  if (!getIsLoggedIn()) return false;
+export async function fetchPendingInvites(): Promise<void> {
+  if (!getIsLoggedIn()) return;
   try {
-    const res = await apiFetch('/family-members', {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error('Failed to save family member:', err.error ?? res.status);
-      return false;
-    }
+    const res = await apiFetch('/spaces/invites');
+    if (!res.ok) return;
     const data = await res.json();
-    setFamilyMembers(data.familyMembers);
-    return true;
+    setPendingInvites(data.map(mapServerSpace));
   } catch (err) {
-    console.error('Network error saving family member:', err);
-    return false;
+    console.error('Failed to load pending invites:', err);
   }
 }
 
-export async function removeFamilyMemberOnServer(name: string): Promise<boolean> {
-  if (getIsLoggedIn()) {
-    try {
-      const res = await apiFetch('/family-members', {
-        method: 'DELETE',
-        body: JSON.stringify({ name }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error('Failed to delete family member:', err.error ?? res.status);
-        return false;
-      }
-      const data = await res.json();
-      setFamilyMembers(data.familyMembers);
-      return true;
-    } catch (err) {
-      console.error('Network error deleting family member:', err);
-      return false;
-    }
+export async function createSpace(name: string): Promise<Space | null> {
+  try {
+    const res = await apiFetch('/spaces', { method: 'POST', body: JSON.stringify({ name }) });
+    const data = await handleJsonResponse(res, 'Failed to create Hub');
+    const space = mapServerSpace(data);
+    setSpaces([...getSpaces(), space]);
+    return space;
+  } catch (err) {
+    console.error('Failed to create Hub:', err);
+    throw err;
   }
-  return false;
+}
+
+export async function renameSpace(spaceId: string, name: string): Promise<Space> {
+  const res = await apiFetch(`/spaces/${spaceId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  });
+  const data = await handleJsonResponse(res, 'Failed to rename Hub');
+  const space = mapServerSpace(data);
+  setSpaces(getSpaces().map(s => s.id === space.id ? space : s));
+  return space;
+}
+
+export async function addSpaceMember(spaceId: string, email: string, nickname: string): Promise<Space> {
+  const res = await apiFetch(`/spaces/${spaceId}/members`, {
+    method: 'POST',
+    body: JSON.stringify({ email, nickname }),
+  });
+  const data = await handleJsonResponse(res, 'Failed to invite member');
+  const space = mapServerSpace(data);
+  setSpaces(getSpaces().map(s => s.id === space.id ? space : s));
+  return space;
+}
+
+export async function renameSpaceMember(spaceId: string, userId: string, nickname: string): Promise<Space> {
+  const res = await apiFetch(`/spaces/${spaceId}/members/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ nickname }),
+  });
+  const data = await handleJsonResponse(res, 'Failed to rename member');
+  const space = mapServerSpace(data);
+  setSpaces(getSpaces().map(s => s.id === space.id ? space : s));
+  return space;
+}
+
+export async function removeSpaceMember(spaceId: string, userId: string): Promise<void> {
+  const res = await apiFetch(`/spaces/${spaceId}/members/${userId}`, { method: 'DELETE' });
+  const data = await handleJsonResponse(res, 'Failed to remove member');
+  const space = mapServerSpace(data);
+  setSpaces(getSpaces().map(s => s.id === space.id ? space : s));
+}
+
+export async function leaveSpace(spaceId: string, userId: string): Promise<void> {
+  await removeSpaceMember(spaceId, userId);
+  setSpaces(getSpaces().filter(s => s.id !== spaceId));
+  if (getCurrentSpaceId() === spaceId) {
+    await switchSpace(null);
+  }
+}
+
+export async function respondToInvite(spaceId: string, accept: boolean): Promise<void> {
+  const res = await apiFetch(`/spaces/${spaceId}/invites/respond`, {
+    method: 'POST',
+    body: JSON.stringify({ accept }),
+  });
+  await handleJsonResponse(res, 'Failed to respond to invite');
+  setPendingInvites(getPendingInvites().filter(s => s.id !== spaceId));
+  if (accept) await fetchSpaces();
+}
+
+export async function deleteSpace(spaceId: string): Promise<void> {
+  const res = await apiFetch(`/spaces/${spaceId}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ confirm: true }),
+  });
+  await handleJsonResponse(res, 'Failed to delete Hub');
+  setSpaces(getSpaces().filter(s => s.id !== spaceId));
+  if (getCurrentSpaceId() === spaceId) {
+    await switchSpace(null);
+  }
+}
+
+export async function switchSpace(spaceId: string | null): Promise<void> {
+  setCurrentSpaceId(spaceId);
+  if (spaceId) subscribeSpaceChannel(spaceId);
+  else unsubscribeSpaceChannel();
+  await loadExpenses();
 }
 
 export async function fetchCurrencyRates(baseCurrency: string = 'USD'): Promise<any> {
@@ -419,7 +506,7 @@ export async function sendAiMessage(message: string, history: any[]): Promise<an
 
 export async function loadRecurringExpenses(): Promise<Expense[]> {
   try {
-    const res = await apiFetch('/expenses/recurring');
+    const res = await apiFetch(`${expensesBasePath()}/recurring`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.map(mapServerExpense);
@@ -430,7 +517,7 @@ export async function loadRecurringExpenses(): Promise<Expense[]> {
 
 export async function updateRecurring(id: string, updates: { frequency?: string; endDate?: string | null; isActive?: boolean; nextDueDate?: string }): Promise<Expense | null> {
   try {
-    const res = await apiFetch(`/expenses/${id}/recurring`, {
+    const res = await apiFetch(`${expensesBasePath()}/${id}/recurring`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });

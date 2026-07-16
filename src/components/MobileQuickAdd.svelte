@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { saveTransaction } from '../lib/api.js';
-  import { addExpenseItem, getFamilyMembers, getCurrentCurrency } from '../lib/state.svelte.js';
+  import { saveTransaction, switchSpace } from '../lib/api.js';
+  import { addExpenseItem, getCurrentCurrency, getSpaces, getCurrentSpaceId } from '../lib/state.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
   import CategorySelect from './CategorySelect.svelte';
 
@@ -13,7 +13,6 @@
   let amount = $state(0);
   let category = $state('');
   let date = $state(new Date().toISOString().split('T')[0]);
-  let familyMember = $state('');
   let note = $state('');
   let loading = $state(false);
   let error = $state('');
@@ -21,7 +20,19 @@
   let dateInput = $state(null);
   let fp = $state(null);
 
-  const familyMembers = $derived(getFamilyMembers());
+  let spaces = $derived(getSpaces());
+  let currentSpaceId = $derived(getCurrentSpaceId());
+  let switchingSpace = $state(false);
+
+  async function handleSpaceChange(e) {
+    const value = e.target.value;
+    switchingSpace = true;
+    try {
+      await switchSpace(value || null);
+    } finally {
+      switchingSpace = false;
+    }
+  }
 
   $effect(() => {
     if (dateInput && !fp) {
@@ -46,14 +57,13 @@
     }
     loading = true;
     try {
-      const entry = await saveTransaction({ type, amount, category, date, familyMember, note });
+      const entry = await saveTransaction({ type, amount, category, date, note });
       if (entry) {
         addExpenseItem(entry);
         type = 'expense';
         amount = 0;
         category = '';
         date = new Date().toISOString().split('T')[0];
-        familyMember = '';
         note = '';
         onclose?.();
       } else {
@@ -91,6 +101,24 @@
           </label>
         </div>
 
+        {#if spaces.length > 0}
+          <div>
+            <label for="mqSpace" class="block text-sm font-medium text-slate-700 mb-1">Space</label>
+            <select
+              id="mqSpace"
+              value={currentSpaceId ?? ''}
+              onchange={handleSpaceChange}
+              disabled={switchingSpace}
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:opacity-60"
+            >
+              <option value="">Personal</option>
+              {#each spaces as space}
+                <option value={space.id}>{space.name}</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
+
         <div>
           <label for="mqAmount" class="block text-sm font-medium text-slate-700 mb-1">Amount</label>
           <div class="relative">
@@ -125,20 +153,6 @@
             bind:value={date}
             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
           />
-        </div>
-
-        <div>
-          <label for="mqFamilyMember" class="block text-sm font-medium text-slate-700 mb-1">Family Member</label>
-          <select
-            id="mqFamilyMember"
-            bind:value={familyMember}
-            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          >
-            <option value="">None / Myself</option>
-            {#each familyMembers as member}
-              <option value={member}>{member}</option>
-            {/each}
-          </select>
         </div>
 
         <div>

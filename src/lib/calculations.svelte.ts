@@ -49,6 +49,21 @@ export async function calculateExpenseByCategory(expense: Expense[], currency: s
   return { data, total };
 }
 
+export async function calculateMemberBreakdown(expense: Expense[], currency: string): Promise<{ data: CategoryData[]; total: number }> {
+  const memberTotals: Record<string, number> = {};
+  for (const item of expense) {
+    const nickname = item.authorNickname;
+    if (!nickname) continue;
+    const converted = await convertToDisplayCurrency(item.amount, item.currency, currency);
+    memberTotals[nickname] = (memberTotals[nickname] || 0) + converted.amount;
+  }
+  const total = Object.values(memberTotals).reduce((sum, amt) => sum + amt, 0);
+  const data: CategoryData[] = Object.entries(memberTotals).map(([category, amount]) => ({
+    category, amount, percentage: total > 0 ? (amount / total) * 100 : 0
+  }));
+  return { data, total };
+}
+
 export async function getCurrentMonthExpenseByCategory(expense: Expense[], currency: string): Promise<Record<string, number>> {
   const now = new Date();
   const year = now.getFullYear();

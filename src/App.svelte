@@ -10,11 +10,12 @@
   import ExpenseView from './views/ExpenseView.svelte';
   import AccountView from './views/AccountView.svelte';
   import SummariesView from './views/SummariesView.svelte';
+  import SpacesView from './views/SpacesView.svelte';
   import AuthModal from './components/AuthModal.svelte';
   import ConfirmModal from './components/ConfirmModal.svelte';
   import EditModal from './components/EditModal.svelte';
   import CurrencyModal from './components/CurrencyModal.svelte';
-  import FamilyModal from './components/FamilyModal.svelte';
+  import InviteRespondModal from './components/InviteRespondModal.svelte';
   import ImportModal from './components/ImportModal.svelte';
   import DeleteAllModal from './components/DeleteAllModal.svelte';
   import MobileQuickAdd from './components/MobileQuickAdd.svelte';
@@ -24,17 +25,12 @@
   let sidebarCollapsed = $state(typeof localStorage !== 'undefined' && localStorage.getItem('sw_sidebar_collapsed') === 'true');
   let editingItem = $state(null);
   let showCurrencyModal = $state(false);
-  let showFamilyModal = $state(false);
   let showMobileQuickAdd = $state(false);
   let showAiChat = $state(false);
   let importResult = $state(null);
   let deleteAllModalOpen = $state(false);
 
   function handleNavigate(filter) {
-    if (filter === 'people') {
-      showFamilyModal = true;
-      return;
-    }
     navigate('/' + filter);
     sidebarOpen = false;
   }
@@ -89,7 +85,6 @@
       <Header
         ontogglemenu={() => sidebarOpen = !sidebarOpen}
         onopencurrency={() => showCurrencyModal = true}
-        onopenfamily={() => showFamilyModal = true}
         view={view}
       />
     {/if}
@@ -105,6 +100,8 @@
         <AccountView />
       {:else if view === 'summaries'}
         <SummariesView />
+      {:else if view === 'spaces'}
+        <SpacesView />
       {:else if view === 'ai'}
         <AiChatPanel embedded ontogglemenu={() => sidebarOpen = !sidebarOpen} />
       {/if}
@@ -128,9 +125,7 @@
   <CurrencyModal onclose={() => showCurrencyModal = false} />
 {/if}
 
-{#if showFamilyModal}
-  <FamilyModal onclose={() => showFamilyModal = false} />
-{/if}
+<InviteRespondModal />
 
 {#if importResult}
   <ImportModal result={importResult} onclose={() => importResult = null} />

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { saveTransaction } from '../lib/api.js';
-  import { getFamilyMembers, getAllCategories } from '../lib/state.svelte.js';
+  import { getAllCategories } from '../lib/state.svelte.js';
   import CategorySelect from './CategorySelect.svelte';
 
   let { show, results, onclose, onsave } = $props();

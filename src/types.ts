@@ -15,12 +15,27 @@ export interface Expense {
   note?: string;
   currency: string;
   recurrence?: Recurrence | null;
+  authorUserId?: string;
+  authorNickname?: string;
 }
 
 export interface Profile {
   email: string;
   createdAt?: string;
-  familyMembers: string[];
+}
+
+export interface SpaceMember {
+  userId: string;
+  nickname: string;
+  role: 'owner' | 'member';
+  status: 'pending' | 'active';
+}
+
+export interface Space {
+  id: string;
+  name: string;
+  ownerId: string;
+  members: SpaceMember[];
 }
 
 export interface CurrencyRates {

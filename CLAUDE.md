@@ -13,7 +13,7 @@ npm run preview       # preview production build locally
 
 ### Backend (`cd server` first)
 ```bash
-npm run dev           # ts-node-dev with auto-reload (development)
+npm run dev           # tsx watch with auto-reload (development)
 npm run build         # tsc → dist/
 npm start             # run compiled dist/index.js
 ```
@@ -33,22 +33,22 @@ Health check: `GET http://localhost:4000/health`
 - The frontend is a Svelte 5 SPA built with Vite. Entry point is `index.html` → `src/app.ts` → `src/App.svelte`.
 - State is managed with Svelte 5 runes (`$state`, `$derived`) in `src/lib/state.svelte.ts` — a shared reactive module.
 - All API calls go through `apiFetch()` in `src/lib/api.ts`, which automatically attaches credentials and CSRF header.
-- Shared types live in `src/types.ts` (Expense, Recurrence, Profile, CurrencyRates, Summary, CategoryData, TrendData, etc.).
+- Shared types live in `src/types.ts` (Expense, Recurrence, Profile, Space, SpaceMember, CurrencyRates, Summary, CategoryData, TrendData, etc.).
 - The backend lives in `server/src/` and compiles to `server/dist/`. On Vercel, `api/index.ts` is the serverless entry (re-exports the Express app); `server/src/index.ts` is the local dev entry.
 - Vite dev server proxies `/api` → `localhost:4000` automatically.
 
 ### Frontend architecture
 ```
 src/
-├── types.ts                    # Shared TypeScript interfaces (Expense, Recurrence, etc.)
+├── types.ts                    # Shared TypeScript interfaces (Expense, Recurrence, Space, etc.)
 ├── app.ts                      # Client entry point
 ├── App.svelte                  # Root component — router, modals, layout
 ├── app.css                     # Tailwind v4 via @import "tailwindcss"
 ├── lib/
-│   ├── state.svelte.ts         # Reactive state (runes-based getters/setters)
-│   ├── api.ts                  # API wrapper + all endpoint functions
+│   ├── state.svelte.ts         # Reactive state (runes-based getters/setters), incl. active Space context
+│   ├── api.ts                  # API wrapper + all endpoint functions (context-aware for Spaces)
 │   ├── currency.ts             # Currency formatting/conversion + live rate fetching
-│   ├── calculations.svelte.ts  # Async summary calculations (income, expense, category)
+│   ├── calculations.svelte.ts  # Async summary calculations (income, expense, category, member breakdown)
 │   ├── utils.ts                # Date helpers, trend data, image compression
 │   ├── charts.ts               # Canvas pie chart + trend chart renderers
 │   └── constants.ts            # Static data (currencies, colors, categoryIcons)
@@ -60,23 +60,26 @@ src/
 │   ├── CurrencyModal.svelte    # Currency selector with live rates
 │   ├── DeleteAllModal.svelte   # Confirm delete-all-transactions
 │   ├── EditModal.svelte        # Edit expense modal (flatpickr + recurrence toggle)
-│   ├── ExpenseForm.svelte      # Add transaction form (flatpickr, AI quick-add, receipt OCR, recurrence)
-│   ├── ExpenseItem.svelte      # Single expense/income row (recurrence badge, currency conversion)
-│   ├── FamilyModal.svelte      # Manage family members
-│   ├── Header.svelte           # Top bar — currency switcher, people button
+│   ├── ExpenseForm.svelte      # Add transaction form (flatpickr, Space selector, receipt OCR, recurrence)
+│   ├── ExpenseItem.svelte      # Single expense/income row (contributor pill, recurrence badge, currency conversion)
+│   ├── Header.svelte           # Top bar — Personal/Hub switcher, currency switcher
 │   ├── ImportModal.svelte      # Import result feedback modal
+│   ├── InviteRespondModal.svelte # Pending Hub-invite accept/decline popup, shown on app load
 │   ├── LoadingSpinner.svelte   # Loading indicator
-│   ├── MobileQuickAdd.svelte   # Quick-add FAB modal (mobile)
+│   ├── MemberBreakdown.svelte  # Per-Hub-member contribution chart (category-breakdown pattern)
+│   ├── MobileQuickAdd.svelte   # Quick-add FAB modal (mobile), incl. Space selector
 │   ├── PieChart.svelte         # Category pie chart
 │   ├── RecurringUpcoming.svelte # Dashboard card — active/paused recurring transactions
-│   ├── Sidebar.svelte          # Left navigation (Dashboard, Income, Expense, Account)
+│   ├── Sidebar.svelte          # Left navigation (Dashboard, Income, Expense, Spaces, Summaries, Account)
 │   ├── SummaryCards.svelte     # Income/expense/balance summary cards
 │   ├── TopCategories.svelte    # Top expense categories list
 │   └── TrendChart.svelte       # Expense trend line chart
 └── views/
-    ├── Dashboard.svelte        # Main dashboard (summary, form, charts, recurring, recent)
-    ├── IncomeView.svelte       # Income list with search/sort
-    ├── ExpenseView.svelte      # Expense list with search/sort, pie chart, trend
+    ├── Dashboard.svelte        # Main dashboard (summary, form, charts, recurring, recent, member breakdown)
+    ├── IncomeView.svelte       # Income list with search/sort, member breakdown
+    ├── ExpenseView.svelte      # Expense list with search/sort, pie chart, trend, member breakdown
+    ├── SpacesView.svelte       # Manage Hubs — create, rename, delete, invite, rename/remove members
+    ├── SummariesView.svelte    # Weekly AI-narrated summaries
     └── AccountView.svelte      # Profile, stats, import/export, dark mode, password, budget goals, danger zone
 ```
 
@@ -86,33 +89,41 @@ server/src/
 ├── app.ts                      # Express app setup — middleware, routes, recurring scheduler
 ├── index.ts                    # Local dev server entry (listens on PORT)
 ├── config.ts                   # Environment variable loading (MongoDB, JWT, CSRF, Groq, Pusher, Google)
-├── db.ts                       # MongoDB connection with reconnect logic
+├── db.ts                       # MongoDB connection with reconnect logic (main database)
 ├── lib/
-│   ├── pusher.ts               # Pusher real-time notifications (data-changed events)
-│   └── recurringScheduler.ts   # 60s interval scheduler — auto-generates recurring transactions
+│   ├── pusher.ts               # Pusher real-time notifications (per-user `user-{id}` and per-Hub `space-{id}` channels)
+│   ├── recurringScheduler.ts   # 60s interval scheduler — personal ledger + every Hub's ledger
+│   ├── spaceDb.ts              # Resolves each Hub's own MongoDB database/model via mongoose useDb()
+│   └── expenseHandlers.ts      # Shared CRUD route logic reused by both expenses.ts and spaceExpenses.ts
 ├── middleware/
 │   ├── auth.ts                 # JWT auth middleware (req.userId)
+│   ├── spaceScope.ts           # Verifies active Hub membership; attaches req.spaceExpenseModel / req.space
 │   ├── asyncHandler.ts         # Express async error wrapper
 │   ├── csrf.ts                 # CSRF double-submit cookie protection
 │   ├── groqRateLimiter.ts      # Burst, sliding window, and concurrency limiters for Groq
 │   └── passport.ts             # Passport local + Google OAuth strategies
 ├── models/
 │   ├── Expense.ts              # Mongoose schema — type, amount, category, date, currency, familyMember, note, recurrence
-│   └── User.ts                 # Mongoose schema — email, passwordHash, familyMembers, aiUsage, tokenVersion
+│   ├── User.ts                 # Mongoose schema — email, passwordHash, timezone, aiUsage, tokenVersion
+│   ├── Space.ts                # Hub metadata — name, ownerId, members[] (userId, nickname, role, status)
+│   ├── SpaceExpense.ts         # Schema compiled per-Hub against that Hub's own database (authorUserId instead of userId)
+│   └── Summary.ts              # Weekly AI-narrated summary, unique per (userId, weekStartDate)
 ├── routes/
-│   ├── auth.ts                 # POST /login, /register, /logout, GET /me, /csrf, PUT /password, Google OAuth
-│   ├── expenses.ts             # CRUD /expenses, GET /recurring, PUT /:id/recurring, POST /bulk, DELETE all
-│   ├── familyMembers.ts        # GET/POST/DELETE /family-members
-│   ├── ai.ts                   # POST /chat, /parse, /parse-receipt, /parse-receipts-bulk, GET /quota
-│   └── currency.ts             # GET /rates (proxies exchangerate-api)
+│   ├── auth.ts                 # POST /login, /register, /logout, GET /me, /csrf, PUT /password, /timezone, Google OAuth
+│   ├── expenses.ts             # CRUD /expenses, GET /recurring, PUT /:id/recurring, POST /bulk, DELETE all (personal ledger)
+│   ├── spaces.ts                # Hub CRUD, rename, delete, invite/respond, member rename/remove
+│   ├── spaceExpenses.ts        # Same CRUD/recurring shape as expenses.ts, mounted at /api/spaces/:spaceId/expenses
+│   ├── ai.ts                   # POST /chat, /parse-receipt, /parse-receipts-bulk, GET /quota
+│   ├── currency.ts             # GET /rates, GET /convert (proxies exchangerate-api)
+│   └── summaries.ts            # GET / — lazily generates + lists weekly AI summaries
 └── types/
     ├── express.d.ts            # Express Request augmentation (userId)
-    └── pusher.d.ts             # Pusher type declarations
+    └── pusher.d.ts              # Pusher type declarations
 ```
 
 ### Data model
 
-#### Expense (Mongoose)
+#### Expense (Mongoose, main database — personal ledger)
 ```
 {
   userId: ObjectId (ref: User, indexed),
@@ -120,7 +131,7 @@ server/src/
   amount: Number (0–1e12),
   category: String,
   currency: String (default "USD"),
-  familyMember: String,
+  familyMember: String,             // legacy free-text tag, superseded by Spaces — still readable/exportable
   note: String,
   date: Date,
   recurrence: {                    // null for non-recurring
@@ -133,43 +144,80 @@ server/src/
 }
 ```
 - Generated recurring entries are plain expenses (no `recurrence` field) — only the template has it.
-- The recurring scheduler (`server/src/lib/recurringScheduler.ts`) runs every 60s, creates entries from due templates, advances `nextDueDate`, and deactivates on `endDate`.
+- The recurring scheduler (`server/src/lib/recurringScheduler.ts`) runs every 60s, processes due templates in the personal ledger **and** every Hub's ledger, advances `nextDueDate`, and deactivates on `endDate`.
 
-#### User (Mongoose)
+#### User (Mongoose, main database)
 ```
 {
   email: String (unique, lowercase),
   passwordHash: String,
-  familyMembers: [String],
-  aiUsage: { dailyCount, monthlyCount, dailyDate, monthlyDate, count },
-  tokenVersion: Number,
   googleId: String (optional),
+  timezone: String,                // IANA zone, client-detected; used for weekly summary boundaries
+  aiUsage: { count, weeklyCount, weekStartDate },
+  tokenVersion: Number,
+  timestamps: true
+}
+```
+
+#### Space (Mongoose, main database — one document per Hub)
+```
+{
+  name: String,
+  ownerId: ObjectId (ref: User),
+  members: [{
+    userId: ObjectId (ref: User),
+    nickname: String,              // set at invite time; editable by the owner or the member themselves
+    role: "owner" | "member",
+    status: "pending" | "active",  // pending until the invitee accepts
+    invitedAt: Date,
+    joinedAt: Date | null
+  }],
+  timestamps: true
+}
+```
+- A global cap of 6 Hubs applies across the whole app (checked on create).
+- Only `active` members pass `spaceScope` and get access to that Hub's expense database.
+
+#### SpaceExpense (Mongoose, one schema compiled per Hub's own `space_<id>` database)
+Same shape as `Expense`, but `authorUserId` (the contributing member) in place of `userId`/`familyMember`. Resolved via `getSpaceExpenseModel(spaceId)` in `server/src/lib/spaceDb.ts`, which calls `mongoose.connection.useDb('space_<id>', { useCache: true })` — a genuinely separate MongoDB database sharing the same underlying connection pool. Deleting a Hub calls `.dropDatabase()` on that connection.
+
+#### Summary (Mongoose, main database — one per user per week)
+```
+{
+  userId: ObjectId,
+  weekStartDate: String,   // Monday, YYYY-MM-DD; unique per (userId, weekStartDate)
+  weekEndDate: String,
+  timezone: String,
+  narrative: String,       // Groq-generated recap, or a numeric fallback if Groq is unavailable/rate-limited
+  stats: { totalIncome, totalExpense, net, transactionCount, byCategory, previousWeekExpense },
   timestamps: true
 }
 ```
 
 ### State model
-`src/lib/state.svelte.ts` owns all reactive state using Svelte 5 runes. Views and components import getter/setter functions to read/write state. The `expense[]` array is the single source of truth. Budget goals persist to `localStorage` (`sw_budget_goals`). Currency preferences persist to `localStorage` too. AI chat history is held in memory per session.
+`src/lib/state.svelte.ts` owns all reactive state using Svelte 5 runes. Views and components import getter/setter functions to read/write state. The `expense[]` array is the single source of truth **for whatever context is currently active** (personal or a specific Hub). Budget goals persist to `localStorage` (`sw_budget_goals`). Currency preferences persist to `localStorage` too. AI chat history is held in memory per session.
 
 Key state:
-- `_expense` — all transactions (income + expense), synced from server via Pusher + polling
+- `_expense` — all transactions for the active context (personal or the current Hub), synced from server via Pusher + polling
 - `_currentCurrency` — active display currency (persisted to localStorage)
 - `_budgetGoals` — per-category spending limits (persisted to localStorage)
-- `_familyMembers` — household member names for per-transaction tagging
+- `_spaces` — Hubs the user is an active member of
+- `_currentSpaceId` — the active Hub, or `null` for Personal; switching calls `switchSpace()` in `api.ts`, which re-fetches `_expense` and re-subscribes the Hub's Pusher channel
+- `_pendingInvites` — Hubs where the user has a pending invite, checked on app load and shown via `InviteRespondModal`
 - `_aiChatHistory` — AI conversation messages (in-memory only)
-- `_currentView` — current route view (dashboard | income | expense | account)
+- `_currentView` — current route view (dashboard | income | expense | spaces | summaries | account)
 
 ### Auth & CSRF flow
 1. On mount, `App.svelte` calls `fetchCsrfToken()` → `GET /api/auth/csrf` → sets `sw_csrf` cookie + in-memory token.
 2. `checkSession()` verifies existing session via `GET /api/auth/me`.
 3. Login/register sets a signed JWT in an HttpOnly `sw_session` cookie (7-day expiry).
-4. Every `POST/PUT/DELETE` includes `x-csrf-token` via `apiFetch()`.
+4. Every `POST/PUT/PATCH/DELETE` includes `x-csrf-token` via `apiFetch()`.
 5. The JWT contains a `tokenVersion` field validated on every request.
 
 ### API endpoints
 
 | Method | Path | Description |
-|--------|------|-------------|
+|--------|------|--------------|
 | GET | `/health` | Health check |
 | POST | `/api/auth/register` | Register new account |
 | POST | `/api/auth/login` | Login (email/password) |
@@ -177,37 +225,48 @@ Key state:
 | GET | `/api/auth/me` | Get current user profile |
 | GET | `/api/auth/csrf` | Get CSRF token |
 | PUT | `/api/auth/password` | Change password |
-| GET | `/api/expenses` | List all expenses (sorted by date desc) |
-| POST | `/api/expenses` | Create expense (with optional `recurrence`) |
-| PUT | `/api/expenses/:id` | Update expense fields |
-| DELETE | `/api/expenses/:id` | Delete single expense |
-| DELETE | `/api/expenses` | Delete all expenses (requires `confirm: true`) |
-| GET | `/api/expenses/recurring` | List active recurring templates |
-| PUT | `/api/expenses/:id/recurring` | Update recurrence (frequency, endDate, isActive, nextDueDate) |
-| POST | `/api/expenses/bulk` | Bulk create from CSV rows (max 500) |
+| PUT | `/api/auth/timezone` | Update IANA timezone |
 | GET | `/api/auth/google` | Start Google OAuth flow |
 | GET | `/api/auth/google/callback` | Google OAuth callback |
-| GET | `/api/family-members` | List family members |
-| POST | `/api/family-members` | Add family member |
-| DELETE | `/api/family-members` | Remove family member |
+| GET | `/api/expenses` | List personal expenses (sorted by date desc) |
+| POST | `/api/expenses` | Create personal expense (with optional `recurrence`) |
+| PUT | `/api/expenses/:id` | Update personal expense fields |
+| DELETE | `/api/expenses/:id` | Delete single personal expense |
+| DELETE | `/api/expenses` | Delete all personal expenses (requires `confirm: true`) |
+| GET | `/api/expenses/recurring` | List active personal recurring templates |
+| PUT | `/api/expenses/:id/recurring` | Update personal recurrence (frequency, endDate, isActive, nextDueDate) |
+| POST | `/api/expenses/bulk` | Bulk create from CSV rows (max 500) |
+| GET | `/api/spaces` | List Hubs you're an active member of |
+| GET | `/api/spaces/invites` | List Hubs where you have a pending invite |
+| POST | `/api/spaces` | Create a Hub (`{ name }`; rejected once 6 exist app-wide) |
+| PATCH | `/api/spaces/:id` | Rename a Hub (owner only) |
+| DELETE | `/api/spaces/:id` | Delete a Hub and drop its database (owner only, `confirm: true`) |
+| POST | `/api/spaces/:id/members` | Invite an existing account by email (owner only, pending until accepted) |
+| PATCH | `/api/spaces/:id/members/:userId` | Rename a member's nickname (self or owner) |
+| DELETE | `/api/spaces/:id/members/:userId` | Remove a member, or leave the Hub |
+| POST | `/api/spaces/:id/invites/respond` | Accept or decline a pending invite (`{ accept }`) |
+| GET/POST/PUT/DELETE | `/api/spaces/:spaceId/expenses/...` | Same CRUD/recurring/bulk shape as `/api/expenses`, scoped to that Hub's own database |
 | GET | `/api/currency/rates?base=` | Get currency conversion rates |
-| GET | `/api/ai/quota` | Get AI usage quota (daily/monthly remaining) |
-| POST | `/api/ai/chat` | AI chat assistant |
-| POST | `/api/ai/parse-receipt` | AI receipt OCR (single) |
-| POST | `/api/ai/parse-receipts-bulk` | AI receipt OCR (batch, max 10) |
+| GET | `/api/currency/convert` | Convert a single amount between currencies |
+| GET | `/api/summaries` | Weekly AI-narrated summaries (generates the latest completed week's on first request) |
+| GET | `/api/ai/quota` | Get AI usage quota (weekly remaining) |
+| POST | `/api/ai/chat` | AI chat assistant (can add/edit/delete transactions via tool calls) |
+| POST | `/api/ai/parse-receipt` | AI receipt OCR (single, optional `pro` mode) |
+| POST | `/api/ai/parse-receipts-bulk` | AI receipt OCR (batch, max 10, optional `pro` mode) |
 
 ### Features summary
-- **Transactions**: Add/edit/delete income and expense entries with category, date, currency, family member, notes
-- **Recurring transactions**: Templates with daily/weekly/biweekly/monthly/yearly frequency, auto-generated by server scheduler
-- **Dashboard**: Summary cards, pie chart, trend chart, budget overview, recurring transactions, recent entries
-- **AI assistant**: Chat with your financial data, receipt OCR (single + bulk, with an optional higher-accuracy "OCR Pro" mode)
+- **Transactions**: Add/edit/delete income and expense entries with category, date, currency, notes
+- **Spaces (Hubs)**: Share a ledger with other accounts. Each Hub is a separate MongoDB database (`useDb()`), invited by email with owner-approval-free accept/decline, contributor nicknames shown on every row/export/chart, up to 6 Hubs app-wide. Replaces the old free-text "family member" tag
+- **Recurring transactions**: Templates with daily/weekly/biweekly/monthly/yearly frequency, auto-generated by server scheduler, for both the personal ledger and every Hub
+- **Dashboard**: Summary cards, pie chart, trend chart, budget overview, recurring transactions, recent entries, per-member breakdown when a Hub is active
+- **AI assistant**: Chat with your financial data (can act on it via tool calls), receipt OCR (single + bulk, with an optional higher-accuracy "OCR Pro" mode)
+- **Weekly summaries**: Lazily-generated, cached, AI-narrated recap of income/expenses/net/top categories per week
 - **Budget goals**: Per-category spending targets with progress tracking
 - **Multi-currency**: Live exchange rates, per-transaction currency, unified display currency
-- **Family members**: Tag transactions by household member
-- **Import/Export**: CSV import (with AI bulk receipt import), CSV export
+- **Import/Export**: CSV import (with AI bulk receipt import), CSV export (swaps in a `contributor` column when exporting a Hub)
 - **Dark mode**: System-aware toggle with localStorage persistence
-- **Real-time sync**: Pusher WebSocket events + 5-min polling fallback
-- **Mobile**: Responsive layout with FAB quick-add button
+- **Real-time sync**: Pusher WebSocket events (per-user and per-Hub channels) + 5-min polling fallback
+- **Mobile**: Responsive layout with FAB quick-add button, incl. Space selector
 
 ### Adding a new feature
 1. Add TypeScript interfaces in `src/types.ts` if needed.
@@ -218,14 +277,16 @@ Key state:
 6. If adding a new API route, create in `server/src/routes/` and register in `server/src/app.ts`.
 
 ### Key constraints
-- All expense queries on the server filter by `req.userId`.
+- All personal expense queries on the server filter by `req.userId`.
+- All Hub expense routes run behind `spaceScope`, which verifies an **active** membership record before attaching `req.spaceExpenseModel` — never scope a Hub by filtering the main database with a `spaceId` field, since the whole point is a physically separate database per Hub.
 - State-changing requests must have `Content-Type: application/json`.
 - The frontend uses DOM methods (`textContent`) for user-supplied data to prevent XSS.
 - Tailwind v4 is configured via `@import "tailwindcss"` in `src/app.css` — no config file needed.
 - Flatpickr is used for date inputs and loaded from npm (not CDN at build time).
-- Recurring templates are the expense document itself; generated instances are separate plain expenses (no `recurrence` field).
-- AI endpoints are rate-limited per user (burst + sliding window) and per API key (Groq concurrency slots).
+- Recurring templates are the expense document itself; generated instances are separate plain expenses (no `recurrence` field). This holds for both the personal ledger and Hub ledgers.
+- AI endpoints are rate-limited per user (burst + sliding window) and per API key (Groq concurrency slots), against a single weekly quota (`AI_WEEKLY_LIMIT`).
 - bcrypt cost factor is 12.
-- Bulk import is capped at 500 rows with per-row validation.
-- All `:id` expense route params are guarded with `ObjectId.isValid()` before DB access.
+- Bulk import is capped at 500 rows with per-row validation (personal ledger only).
+- All `:id` / `:userId` / `:spaceId` route params are guarded with `ObjectId.isValid()` before DB access.
 - `PUSHER_*` env vars enable real-time sync; omitting them falls back to 5-min polling only.
+- The Hub cap (`MAX_SPACES_GLOBAL` in `server/src/models/Space.ts`) is global across the whole app, not per user.

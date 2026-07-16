@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { getExpense, getCurrentCurrency, removeExpenseItem, getExpenseTrendRange, setExpenseTrendRange, confirmDialog } from '../lib/state.svelte.js';
-  import { calculateExpenseSummary, calculateExpenseByCategory } from '../lib/calculations.svelte.js';
+  import { getExpense, getCurrentCurrency, removeExpenseItem, getExpenseTrendRange, setExpenseTrendRange, getCurrentSpaceId, confirmDialog } from '../lib/state.svelte.js';
+  import { calculateExpenseSummary, calculateExpenseByCategory, calculateMemberBreakdown } from '../lib/calculations.svelte.js';
   import { calculateExpenseTrendData } from '../lib/utils.js';
   import { getCurrencySymbol } from '../lib/currency.js';
   import { deleteExpenseOnServer } from '../lib/api.js';
@@ -8,6 +8,7 @@
   import TopCategories from '../components/TopCategories.svelte';
   import TrendChart from '../components/TrendChart.svelte';
   import ExpenseItem from '../components/ExpenseItem.svelte';
+  import MemberBreakdown from '../components/MemberBreakdown.svelte';
 
   let summary = $state({ total: 0, count: 0, average: 0 });
   let categoryData = $state([]);
@@ -22,15 +23,19 @@
   let sortBy = $state('date');
   let sortDir = $state('desc');
   let trendRange = $state(getExpenseTrendRange());
+  let memberData = $state([]);
+  let memberTotal = $state(0);
+  let inSpace = $derived(!!getCurrentSpaceId());
 
   async function refresh() {
     const expense = getExpense();
     const currency = getCurrentCurrency();
     expenseItems = expense.filter(i => i.type === 'expense');
-    const [s, c, t] = await Promise.all([
+    const [s, c, t, m] = await Promise.all([
       calculateExpenseSummary(expense, currency),
       calculateExpenseByCategory(expense, currency),
-      calculateExpenseTrendData(expense, trendRange, currency)
+      calculateExpenseTrendData(expense, trendRange, currency),
+      calculateMemberBreakdown(expenseItems, currency)
     ]);
     summary = s;
     categoryData = c.data;
@@ -39,6 +44,8 @@
     trendTotal = t.total;
     trendAverage = t.average;
     trendPeriodLabel = t.periodLabel;
+    memberData = m.data;
+    memberTotal = m.total;
     applyFilters();
   }
 
@@ -50,7 +57,8 @@
       items = items.filter(i =>
         (i.category && i.category.toLowerCase().includes(q)) ||
         (i.note && i.note.toLowerCase().includes(q)) ||
-        (i.familyMember && i.familyMember.toLowerCase().includes(q))
+        (i.familyMember && i.familyMember.toLowerCase().includes(q)) ||
+        (i.authorNickname && i.authorNickname.toLowerCase().includes(q))
       );
     }
 
@@ -130,6 +138,10 @@
     <PieChart {categoryData} total={categoryTotal} currency={getCurrentCurrency()} />
     <TopCategories {categoryData} total={categoryTotal} currency={getCurrentCurrency()} />
   </div>
+
+  {#if inSpace}
+    <MemberBreakdown {memberData} total={memberTotal} currency={getCurrentCurrency()} />
+  {/if}
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex items-center justify-between mb-4">

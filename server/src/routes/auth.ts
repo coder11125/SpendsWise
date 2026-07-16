@@ -93,9 +93,9 @@ router.post(
 
     const passwordHash = await bcrypt.hash(password, 12);
     try {
-      const user = await UserModel.create({ email: normalizedEmail, passwordHash, familyMembers: [] });
+      const user = await UserModel.create({ email: normalizedEmail, passwordHash });
       const token = signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
-      return res.status(201).json({ token, user: { id: user._id, email: user.email, familyMembers: user.familyMembers ?? [] } });
+      return res.status(201).json({ token, user: { id: user._id, email: user.email } });
     } catch (err: any) {
       if (err.code === 11000) return res.status(409).json({ error: "Email already registered" });
       throw err;
@@ -120,7 +120,7 @@ router.post(
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
     const token = signAndSetCookie(res, user._id.toString(), user.tokenVersion ?? 0);
-    return res.json({ token, user: { id: user._id, email: user.email, familyMembers: user.familyMembers ?? [] } });
+    return res.json({ token, user: { id: user._id, email: user.email } });
   })
 );
 
@@ -144,7 +144,6 @@ router.get(
       id: user._id,
       email: user.email,
       createdAt: user.createdAt,
-      familyMembers: user.familyMembers ?? [],
       timezone: user.timezone ?? "",
     });
   })

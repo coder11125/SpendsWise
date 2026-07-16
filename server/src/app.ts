@@ -8,7 +8,8 @@ import passport from "./middleware/passport.js";
 import { getDB } from "./db.js";
 import authRoutes from "./routes/auth.js";
 import expenseRoutes from "./routes/expenses.js";
-import familyMemberRoutes from "./routes/familyMembers.js";
+import spaceRoutes from "./routes/spaces.js";
+import spaceExpenseRoutes from "./routes/spaceExpenses.js";
 import aiRoutes from "./routes/ai.js";
 import currencyRoutes from "./routes/currency.js";
 import summaryRoutes from "./routes/summaries.js";
@@ -118,7 +119,8 @@ app.use((req, res, next) => {
 
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/expenses", expenseLimiter, expenseRoutes);
-app.use("/api/family-members", expenseLimiter, familyMemberRoutes);
+app.use("/api/spaces/:spaceId/expenses", expenseLimiter, spaceExpenseRoutes);
+app.use("/api/spaces", expenseLimiter, spaceRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/currency", expenseLimiter, currencyRoutes);
 app.use("/api/summaries", expenseLimiter, summaryRoutes);

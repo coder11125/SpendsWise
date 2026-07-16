@@ -42,7 +42,9 @@
         {#if options.showTypeBadge}
           <span class="text-xs {item.type === 'income' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400'} px-1.5 py-0.5 rounded-full">{item.type}</span>
         {/if}
-        {#if item.familyMember}
+        {#if item.authorNickname}
+          <span class="text-xs bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded-full">{item.authorNickname}</span>
+        {:else if item.familyMember}
           <span class="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full">{item.familyMember}</span>
         {/if}
         {#if item.recurrence && item.recurrence.isActive}

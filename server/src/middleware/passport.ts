@@ -37,7 +37,7 @@ if (config.googleClientId && config.googleClientSecret) {
               await byEmail.save();
               user = byEmail;
             } else {
-              user = await UserModel.create({ email, googleId, familyMembers: [] });
+              user = await UserModel.create({ email, googleId });
             }
           }
 

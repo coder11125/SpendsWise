@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { getExpense, getCurrentCurrency, setExpense, getBudgetGoals, setBudgetGoals, getCustomCategories, removeCustomCategory, getHiddenCategories, hideCategory, unhideCategory, confirmDialog } from '../lib/state.svelte.js';
+  import { getExpense, getCurrentCurrency, setExpense, getBudgetGoals, setBudgetGoals, getCustomCategories, removeCustomCategory, getHiddenCategories, hideCategory, unhideCategory, getCurrentSpaceId, getSpaces, getUserId, confirmDialog } from '../lib/state.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
-  import { changePassword, deleteAllExpenses, getProfile, uploadBulkExpenses, loadExpenses } from '../lib/api.js';
+  import { changePassword, deleteAllExpenses, getProfile, uploadBulkExpenses, loadExpenses, deleteSpace } from '../lib/api.js';
   import { calculateSummary } from '../lib/calculations.svelte.js';
   import { defaultExpenseCategories, defaultIncomeCategories } from '../lib/constants.js';
 
@@ -83,9 +83,13 @@
   function handleExportCsv() {
     const expenses = getExpense();
     if (expenses.length === 0) return;
-    const headers = ['type', 'amount', 'category', 'date', 'familyMember', 'note', 'currency'];
+    const inSpace = !!getCurrentSpaceId();
+    const headers = inSpace
+      ? ['type', 'amount', 'category', 'date', 'contributor', 'note', 'currency']
+      : ['type', 'amount', 'category', 'date', 'familyMember', 'note', 'currency'];
     const rows = expenses.map(e => headers.map(h => {
-      const val = e[h] || '';
+      const key = h === 'contributor' ? 'authorNickname' : h;
+      const val = e[key] || '';
       return String(val).includes(',') ? `"${val}"` : val;
     }).join(','));
     const csv = [headers.join(','), ...rows].join('\n');
@@ -170,6 +174,15 @@
     else hideCategory(type, name);
   }
 
+  async function handleDeleteHub(spaceId, name) {
+    if (!await confirmDialog(`Permanently delete "${name}" and all its shared expenses? This cannot be undone.`)) return;
+    try {
+      await deleteSpace(spaceId);
+    } catch (err) {
+      alert('Failed to delete Hub: ' + err.message);
+    }
+  }
+
   async function handleDeleteAll() {
     if (!await confirmDialog('Are you sure you want to permanently delete ALL expenses? This action cannot be undone.')) return;
     if (!await confirmDialog('This will remove every transaction from your account. Are you absolutely sure?')) return;
@@ -184,6 +197,7 @@
     }
   }
 
+  let ownedSpaces = $derived(getSpaces().filter(s => s.members.find(m => m.userId === getUserId())?.role === 'owner'));
   let goals = $derived(Object.entries(getBudgetGoals()));
   let customExpenseCategories = $derived(getCustomCategories('expense'));
   let customIncomeCategories = $derived(getCustomCategories('income'));
@@ -413,5 +427,22 @@
       class="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg transition-colors text-sm font-medium">
       {isDeletingAll ? 'Deleting...' : 'Delete All Transactions'}
     </button>
+
+    {#if ownedSpaces.length > 0}
+      <div class="mt-6 pt-6 border-t border-red-100 dark:border-red-900/40">
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">Permanently delete a Hub you own and all its shared expenses. This cannot be undone.</p>
+        <ul class="space-y-2">
+          {#each ownedSpaces as space}
+            <li class="flex items-center justify-between py-2 px-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+              <span class="font-medium text-slate-800 dark:text-slate-100">{space.name}</span>
+              <button onclick={() => handleDeleteHub(space.id, space.name)}
+                class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-xs font-medium">
+                Delete Hub
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
   </div>
 </div>

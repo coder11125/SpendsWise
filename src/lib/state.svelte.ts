@@ -1,5 +1,5 @@
 import { API_BASE, POLL_INTERVAL_MS, defaultExpenseCategories, defaultIncomeCategories } from './constants.js';
-import type { Expense, CurrencyRates, CategoryData } from '../types.js';
+import type { Expense, CurrencyRates, CategoryData, Space } from '../types.js';
 
 let _csrfToken = $state<string | null>(null);
 let _isLoggedIn = $state<boolean>(false);
@@ -7,7 +7,9 @@ let _authChecking = $state<boolean>(true);
 let _userId = $state<string | null>(null);
 let _expense = $state<Expense[]>([]);
 let _currentCurrency = $state<string>(localStorage.getItem('sw_currency') || 'USD');
-let _familyMembers = $state<any[]>([]);
+let _spaces = $state<Space[]>([]);
+let _currentSpaceId = $state<string | null>(null);
+let _pendingInvites = $state<Space[]>([]);
 let _currentFilter = $state<string>('all');
 let _dashboardTrendRange = $state<string>('month');
 let _expenseTrendRange = $state<string>('month');
@@ -182,8 +184,19 @@ export function setCurrentCurrency(v: string) {
   localStorage.setItem('sw_currency', v);
 }
 
-export function getFamilyMembers() { return _familyMembers; }
-export function setFamilyMembers(v: any[]) { _familyMembers = Array.isArray(v) ? [...v] : []; }
+export function getSpaces() { return _spaces; }
+export function setSpaces(v: Space[]) { _spaces = Array.isArray(v) ? [...v] : []; }
+
+export function getPendingInvites() { return _pendingInvites; }
+export function setPendingInvites(v: Space[]) { _pendingInvites = Array.isArray(v) ? [...v] : []; }
+
+export function getCurrentSpaceId() { return _currentSpaceId; }
+export function setCurrentSpaceId(v: string | null) { _currentSpaceId = v; }
+
+export function getCurrentSpace(): Space | null {
+  if (!_currentSpaceId) return null;
+  return _spaces.find(s => s.id === _currentSpaceId) ?? null;
+}
 
 export function getCurrentFilter() { return _currentFilter; }
 export function setCurrentFilter(v: string) { _currentFilter = v; }
@@ -273,6 +286,8 @@ function persistCurrencyState() {
 
 setInterval(persistCurrencyState, 30000);
 
+let _spaceChannelName: string | null = null;
+
 export function initPusher(userId: string): void {
   destroyPusher();
   const key = import.meta.env.VITE_PUSHER_KEY;
@@ -284,7 +299,25 @@ export function initPusher(userId: string): void {
     channel.bind('data-changed', () => {
       import('./api.js').then(m => m.loadExpenses());
     });
+    if (_spaceChannelName) subscribeSpaceChannel(_spaceChannelName.replace(/^space-/, ''));
   });
+}
+
+export function subscribeSpaceChannel(spaceId: string): void {
+  unsubscribeSpaceChannel();
+  _spaceChannelName = `space-${spaceId}`;
+  if (!_pusher) return;
+  const channel = _pusher.subscribe(_spaceChannelName);
+  channel.bind('data-changed', () => {
+    import('./api.js').then(m => m.loadExpenses());
+  });
+}
+
+export function unsubscribeSpaceChannel(): void {
+  if (_pusher && _spaceChannelName) {
+    _pusher.unsubscribe(_spaceChannelName);
+  }
+  _spaceChannelName = null;
 }
 
 function destroyPusher(): void {
@@ -313,7 +346,7 @@ export function stopPolling() {
 
 function pathToView(path: string) {
   const route = path.replace(/^\//, '') || 'dashboard';
-  return ['dashboard', 'income', 'expense', 'account', 'ai', 'summaries'].includes(route) ? route : 'dashboard';
+  return ['dashboard', 'income', 'expense', 'account', 'ai', 'summaries', 'spaces'].includes(route) ? route : 'dashboard';
 }
 
 export function initRouter() {

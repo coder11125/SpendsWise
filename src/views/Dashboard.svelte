@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { getExpense, getCurrentCurrency, addExpenseItem, removeExpenseItem, getDashboardTrendRange, setDashboardTrendRange, confirmDialog } from '../lib/state.svelte.js';
-  import { calculateSummary, calculateExpenseByCategory } from '../lib/calculations.svelte.js';
+  import { getExpense, getCurrentCurrency, addExpenseItem, removeExpenseItem, getDashboardTrendRange, setDashboardTrendRange, getCurrentSpaceId, confirmDialog } from '../lib/state.svelte.js';
+  import { calculateSummary, calculateExpenseByCategory, calculateMemberBreakdown } from '../lib/calculations.svelte.js';
   import { calculateExpenseTrendData } from '../lib/utils.js';
   import { saveTransaction, deleteExpenseOnServer } from '../lib/api.js';
   import SummaryCards from '../components/SummaryCards.svelte';
@@ -10,6 +10,7 @@
   import TrendChart from '../components/TrendChart.svelte';
   import ExpenseItem from '../components/ExpenseItem.svelte';
   import RecurringUpcoming from '../components/RecurringUpcoming.svelte';
+  import MemberBreakdown from '../components/MemberBreakdown.svelte';
 
   let summary = $state({ income: 0, expenses: 0, balance: 0 });
   let categoryData = $state([]);
@@ -20,14 +21,18 @@
   let trendPeriodLabel = $state('');
   let recentExpenses = $state([]);
   let trendRange = $state(getDashboardTrendRange());
+  let memberData = $state([]);
+  let memberTotal = $state(0);
+  let inSpace = $derived(!!getCurrentSpaceId());
 
   async function refresh() {
     const expense = getExpense();
     const currency = getCurrentCurrency();
-    const [s, c, t] = await Promise.all([
+    const [s, c, t, m] = await Promise.all([
       calculateSummary(expense, currency),
       calculateExpenseByCategory(expense, currency),
-      calculateExpenseTrendData(expense, trendRange, currency)
+      calculateExpenseTrendData(expense, trendRange, currency),
+      calculateMemberBreakdown(expense, currency)
     ]);
     summary = s;
     categoryData = c.data;
@@ -37,6 +42,8 @@
     trendAverage = t.average;
     trendPeriodLabel = t.periodLabel;
     recentExpenses = expense.slice(0, 10);
+    memberData = m.data;
+    memberTotal = m.total;
   }
 
   $effect(() => {
@@ -77,6 +84,10 @@
     <PieChart {categoryData} total={categoryTotal} currency={getCurrentCurrency()} />
     <TrendChart points={trendPoints} total={trendTotal} average={trendAverage} periodLabel={trendPeriodLabel} currency={getCurrentCurrency()} range={trendRange} onRangeChange={handleTrendChange} />
   </div>
+
+  {#if inSpace}
+    <MemberBreakdown {memberData} total={memberTotal} currency={getCurrentCurrency()} />
+  {/if}
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Recent Expenses</h2>

@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { getExpense, getCurrentCurrency, removeExpenseItem, confirmDialog } from '../lib/state.svelte.js';
-  import { calculateIncomeSummary } from '../lib/calculations.svelte.js';
+  import { getExpense, getCurrentCurrency, removeExpenseItem, getCurrentSpaceId, confirmDialog } from '../lib/state.svelte.js';
+  import { calculateIncomeSummary, calculateMemberBreakdown } from '../lib/calculations.svelte.js';
   import { getCurrencySymbol } from '../lib/currency.js';
   import { deleteExpenseOnServer } from '../lib/api.js';
   import ExpenseItem from '../components/ExpenseItem.svelte';
+  import MemberBreakdown from '../components/MemberBreakdown.svelte';
 
   let summary = $state({ total: 0, count: 0, average: 0 });
   let incomeItems = $state([]);
@@ -11,12 +12,18 @@
   let searchQuery = $state('');
   let sortBy = $state('date');
   let sortDir = $state('desc');
+  let memberData = $state([]);
+  let memberTotal = $state(0);
+  let inSpace = $derived(!!getCurrentSpaceId());
 
   async function refresh() {
     const expense = getExpense();
     const currency = getCurrentCurrency();
     incomeItems = expense.filter(i => i.type === 'income');
     summary = await calculateIncomeSummary(expense, currency);
+    const m = await calculateMemberBreakdown(incomeItems, currency);
+    memberData = m.data;
+    memberTotal = m.total;
     applyFilters();
   }
 
@@ -28,7 +35,8 @@
       items = items.filter(i =>
         (i.category && i.category.toLowerCase().includes(q)) ||
         (i.note && i.note.toLowerCase().includes(q)) ||
-        (i.familyMember && i.familyMember.toLowerCase().includes(q))
+        (i.familyMember && i.familyMember.toLowerCase().includes(q)) ||
+        (i.authorNickname && i.authorNickname.toLowerCase().includes(q))
       );
     }
 
@@ -97,6 +105,10 @@
       <p class="text-2xl font-bold text-blue-600">{getCurrencySymbol(getCurrentCurrency())}{summary.average.toFixed(2)}</p>
     </div>
   </div>
+
+  {#if inSpace}
+    <MemberBreakdown {memberData} total={memberTotal} currency={getCurrentCurrency()} />
+  {/if}
 
   <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
