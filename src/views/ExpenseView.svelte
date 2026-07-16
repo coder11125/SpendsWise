@@ -104,7 +104,7 @@
 
   async function handleDelete(id) {
     if (await confirmDialog('Delete this expense?')) {
-      deleteExpenseOnServer(id);
+      await deleteExpenseOnServer(id);
       removeExpenseItem(id);
     }
   }

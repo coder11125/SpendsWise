@@ -76,7 +76,7 @@
 
   async function handleDelete(id) {
     if (await confirmDialog('Delete this income entry?')) {
-      deleteExpenseOnServer(id);
+      await deleteExpenseOnServer(id);
       removeExpenseItem(id);
     }
   }
