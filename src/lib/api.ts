@@ -20,8 +20,11 @@ import type { Expense, Profile, WeeklySummary, Space } from '../types.js';
 let expenseLoadGeneration = 0;
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const method = (options.method || 'GET').toUpperCase();
+  const body = options.body ?? (method === 'DELETE' ? JSON.stringify({}) : undefined);
   return fetch(`${API_BASE}${path}`, {
     ...options,
+    body,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',

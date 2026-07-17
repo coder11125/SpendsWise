@@ -63,12 +63,15 @@ app.use("/api/ai/parse-receipts-bulk", express.json({ limit: "10mb" }));
 app.use(express.json({ limit: "10kb" }));
 app.use(mongoSanitize());
 
-// C1: Reject state-changing requests that are not application/json.
-// This closes the <form enctype="text/plain"> CSRF bypass vector.
+// C1: Reject state-changing requests without an application/json Content-Type.
+// Check the header directly rather than req.is(): req.is() returns false for a
+// legitimate empty DELETE body, even when the request declares JSON.
+// This still closes the <form enctype="text/plain"> CSRF bypass vector.
 app.use((req, res, next) => {
+  const contentType = req.headers["content-type"]?.toLowerCase() ?? "";
   if (
     ["POST", "PUT", "DELETE", "PATCH"].includes(req.method) &&
-    !req.is("application/json")
+    !contentType.startsWith("application/json")
   ) {
     res.status(415).json({ error: "Content-Type must be application/json" });
     return;
