@@ -5,8 +5,9 @@
 
   let symbol = $derived(getCurrencySymbol(currency));
 
-  function formatAmount(amount) {
-    return `${symbol}${Math.abs(amount).toFixed(2)}`;
+  function formatAmount(amount, preserveSign = false) {
+    const sign = preserveSign && amount < 0 ? '-' : '';
+    return `${sign}${symbol}${Math.abs(amount).toFixed(2)}`;
   }
 </script>
 
@@ -18,7 +19,7 @@
         <i class="ph ph-wallet text-lg text-blue-600 dark:text-blue-400"></i>
       </div>
     </div>
-    <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">{formatAmount(summary.balance)}</p>
+    <p class="text-2xl font-bold {summary.balance < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-100'}">{formatAmount(summary.balance, true)}</p>
     <p class="text-slate-400 dark:text-slate-500 text-xs mt-1">{currency}</p>
   </div>
 
