@@ -27,4 +27,4 @@ export type Space = InferSchemaType<typeof spaceSchema> & { _id: Types.ObjectId 
 export const SpaceModel = model("Space", spaceSchema);
 
 // Global cap on how many Hubs can exist across the whole app (confirmed with user).
-export const MAX_SPACES_GLOBAL = 6;
+export const MAX_SPACES_GLOBAL = 3;

@@ -5,6 +5,7 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import { SpaceModel, MAX_SPACES_GLOBAL } from "../models/Space.js";
 import { UserModel } from "../models/User.js";
 import { getSpaceConnection } from "../lib/spaceDb.js";
+import { notifyDataChanged } from "../lib/pusher.js";
 
 const router = Router();
 router.use(authRequired);
@@ -141,6 +142,7 @@ router.post(
       joinedAt: null,
     } as any);
     await space.save();
+    await notifyDataChanged(String(invitee._id));
 
     return res.status(201).json(space);
   })
@@ -173,6 +175,7 @@ router.post(
       space.members.splice(memberIndex, 1);
     }
     await space.save();
+    await notifyDataChanged(String(space.ownerId));
 
     return res.json(space);
   })

@@ -143,6 +143,10 @@ npm run dev                  # Vite dev server, http://localhost:5173, proxies /
 - Dark mode uses Tailwind's `class` strategy — add `dark:` variants alongside the light-mode classes rather than writing separate override blocks.
 - Every new API call belongs in `src/lib/api.ts` using the existing `apiFetch()` wrapper (attaches credentials + CSRF header automatically).
 - If a call should be scoped to whichever Space/Hub is currently active, follow the pattern in `loadExpenses`/`saveTransaction` — read `getCurrentSpaceId()` and route to `/api/spaces/:id/...` vs `/api/...` accordingly, rather than hardcoding the personal path.
+- Use `confirmDialog()` for destructive actions, including logout, Hub deletion, transaction deletion, and bulk deletion. Logout must not clear session state until the user confirms.
+- Transaction deletes must treat the server response as authoritative: remove the item from `_expense` only after a successful DELETE response. Preserve the active ledger path and invalidate stale load responses so polling or Pusher cannot restore deleted records.
+- Keep the dashboard balance signed. The calculation is `income - expenses`; do not apply absolute-value formatting to the balance card.
+- Pending Hub invites belong in the Header Notifications dropdown, not an app-load modal. Keep invite state in `_pendingInvites`, refresh it after authentication, and update it from the user's Pusher channel.
 
 ### Server changes
 
@@ -152,6 +156,8 @@ npm run dev                  # Vite dev server, http://localhost:5173, proxies /
 - Use `req.userId` (set by `authRequired`) — never trust a userId from the request body.
 - Any route under `/api/spaces/:spaceId/...` must run behind both `authRequired` and `spaceScope` (in that order) — `spaceScope` verifies the requester is an **active** member before attaching `req.spaceExpenseModel`/`req.space`.
 - Shared CRUD logic between the personal ledger and Hub ledgers lives in `lib/expenseHandlers.ts` (`createExpenseCrudRouter`) — extend it there rather than duplicating logic across `routes/expenses.ts` and `routes/spaceExpenses.ts`.
+- The application-wide Hub limit is three (`MAX_SPACES_GLOBAL` in `server/src/models/Space.ts`). Hub deletion must continue to call `dropDatabase()` for the isolated `space_<id>` database; never migrate Hub transactions into the personal `Expense` collection.
+- Invite creation and invite responses should notify the affected user's `user-{id}` Pusher channel so the Notifications dropdown updates in real time.
 
 ### AI routes
 

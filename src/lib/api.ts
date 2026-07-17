@@ -166,6 +166,9 @@ export async function checkSession(): Promise<boolean> {
     const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
+      // The CSRF token is bound to the authenticated session cookie. Refresh
+      // it after restoring the session so state-changing requests are valid.
+      await fetchCsrfToken();
       setIsLoggedIn(true);
       setEmail(data.email);
       setUserId(data.id);
@@ -183,7 +186,10 @@ export async function checkSession(): Promise<boolean> {
   return false;
 }
 
-export function showApp(email: string, userId?: string): void {
+export async function showApp(email: string, userId?: string): Promise<void> {
+  // Login/register replaces the session cookie, so the token fetched before
+  // authentication is no longer valid for DELETE/POST/PUT requests.
+  await fetchCsrfToken();
   sessionStorage.removeItem('sw_logged_out');
   setIsLoggedIn(true);
   setEmail(email);
@@ -399,6 +405,11 @@ export async function switchSpace(spaceId: string | null): Promise<void> {
   setCurrentSpaceId(spaceId);
   if (spaceId) subscribeSpaceChannel(spaceId);
   else unsubscribeSpaceChannel();
+  // Never leave transactions from the previous ledger visible while the new
+  // ledger is loading. This is especially important when a Hub is deleted:
+  // its records must not remain in memory and look like personal records if
+  // the follow-up request fails.
+  setExpense([]);
   await loadExpenses();
 }
 

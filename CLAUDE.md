@@ -62,9 +62,8 @@ src/
 │   ├── EditModal.svelte        # Edit expense modal (flatpickr + recurrence toggle)
 │   ├── ExpenseForm.svelte      # Add transaction form (flatpickr, Space selector, receipt OCR, recurrence)
 │   ├── ExpenseItem.svelte      # Single expense/income row (contributor pill, recurrence badge, currency conversion)
-│   ├── Header.svelte           # Top bar — Personal/Hub switcher, currency switcher
+│   ├── Header.svelte           # Top bar — Personal/Hub switcher, notifications, currency switcher
 │   ├── ImportModal.svelte      # Import result feedback modal
-│   ├── InviteRespondModal.svelte # Pending Hub-invite accept/decline popup, shown on app load
 │   ├── LoadingSpinner.svelte   # Loading indicator
 │   ├── MemberBreakdown.svelte  # Per-Hub-member contribution chart (category-breakdown pattern)
 │   ├── MobileQuickAdd.svelte   # Quick-add FAB modal (mobile), incl. Space selector
@@ -175,8 +174,9 @@ server/src/
   timestamps: true
 }
 ```
-- A global cap of 6 Hubs applies across the whole app (checked on create).
+- A global cap of 3 Hubs applies across the whole app (checked on create).
 - Only `active` members pass `spaceScope` and get access to that Hub's expense database.
+- Deleting a Hub drops its separate `space_<id>` database and permanently removes its transactions; they are never moved into the personal ledger.
 
 #### SpaceExpense (Mongoose, one schema compiled per Hub's own `space_<id>` database)
 Same shape as `Expense`, but `authorUserId` (the contributing member) in place of `userId`/`familyMember`. Resolved via `getSpaceExpenseModel(spaceId)` in `server/src/lib/spaceDb.ts`, which calls `mongoose.connection.useDb('space_<id>', { useCache: true })` — a genuinely separate MongoDB database sharing the same underlying connection pool. Deleting a Hub calls `.dropDatabase()` on that connection.
@@ -203,7 +203,7 @@ Key state:
 - `_budgetGoals` — per-category spending limits (persisted to localStorage)
 - `_spaces` — Hubs the user is an active member of
 - `_currentSpaceId` — the active Hub, or `null` for Personal; switching calls `switchSpace()` in `api.ts`, which re-fetches `_expense` and re-subscribes the Hub's Pusher channel
-- `_pendingInvites` — Hubs where the user has a pending invite, checked on app load and shown via `InviteRespondModal`
+- `_pendingInvites` — Hubs where the user has a pending invite, shown in the Header Notifications dropdown and refreshed through Pusher user-channel events
 - `_aiChatHistory` — AI conversation messages (in-memory only)
 - `_currentView` — current route view (dashboard | income | expense | spaces | summaries | account)
 
@@ -211,8 +211,13 @@ Key state:
 1. On mount, `App.svelte` calls `fetchCsrfToken()` → `GET /api/auth/csrf` → sets `sw_csrf` cookie + in-memory token.
 2. `checkSession()` verifies existing session via `GET /api/auth/me`.
 3. Login/register sets a signed JWT in an HttpOnly `sw_session` cookie (7-day expiry).
-4. Every `POST/PUT/PATCH/DELETE` includes `x-csrf-token` via `apiFetch()`.
-5. The JWT contains a `tokenVersion` field validated on every request.
+4. After authentication, the client refreshes the CSRF token because it is bound to the new session cookie.
+5. Every `POST/PUT/PATCH/DELETE` includes `x-csrf-token` via `apiFetch()`.
+6. The JWT contains a `tokenVersion` field validated on every request.
+
+Logout uses the shared confirmation dialog before clearing the local session.
+
+Transaction deletion only updates local state after the server confirms success. Expense loads use generation checks so stale polling/Pusher responses cannot restore a successfully deleted transaction. The dashboard balance is calculated as `income - expenses` and preserves negative values in its display.
 
 ### API endpoints
 
@@ -238,7 +243,7 @@ Key state:
 | POST | `/api/expenses/bulk` | Bulk create from CSV rows (max 500) |
 | GET | `/api/spaces` | List Hubs you're an active member of |
 | GET | `/api/spaces/invites` | List Hubs where you have a pending invite |
-| POST | `/api/spaces` | Create a Hub (`{ name }`; rejected once 6 exist app-wide) |
+| POST | `/api/spaces` | Create a Hub (`{ name }`; rejected once 3 exist app-wide) |
 | PATCH | `/api/spaces/:id` | Rename a Hub (owner only) |
 | DELETE | `/api/spaces/:id` | Delete a Hub and drop its database (owner only, `confirm: true`) |
 | POST | `/api/spaces/:id/members` | Invite an existing account by email (owner only, pending until accepted) |
@@ -256,7 +261,7 @@ Key state:
 
 ### Features summary
 - **Transactions**: Add/edit/delete income and expense entries with category, date, currency, notes
-- **Spaces (Hubs)**: Share a ledger with other accounts. Each Hub is a separate MongoDB database (`useDb()`), invited by email with owner-approval-free accept/decline, contributor nicknames shown on every row/export/chart, up to 6 Hubs app-wide. Replaces the old free-text "family member" tag
+- **Spaces (Hubs)**: Share a ledger with other accounts. Each Hub is a separate MongoDB database (`useDb()`), invited by email with owner-approval-free accept/decline through Header Notifications, contributor nicknames shown on every row/export/chart, up to 3 Hubs app-wide. Deleting a Hub drops its database and transactions. Replaces the old free-text "family member" tag
 - **Recurring transactions**: Templates with daily/weekly/biweekly/monthly/yearly frequency, auto-generated by server scheduler, for both the personal ledger and every Hub
 - **Dashboard**: Summary cards, pie chart, trend chart, budget overview, recurring transactions, recent entries, per-member breakdown when a Hub is active
 - **AI assistant**: Chat with your financial data (can act on it via tool calls), receipt OCR (single + bulk, with an optional higher-accuracy "OCR Pro" mode)

@@ -15,7 +15,6 @@
   import ConfirmModal from './components/ConfirmModal.svelte';
   import EditModal from './components/EditModal.svelte';
   import CurrencyModal from './components/CurrencyModal.svelte';
-  import InviteRespondModal from './components/InviteRespondModal.svelte';
   import ImportModal from './components/ImportModal.svelte';
   import DeleteAllModal from './components/DeleteAllModal.svelte';
   import MobileQuickAdd from './components/MobileQuickAdd.svelte';
@@ -125,7 +124,6 @@
   <CurrencyModal onclose={() => showCurrencyModal = false} />
 {/if}
 
-<InviteRespondModal />
 
 {#if importResult}
   <ImportModal result={importResult} onclose={() => importResult = null} />

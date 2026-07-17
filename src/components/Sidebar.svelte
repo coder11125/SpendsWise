@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getEmail, getIsLoggedIn } from '../lib/state.svelte.js';
+  import { getEmail, getIsLoggedIn, confirmDialog } from '../lib/state.svelte.js';
   import { logout } from '../lib/api.js';
 
   let { activeFilter = 'all', onnavigate, collapsed = false, oncollapsetoggle } = $props();
@@ -21,6 +21,7 @@
   }
 
   async function handleLogout() {
+    if (!await confirmDialog('Are you sure you want to log out?')) return;
     await logout();
   }
 </script>

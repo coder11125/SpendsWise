@@ -297,7 +297,11 @@ export function initPusher(userId: string): void {
     _pusher = new Pusher(key, { cluster });
     const channel = _pusher.subscribe(`user-${userId}`);
     channel.bind('data-changed', () => {
-      import('./api.js').then(m => m.loadExpenses());
+      import('./api.js').then(m => {
+        m.loadExpenses();
+        m.fetchPendingInvites();
+        m.fetchSpaces();
+      });
     });
     if (_spaceChannelName) subscribeSpaceChannel(_spaceChannelName.replace(/^space-/, ''));
   });
