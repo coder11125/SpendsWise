@@ -112,8 +112,12 @@
 
   async function handleDelete(id) {
     if (await confirmDialog('Delete this expense?')) {
-      await deleteExpenseOnServer(id);
-      removeExpenseItem(id);
+      const deleted = await deleteExpenseOnServer(id);
+      if (deleted) {
+        removeExpenseItem(id);
+      } else {
+        alert('Unable to delete this expense. Please try again.');
+      }
     }
   }
 </script>

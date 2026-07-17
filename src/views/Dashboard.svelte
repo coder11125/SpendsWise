@@ -64,8 +64,12 @@
 
   async function handleDelete(id) {
     if (await confirmDialog('Delete this item?')) {
-      await deleteExpenseOnServer(id);
-      removeExpenseItem(id);
+      const deleted = await deleteExpenseOnServer(id);
+      if (deleted) {
+        removeExpenseItem(id);
+      } else {
+        alert('Unable to delete this item. Please try again.');
+      }
     }
   }
 </script>

@@ -15,6 +15,10 @@ import {
 } from './state.svelte.js';
 import type { Expense, Profile, WeeklySummary, Space } from '../types.js';
 
+// Prevent an older polling/Pusher response from restoring transactions after
+// a successful delete.
+let expenseLoadGeneration = 0;
+
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   return fetch(`${API_BASE}${path}`, {
     ...options,
@@ -82,10 +86,12 @@ export async function fetchCsrfToken(): Promise<void> {
 
 export async function loadExpenses(): Promise<void> {
   if (!getIsLoggedIn()) return;
+  const generation = expenseLoadGeneration;
   try {
     const res = await apiFetch(expensesBasePath());
     if (!res.ok) return;
     const data = await res.json();
+    if (generation !== expenseLoadGeneration) return;
     setExpense(data.map(mapServerExpense));
   } catch (err) {
     console.error('Failed to load expense:', err);
@@ -232,12 +238,16 @@ export async function saveTransaction({ type, amount, category, date, note = '',
 
 export async function deleteExpenseOnServer(id: string): Promise<boolean> {
   if (getIsLoggedIn()) {
+    // Capture the ledger before awaiting the request. This keeps the delete
+    // tied to the ledger the user clicked in, even if navigation changes.
+    const path = expensesBasePath();
     try {
-      const res = await apiFetch(`${expensesBasePath()}/${id}`, { method: 'DELETE' });
-      if (!res.ok && res.status !== 404) {
+      const res = await apiFetch(`${path}/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
         console.error('Failed to delete expense, status:', res.status);
         return false;
       }
+      expenseLoadGeneration += 1;
     } catch (err) {
       console.error('Network error deleting expense:', err);
       return false;
@@ -470,7 +480,8 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
 export async function deleteAllExpenses(): Promise<void> {
   const res = await apiFetch('/expenses', { method: 'DELETE', body: JSON.stringify({ confirm: true }) });
-  if (!res.ok) throw new Error('Server error');
+  await handleJsonResponse(res, 'Failed to delete all expenses');
+  expenseLoadGeneration += 1;
 }
 
 export async function fetchAiQuota(): Promise<{ weeklyRemaining: number }> {

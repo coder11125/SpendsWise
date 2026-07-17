@@ -84,8 +84,12 @@
 
   async function handleDelete(id) {
     if (await confirmDialog('Delete this income entry?')) {
-      await deleteExpenseOnServer(id);
-      removeExpenseItem(id);
+      const deleted = await deleteExpenseOnServer(id);
+      if (deleted) {
+        removeExpenseItem(id);
+      } else {
+        alert('Unable to delete this income entry. Please try again.');
+      }
     }
   }
 </script>
