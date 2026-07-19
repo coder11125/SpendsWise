@@ -123,6 +123,10 @@
         <SpacesView />
       {:else if view === 'ai' && AiChatPanel}
         <AiChatPanel embedded ontogglemenu={() => sidebarOpen = !sidebarOpen} />
+      {:else}
+        <div class="h-full flex items-center justify-center">
+          <i class="ph ph-circle-notch animate-spin text-3xl text-blue-500"></i>
+        </div>
       {/if}
     </main>
   </div>

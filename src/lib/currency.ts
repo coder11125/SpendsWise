@@ -34,9 +34,18 @@ export async function warmConversionRates(fromCurrencies: Iterable<string>, toCu
   if (missing.length === 0) return;
 
   const results = await Promise.all(missing.map(async from => ({ from, rates: await fetchCurrencyRates(from) })));
+  const fetched = results.filter(r => r.rates);
+  // Nothing to persist — e.g. every currency in this batch lost the race to
+  // a concurrent warmConversionRates() call for the same currency and got
+  // fetchCurrencyRates()'s per-currency throttle (null) instead of rates.
+  // Writing state here unconditionally would keep marking the cache "just
+  // refreshed" without it actually holding the missing rate, which reruns
+  // any effect that read this state, which calls back in here — a loop.
+  if (fetched.length === 0) return;
+
   let updated = getCurrencyRates();
-  for (const { from, rates } of results) {
-    if (rates) updated = { ...updated, [from]: rates };
+  for (const { from, rates } of fetched) {
+    updated = { ...updated, [from]: rates };
   }
   setCurrencyRates(updated);
   setLastRateFetch(Date.now());
