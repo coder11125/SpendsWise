@@ -1,5 +1,6 @@
 import { Router, Request } from "express";
 import mongoose, { Model } from "mongoose";
+import { createHash } from "node:crypto";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 
 export interface ExpenseCrudOptions {
@@ -25,6 +26,15 @@ export function createExpenseCrudRouter(options: ExpenseCrudOptions): Router {
     "/",
     asyncHandler(async (req, res) => {
       const expenses = await getModel(req).find({ ...scopeFilter(req) }).sort({ date: -1 }).lean();
+      // Poll/Pusher-triggered refetches usually see no change. An ETag lets
+      // the browser's own HTTP cache skip re-transferring the body when the
+      // ledger is identical to what the client already has.
+      const etag = `"${createHash("sha1").update(JSON.stringify(expenses)).digest("hex")}"`;
+      res.set("Cache-Control", "no-cache");
+      res.set("ETag", etag);
+      if (req.headers["if-none-match"] === etag) {
+        return res.status(304).end();
+      }
       return res.json(expenses);
     })
   );

@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import mongoSanitize from "express-mongo-sanitize";
@@ -36,6 +37,10 @@ app.use(
     },
   })
 );
+
+// Expense ledgers are JSON arrays that compress well; this cuts payload size
+// for the initial load and every subsequent poll/Pusher-triggered refetch.
+app.use(compression());
 
 app.use(passport.initialize());
 

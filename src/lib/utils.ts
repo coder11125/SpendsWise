@@ -44,13 +44,15 @@ export function getTrendPeriodLabel(range: string): string {
 }
 
 export async function calculateExpenseTrendData(expenseItems: Expense[], range: string, currentCurrency: string): Promise<TrendData> {
-  const { convertToDisplayCurrency } = await import('./currency.js');
+  const { warmConversionRates, convertToDisplayCurrencySync } = await import('./currency.js');
   const today = startOfDay(new Date());
 
   const items = expenseItems
     .filter(item => item.type === 'expense')
     .map(item => ({ ...item, parsedDate: parseLocalExpenseDate(item.date) }))
     .filter((item): item is typeof item & { parsedDate: Date } => item.parsedDate !== null);
+
+  await warmConversionRates(items.map(item => item.currency), currentCurrency);
 
   const buckets: { key: string; label: string }[] = [];
   const bucketTotals: Record<string, number> = {};
@@ -72,7 +74,7 @@ export async function calculateExpenseTrendData(expenseItems: Expense[], range: 
     }
 
     for (const item of items) {
-      const converted = await convertToDisplayCurrency(item.amount, item.currency, currentCurrency);
+      const converted = convertToDisplayCurrencySync(item.amount, item.currency, currentCurrency);
       const key = formatMonthKey(item.parsedDate);
       bucketTotals[key] = (bucketTotals[key] || 0) + converted.amount;
     }
@@ -90,7 +92,7 @@ export async function calculateExpenseTrendData(expenseItems: Expense[], range: 
 
     for (const item of items) {
       if (item.parsedDate < start || item.parsedDate > end) continue;
-      const converted = await convertToDisplayCurrency(item.amount, item.currency, currentCurrency);
+      const converted = convertToDisplayCurrencySync(item.amount, item.currency, currentCurrency);
       const key = formatDateKey(item.parsedDate);
       bucketTotals[key] = (bucketTotals[key] || 0) + converted.amount;
     }

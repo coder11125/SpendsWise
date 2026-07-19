@@ -28,6 +28,14 @@ const spaceExpenseSchema = new Schema(
   { timestamps: true }
 );
 
+// A Hub's expense collection lives in its own per-Hub database, so its list
+// query (find({}).sort({date:-1})) has no owner filter to narrow on — index
+// the sort key directly.
+spaceExpenseSchema.index({ date: -1 });
+// Serves both the recurring scheduler's per-Hub scan and GET /recurring
+// (find({"recurrence.isActive":true,...}).sort({"recurrence.nextDueDate":1})).
+spaceExpenseSchema.index({ "recurrence.isActive": 1, "recurrence.nextDueDate": 1 });
+
 export type SpaceExpense = InferSchemaType<typeof spaceExpenseSchema> & { _id: Types.ObjectId };
 
 export function compileSpaceExpenseModel(connection: Connection): Model<SpaceExpense> {

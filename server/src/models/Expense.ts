@@ -16,7 +16,7 @@ const recurrenceSchema = new Schema(
 
 const expenseSchema = new Schema(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     type: { type: String, required: true, enum: ["income", "expense"] },
     amount: { type: Number, required: true, min: 0, max: 1e12 },
     category: { type: String, required: true, trim: true, maxlength: 64 },
@@ -28,6 +28,15 @@ const expenseSchema = new Schema(
   },
   { timestamps: true }
 );
+
+// Serves the main per-user list query (find({userId}).sort({date:-1})) and,
+// via the userId prefix, the plain-equality deleteMany({userId}) used by
+// "delete all". Replaces the old single-field userId index.
+expenseSchema.index({ userId: 1, date: -1 });
+// Serves the recurring scheduler's cross-user scan
+// (find({"recurrence.isActive":true,"recurrence.nextDueDate":{$lte:now}})),
+// which has no userId to filter by.
+expenseSchema.index({ "recurrence.isActive": 1, "recurrence.nextDueDate": 1 });
 
 export type Expense = InferSchemaType<typeof expenseSchema> & { _id: Types.ObjectId };
 export const ExpenseModel = model("Expense", expenseSchema);

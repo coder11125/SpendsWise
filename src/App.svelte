@@ -6,19 +6,8 @@
   import Sidebar from './components/Sidebar.svelte';
   import Header from './components/Header.svelte';
   import Dashboard from './views/Dashboard.svelte';
-  import IncomeView from './views/IncomeView.svelte';
-  import ExpenseView from './views/ExpenseView.svelte';
-  import AccountView from './views/AccountView.svelte';
-  import SummariesView from './views/SummariesView.svelte';
-  import SpacesView from './views/SpacesView.svelte';
   import AuthModal from './components/AuthModal.svelte';
   import ConfirmModal from './components/ConfirmModal.svelte';
-  import EditModal from './components/EditModal.svelte';
-  import CurrencyModal from './components/CurrencyModal.svelte';
-  import ImportModal from './components/ImportModal.svelte';
-  import DeleteAllModal from './components/DeleteAllModal.svelte';
-  import MobileQuickAdd from './components/MobileQuickAdd.svelte';
-  import AiChatPanel from './components/AiChatPanel.svelte';
 
   let sidebarOpen = $state(false);
   let sidebarCollapsed = $state(typeof localStorage !== 'undefined' && localStorage.getItem('sw_sidebar_collapsed') === 'true');
@@ -28,6 +17,37 @@
   let showAiChat = $state(false);
   let importResult = $state(null);
   let deleteAllModalOpen = $state(false);
+
+  // Views/modals beyond the dashboard are loaded on demand so the initial
+  // bundle only pays for what's shown on first paint. Each loader result is
+  // cached in its slot so re-opening/re-navigating doesn't re-fetch.
+  let IncomeView = $state(null);
+  let ExpenseView = $state(null);
+  let AccountView = $state(null);
+  let SummariesView = $state(null);
+  let SpacesView = $state(null);
+  let AiChatPanel = $state(null);
+  let EditModal = $state(null);
+  let CurrencyModal = $state(null);
+  let ImportModal = $state(null);
+  let DeleteAllModal = $state(null);
+  let MobileQuickAdd = $state(null);
+
+  $effect(() => {
+    if (view === 'income' && !IncomeView) import('./views/IncomeView.svelte').then(m => IncomeView = m.default);
+    else if (view === 'expense' && !ExpenseView) import('./views/ExpenseView.svelte').then(m => ExpenseView = m.default);
+    else if (view === 'account' && !AccountView) import('./views/AccountView.svelte').then(m => AccountView = m.default);
+    else if (view === 'summaries' && !SummariesView) import('./views/SummariesView.svelte').then(m => SummariesView = m.default);
+    else if (view === 'spaces' && !SpacesView) import('./views/SpacesView.svelte').then(m => SpacesView = m.default);
+    else if (view === 'ai' && !AiChatPanel) import('./components/AiChatPanel.svelte').then(m => AiChatPanel = m.default);
+  });
+
+  $effect(() => { if (editingItem && !EditModal) import('./components/EditModal.svelte').then(m => EditModal = m.default); });
+  $effect(() => { if (showCurrencyModal && !CurrencyModal) import('./components/CurrencyModal.svelte').then(m => CurrencyModal = m.default); });
+  $effect(() => { if (importResult && !ImportModal) import('./components/ImportModal.svelte').then(m => ImportModal = m.default); });
+  $effect(() => { if (deleteAllModalOpen && !DeleteAllModal) import('./components/DeleteAllModal.svelte').then(m => DeleteAllModal = m.default); });
+  $effect(() => { if (showMobileQuickAdd && !MobileQuickAdd) import('./components/MobileQuickAdd.svelte').then(m => MobileQuickAdd = m.default); });
+  $effect(() => { if (showAiChat && !AiChatPanel) import('./components/AiChatPanel.svelte').then(m => AiChatPanel = m.default); });
 
   function handleNavigate(filter) {
     navigate('/' + filter);
@@ -91,17 +111,17 @@
     <main class="flex-1 min-h-0 {view === 'ai' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overflow-x-hidden custom-scrollbar p-4 lg:p-6'}">
       {#if view === 'dashboard'}
         <Dashboard />
-      {:else if view === 'income'}
+      {:else if view === 'income' && IncomeView}
         <IncomeView />
-      {:else if view === 'expense'}
+      {:else if view === 'expense' && ExpenseView}
         <ExpenseView />
-      {:else if view === 'account'}
+      {:else if view === 'account' && AccountView}
         <AccountView />
-      {:else if view === 'summaries'}
+      {:else if view === 'summaries' && SummariesView}
         <SummariesView />
-      {:else if view === 'spaces'}
+      {:else if view === 'spaces' && SpacesView}
         <SpacesView />
-      {:else if view === 'ai'}
+      {:else if view === 'ai' && AiChatPanel}
         <AiChatPanel embedded ontogglemenu={() => sidebarOpen = !sidebarOpen} />
       {/if}
     </main>
@@ -112,7 +132,7 @@
 <AuthModal />
 <ConfirmModal />
 
-{#if editingItem}
+{#if editingItem && EditModal}
   <EditModal
     expenseItem={editingItem}
     onclose={() => editingItem = null}
@@ -120,27 +140,29 @@
   />
 {/if}
 
-{#if showCurrencyModal}
+{#if showCurrencyModal && CurrencyModal}
   <CurrencyModal onclose={() => showCurrencyModal = false} />
 {/if}
 
 
-{#if importResult}
+{#if importResult && ImportModal}
   <ImportModal result={importResult} onclose={() => importResult = null} />
 {/if}
 
-{#if deleteAllModalOpen}
+{#if deleteAllModalOpen && DeleteAllModal}
   <DeleteAllModal
     onclose={() => deleteAllModalOpen = false}
     onconfirm={() => deleteAllModalOpen = false}
   />
 {/if}
 
-{#if showMobileQuickAdd}
+{#if showMobileQuickAdd && MobileQuickAdd}
   <MobileQuickAdd show={showMobileQuickAdd} onclose={() => showMobileQuickAdd = false} />
 {/if}
 
-<AiChatPanel show={showAiChat} onclose={() => showAiChat = false} />
+{#if showAiChat && AiChatPanel}
+  <AiChatPanel show={showAiChat} onclose={() => showAiChat = false} />
+{/if}
 
 <!-- Mobile Quick Add FAB -->
 <button
